@@ -1,14 +1,15 @@
+// src/screens/ExerciseDetailScreen.js
 import React, { useContext, useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  Image, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  TouchableOpacity,
   Modal,
   TextInput,
-  Alert
+  Alert,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +21,7 @@ const ExerciseDetailScreen = () => {
   const route = useRoute();
   const { exerciseId } = route.params;
   const { getExerciseById, getMuscleInfo, toggleFavorite, isFavorite, userGoal } = useContext(ExerciseContext);
-  
+
   const exercise = getExerciseById(exerciseId);
   const [logModalVisible, setLogModalVisible] = useState(false);
   const [weight, setWeight] = useState('');
@@ -29,13 +30,13 @@ const ExerciseDetailScreen = () => {
   const [notes, setNotes] = useState('');
   const [exerciseHistory, setExerciseHistory] = useState([]);
   const [nextWorkout, setNextWorkout] = useState(null);
-  
+
   useEffect(() => {
-    // Load exercise history
     const loadHistory = async () => {
       try {
+        const history = await DatabaseService.getExerciseHistory(exerciseId);
         setExerciseHistory(history);
-        
+
         // Get next workout recommendation
         const recommendation = await DatabaseService.calculateNextWorkout(exerciseId);
         setNextWorkout(recommendation);
@@ -43,12 +44,12 @@ const ExerciseDetailScreen = () => {
         console.error('Error loading exercise history', error);
       }
     };
-    
+
     if (exercise) {
       loadHistory();
     }
   }, [exerciseId]);
-  
+
   if (!exercise) {
     return (
       <View style={styles.container}>
@@ -56,31 +57,27 @@ const ExerciseDetailScreen = () => {
       </View>
     );
   }
-  
-  // Get muscle information
-  const primaryMuscles = exercise.primaryMuscles.map(id => getMuscleInfo(id));
-  const secondaryMuscles = exercise.secondaryMuscles.map(id => getMuscleInfo(id));
-  
-  // Get recommended rep range based on user goal
-  const goalRepRange = exercise.repRanges.find(range => range.goal === userGoal) || exercise.repRanges[0];
-  
+
+  // Get muscle information for primary and secondary groups
+  const primaryMuscles = exercise.primaryMuscles.map((id) => getMuscleInfo(id));
+  const secondaryMuscles = exercise.secondaryMuscles.map((id) => getMuscleInfo(id));
+
+  // Determine recommended rep range based on the user's goal
+  const goalRepRange = exercise.repRanges.find((range) => range.goal === userGoal) || exercise.repRanges[0];
+
   const handleLogWorkout = async () => {
-    // Validate inputs
     if (!weight || !reps || !sets) {
       Alert.alert('Missing Information', 'Please fill in all fields');
       return;
     }
-    
     try {
       const weightNum = parseFloat(weight);
       const repsNum = parseInt(reps);
       const setsNum = parseInt(sets);
-      
       if (isNaN(weightNum) || isNaN(repsNum) || isNaN(setsNum)) {
         Alert.alert('Invalid Input', 'Please enter valid numbers');
         return;
       }
-      
       // Save workout data
       await DatabaseService.saveWorkoutSet({
         date: new Date().toISOString(),
@@ -88,112 +85,100 @@ const ExerciseDetailScreen = () => {
         sets: setsNum,
         reps: repsNum,
         weight: weightNum,
-        notes: notes
+        notes: notes,
       });
-      
-      // Refresh data
+      // Refresh history and recommendation
       const history = await DatabaseService.getExerciseHistory(exerciseId);
       setExerciseHistory(history);
-      
-      // Get updated recommendation
       const recommendation = await DatabaseService.calculateNextWorkout(exerciseId);
       setNextWorkout(recommendation);
-      
-      // Close modal and reset fields
       setLogModalVisible(false);
       setWeight('');
       setReps('');
       setSets('');
       setNotes('');
-      
       Alert.alert('Success', 'Workout logged successfully!');
     } catch (error) {
       console.error('Error logging workout', error);
       Alert.alert('Error', 'Failed to log workout');
     }
   };
-  
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Header with back button */}
+        {/* Header with back and favorite buttons */}
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.favoriteButton}
-            onPress={() => toggleFavorite(exercise.id)}
-          >
-            <Ionicons 
-              name={isFavorite(exercise.id) ? "heart" : "heart-outline"} 
-              size={24} 
-              color={isFavorite(exercise.id) ? "#FF3B30" : "#333"} 
+          <TouchableOpacity style={styles.favoriteButton} onPress={() => toggleFavorite(exercise.id)}>
+            <Ionicons
+              name={isFavorite(exercise.id) ? 'heart' : 'heart-outline'}
+              size={24}
+              color={isFavorite(exercise.id) ? '#FF3B30' : '#333'}
             />
           </TouchableOpacity>
         </View>
-        
+
         {/* Exercise Image */}
-        <Image 
-          source={{ uri: exercise.imageUri || 'https://via.placeholder.com/300' }} 
-          style={styles.exerciseImage} 
+        <Image
+          source={{ uri: exercise.imageUri || 'https://via.placeholder.com/300' }}
+          style={styles.exerciseImage}
         />
-        
+
         {/* Exercise Info */}
         <View style={styles.infoContainer}>
           <Text style={styles.exerciseName}>{exercise.name}</Text>
           <Text style={styles.exerciseCategory}>{exercise.category}</Text>
-          
+
           <View style={styles.divider} />
-          
+
           <Text style={styles.sectionTitle}>Target Muscles</Text>
           <View style={styles.muscleContainer}>
             <View style={styles.muscleGroup}>
               <Text style={styles.muscleGroupTitle}>Primary</Text>
-              {primaryMuscles.map(muscle => (
-                <View key={muscle.id} style={styles.muscleItem}>
-                  <View style={[styles.muscleDot, { backgroundColor: muscle.color }]} />
-                  <Text style={styles.muscleName}>{muscle.name}</Text>
+              {primaryMuscles.map((muscle) => (
+                <View key={muscle?.id} style={styles.muscleItem}>
+                  <View style={[styles.muscleDot, { backgroundColor: muscle?.color || '#000' }]} />
+                  <Text style={styles.muscleName}>{muscle?.name}</Text>
                 </View>
               ))}
             </View>
-            
             <View style={styles.muscleGroup}>
               <Text style={styles.muscleGroupTitle}>Secondary</Text>
-              {secondaryMuscles.map(muscle => (
-                <View key={muscle.id} style={styles.muscleItem}>
-                  <View style={[styles.muscleDot, { backgroundColor: muscle.color }]} />
-                  <Text style={styles.muscleName}>{muscle.name}</Text>
+              {secondaryMuscles.map((muscle) => (
+                <View key={muscle?.id} style={styles.muscleItem}>
+                  <View style={[styles.muscleDot, { backgroundColor: muscle?.color || '#000' }]} />
+                  <Text style={styles.muscleName}>{muscle?.name}</Text>
                 </View>
               ))}
             </View>
           </View>
-          
+
           <View style={styles.divider} />
-          
+
           <Text style={styles.sectionTitle}>How to Perform</Text>
           <Text style={styles.instructionsText}>{exercise.instructions}</Text>
-          
+
           <View style={styles.divider} />
-          
-          {/* Recommendations based on goal */}
-          <Text style={styles.sectionTitle}>Recommended for {userGoal}</Text>
-          <View style={styles.recommendationCard}>
-            <Text style={styles.recommendationText}>
-              Sets: {goalRepRange.sets}
-            </Text>
-            <Text style={styles.recommendationText}>
-              Reps: {goalRepRange.minReps}-{goalRepRange.maxReps}
-            </Text>
-            <Text style={styles.recommendationText}>
-              Rest: {goalRepRange.restSeconds} seconds
-            </Text>
-          </View>
-          
+
+          {/* Recommended Rep Range */}
+          <Text style={styles.sectionTitle}>Recommended for {userGoal || 'general'}</Text>
+          {goalRepRange ? (
+            <View style={styles.recommendationCard}>
+              <Text style={styles.recommendationText}>Sets: {goalRepRange.sets}</Text>
+              <Text style={styles.recommendationText}>
+                Reps: {goalRepRange.minReps}-{goalRepRange.maxReps}
+              </Text>
+              <Text style={styles.recommendationText}>
+                Rest: {goalRepRange.restSeconds} seconds
+              </Text>
+            </View>
+          ) : (
+            <Text>No rep range data available</Text>
+          )}
+
           {/* Next Workout Recommendation */}
           {nextWorkout && (
             <View style={styles.nextWorkoutContainer}>
@@ -205,21 +190,17 @@ const ExerciseDetailScreen = () => {
                   </Text>
                 )}
                 {nextWorkout.sets && (
-                  <Text style={styles.nextWorkoutText}>
-                    Sets: {nextWorkout.sets}
-                  </Text>
+                  <Text style={styles.nextWorkoutText}>Sets: {nextWorkout.sets}</Text>
                 )}
                 {nextWorkout.reps && (
-                  <Text style={styles.nextWorkoutText}>
-                    Reps: {nextWorkout.reps}
-                  </Text>
+                  <Text style={styles.nextWorkoutText}>Reps: {nextWorkout.reps}</Text>
                 )}
                 <Text style={styles.nextWorkoutMessage}>{nextWorkout.message}</Text>
               </View>
             </View>
           )}
-          
-          {/* History */}
+
+          {/* Workout History */}
           <View style={styles.historyContainer}>
             <Text style={styles.sectionTitle}>History</Text>
             {exerciseHistory.length > 0 ? (
@@ -227,9 +208,7 @@ const ExerciseDetailScreen = () => {
                 const date = new Date(entry.date);
                 return (
                   <View key={index} style={styles.historyItem}>
-                    <Text style={styles.historyDate}>
-                      {date.toLocaleDateString()}
-                    </Text>
+                    <Text style={styles.historyDate}>{date.toLocaleDateString()}</Text>
                     <Text style={styles.historyDetails}>
                       {entry.sets} × {entry.reps} @ {entry.weight} {exercise.weightUnit || 'lbs'}
                     </Text>
@@ -240,17 +219,14 @@ const ExerciseDetailScreen = () => {
               <Text style={styles.emptyText}>No workout history yet</Text>
             )}
           </View>
-          
+
           {/* Log Workout Button */}
-          <TouchableOpacity 
-            style={styles.logButton}
-            onPress={() => setLogModalVisible(true)}
-          >
+          <TouchableOpacity style={styles.logButton} onPress={() => setLogModalVisible(true)}>
             <Text style={styles.logButtonText}>Log Workout</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-      
+
       {/* Log Workout Modal */}
       <Modal
         animationType="slide"
@@ -261,10 +237,11 @@ const ExerciseDetailScreen = () => {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Log {exercise.name}</Text>
-            
             <View style={styles.inputRow}>
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Weight ({exercise.weightUnit || 'lbs'})</Text>
+                <Text style={styles.inputLabel}>
+                  Weight ({exercise.weightUnit || 'lbs'})
+                </Text>
                 <TextInput
                   style={styles.input}
                   value={weight}
@@ -273,7 +250,6 @@ const ExerciseDetailScreen = () => {
                   keyboardType="decimal-pad"
                 />
               </View>
-              
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Reps</Text>
                 <TextInput
@@ -284,7 +260,6 @@ const ExerciseDetailScreen = () => {
                   keyboardType="number-pad"
                 />
               </View>
-              
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Sets</Text>
                 <TextInput
@@ -296,7 +271,6 @@ const ExerciseDetailScreen = () => {
                 />
               </View>
             </View>
-            
             <Text style={styles.inputLabel}>Notes (optional)</Text>
             <TextInput
               style={[styles.input, styles.notesInput]}
@@ -305,19 +279,14 @@ const ExerciseDetailScreen = () => {
               placeholder="Add notes about your workout..."
               multiline={true}
             />
-            
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setLogModalVisible(false)}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleLogWorkout}
-              >
+              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleLogWorkout}>
                 <Text style={styles.saveButtonText}>Save</Text>
               </TouchableOpacity>
             </View>
@@ -327,6 +296,8 @@ const ExerciseDetailScreen = () => {
     </View>
   );
 };
+
+export default ExerciseDetailScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -563,5 +534,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
-export default ExerciseDetailScreen;const history = await DatabaseService.getExerciseHistory(exerciseId);

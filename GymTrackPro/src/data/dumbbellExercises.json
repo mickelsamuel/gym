@@ -1,0 +1,259 @@
+[
+  {
+    "id": "db_001",
+    "name": "Dumbbell Shoulder Press",
+    "category": "Shoulders",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["shoulders"],
+    "secondaryMuscles": ["triceps"],
+    "instructions": "Sit or stand holding dumbbells at shoulder height. Press the dumbbells upward until your arms are extended, then lower them back down.",
+    "repRanges": [
+      { "goal": "strength", "sets": 5, "minReps": 4, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 8, "maxReps": 12, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_002",
+    "name": "Dumbbell Curl",
+    "category": "Arms",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["biceps"],
+    "secondaryMuscles": [],
+    "instructions": "Stand with dumbbells at your sides, palms facing forward. Curl the weights up to your shoulders, then lower slowly.",
+    "repRanges": [
+      { "goal": "strength", "sets": 4, "minReps": 5, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 8, "maxReps": 12, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_003",
+    "name": "Dumbbell Row",
+    "category": "Back",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["lats", "back"],
+    "secondaryMuscles": ["biceps", "shoulders"],
+    "instructions": "Place one hand on a bench for support, holding a dumbbell in the other hand. Keep your back flat as you row the dumbbell up, then lower it under control.",
+    "repRanges": [
+      { "goal": "strength", "sets": 5, "minReps": 4, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 8, "maxReps": 12, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_004",
+    "name": "Dumbbell Bench Press",
+    "category": "Chest",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["chest"],
+    "secondaryMuscles": ["triceps", "shoulders"],
+    "instructions": "Lie on a flat bench with a dumbbell in each hand, elbows at about 45° to your torso. Press the weights up until arms are straight, then lower them back down.",
+    "repRanges": [
+      { "goal": "strength", "sets": 5, "minReps": 3, "maxReps": 5, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 8, "maxReps": 12, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_005",
+    "name": "Dumbbell Lunge",
+    "category": "Legs",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["legs"],
+    "secondaryMuscles": ["glutes", "core"],
+    "instructions": "Hold a dumbbell in each hand at your sides. Step forward into a lunge, bending both knees, then push back to the start. Alternate legs.",
+    "repRanges": [
+      { "goal": "strength", "sets": 4, "minReps": 5, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 8, "maxReps": 12, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+
+  {
+    "id": "db_006",
+    "name": "Dumbbell Fly",
+    "category": "Chest",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["chest"],
+    "secondaryMuscles": ["shoulders"],
+    "instructions": "Lie on a flat bench, hold dumbbells above your chest with arms slightly bent. Lower arms out to the sides until you feel a stretch, then bring them back together.",
+    "repRanges": [
+      { "goal": "strength", "sets": 4, "minReps": 5, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 3, "minReps": 8, "maxReps": 12, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_007",
+    "name": "Hammer Curl",
+    "category": "Arms",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["biceps", "forearms"],
+    "secondaryMuscles": [],
+    "instructions": "Stand holding dumbbells with palms facing your sides. Curl the weights up, keeping palms facing inward the entire time.",
+    "repRanges": [
+      { "goal": "strength", "sets": 4, "minReps": 5, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 8, "maxReps": 12, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_008",
+    "name": "Dumbbell Skull Crusher",
+    "category": "Arms",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["triceps"],
+    "secondaryMuscles": [],
+    "instructions": "Lie on a bench, hold dumbbells overhead with arms straight. Bend at the elbows to lower the weights near your head, then extend back up.",
+    "repRanges": [
+      { "goal": "strength", "sets": 4, "minReps": 5, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 8, "maxReps": 12, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_009",
+    "name": "Dumbbell Triceps Kickback",
+    "category": "Arms",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["triceps"],
+    "secondaryMuscles": ["shoulders"],
+    "instructions": "Bend over with a flat back, upper arm parallel to your torso. Extend your forearm behind you, squeezing the triceps, then return to start.",
+    "repRanges": [
+      { "goal": "strength", "sets": 4, "minReps": 5, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 3, "minReps": 8, "maxReps": 12, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 2, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 2, "minReps": 12, "maxReps": 15, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+
+  {
+    "id": "db_010",
+    "name": "Dumbbell Lateral Raise",
+    "category": "Shoulders",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["shoulders"],
+    "secondaryMuscles": [],
+    "instructions": "Stand upright, hold dumbbells by your sides. Raise your arms out to the sides until they’re at shoulder height, then lower under control.",
+    "repRanges": [
+      { "goal": "strength", "sets": 4, "minReps": 5, "maxReps": 6, "restSeconds": 60 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 10, "maxReps": 12, "restSeconds": 45 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 30 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_011",
+    "name": "Dumbbell Front Raise",
+    "category": "Shoulders",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["shoulders"],
+    "secondaryMuscles": [],
+    "instructions": "Hold dumbbells in front of your thighs, palms facing your body. Raise arms forward to shoulder height, then lower slowly.",
+    "repRanges": [
+      { "goal": "strength", "sets": 3, "minReps": 5, "maxReps": 6, "restSeconds": 60 },
+      { "goal": "hypertrophy", "sets": 3, "minReps": 8, "maxReps": 12, "restSeconds": 45 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 30 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_012",
+    "name": "Goblet Squat",
+    "category": "Legs",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["legs", "glutes"],
+    "secondaryMuscles": ["core"],
+    "instructions": "Hold a dumbbell vertically against your chest. Squat down with feet shoulder-width apart, then push back up through your heels.",
+    "repRanges": [
+      { "goal": "strength", "sets": 5, "minReps": 5, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 8, "maxReps": 10, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 10, "maxReps": 12, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_013",
+    "name": "Dumbbell Step-Up",
+    "category": "Legs",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["legs", "glutes"],
+    "secondaryMuscles": ["core"],
+    "instructions": "Hold dumbbells at your sides. Step onto a bench or box with one foot, then drive through that foot to stand. Step back down and repeat.",
+    "repRanges": [
+      { "goal": "strength", "sets": 4, "minReps": 5, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 3, "minReps": 8, "maxReps": 12, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_014",
+    "name": "Dumbbell Calf Raise",
+    "category": "Legs",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["calves"],
+    "secondaryMuscles": [],
+    "instructions": "Stand holding dumbbells by your sides. Raise your heels off the ground, then lower them back down slowly.",
+    "repRanges": [
+      { "goal": "strength", "sets": 4, "minReps": 6, "maxReps": 8, "restSeconds": 60 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 10, "maxReps": 12, "restSeconds": 45 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 30 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "db_015",
+    "name": "Dumbbell Romanian Deadlift",
+    "category": "Legs",
+    "type": "dumbbell",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["hamstrings", "glutes"],
+    "secondaryMuscles": ["lowerBack"],
+    "instructions": "Hold dumbbells in front of your thighs. Keep your back straight, hinge at the hips to lower the weights down your legs, then return to standing by extending your hips.",
+    "repRanges": [
+      { "goal": "strength", "sets": 5, "minReps": 5, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 8, "maxReps": 10, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 10, "maxReps": 12, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  }
+]

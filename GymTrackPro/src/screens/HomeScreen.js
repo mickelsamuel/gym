@@ -1,5 +1,6 @@
+// src/screens/HomeScreen.js
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ExerciseContext } from '../context/ExerciseContext';
 import DatabaseService from '../services/DatabaseService';
@@ -11,9 +12,9 @@ const HomeScreen = () => {
   const [profile, setProfile] = useState(null);
   const [recentExercises, setRecentExercises] = useState([]);
   const [progressData, setProgressData] = useState(null);
-  
+
   useEffect(() => {
-    // Load user profile
+    // Load user profile from the database
     const loadProfile = async () => {
       try {
         const userProfile = await DatabaseService.getProfile();
@@ -22,39 +23,41 @@ const HomeScreen = () => {
         console.error('Error loading profile', error);
       }
     };
-    
-    // Load recent exercises
+
+    // Load recent exercises based on favorites
     const loadRecentExercises = async () => {
       try {
-        // This would normally query your database for recent exercises
-        // For now, we'll just use the first 3 favorites as a placeholder
+        // Use up to 3 favorite exercise IDs as recent
         const recentExerciseIds = favorites.slice(0, 3);
-        const exercises = recentExerciseIds.map(id => getExerciseById(id)).filter(Boolean);
+        const exercises = recentExerciseIds
+          .map((id) => getExerciseById(id))
+          .filter(Boolean);
         setRecentExercises(exercises);
-        
-        // Generate progress data for the first exercise if available
+
+        // Generate progress chart data for the first favorite exercise if available
         if (exercises.length > 0) {
           const historyData = await DatabaseService.getExerciseHistory(exercises[0].id);
-          
           if (historyData.length > 0) {
-            // Create data for chart
-            const dates = historyData.slice(0, 5).map(entry => {
-              const date = new Date(entry.date);
-              return `${date.getMonth()+1}/${date.getDate()}`;
-            }).reverse();
-            
-            const weights = historyData.slice(0, 5).map(entry => entry.weight).reverse();
-            
+            // Limit chart to 5 entries
+            const sliced = historyData.slice(0, 5);
+            const dates = sliced
+              .map((entry) => {
+                const date = new Date(entry.date);
+                return `${date.getMonth() + 1}/${date.getDate()}`;
+              })
+              .reverse();
+            const weights = sliced.map((entry) => entry.weight).reverse();
+
             setProgressData({
               labels: dates,
               datasets: [
                 {
                   data: weights,
                   color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-                  strokeWidth: 2
-                }
+                  strokeWidth: 2,
+                },
               ],
-              exercise: exercises[0].name
+              exercise: exercises[0].name,
             });
           }
         }
@@ -62,13 +65,14 @@ const HomeScreen = () => {
         console.error('Error loading recent exercises', error);
       }
     };
-    
+
     loadProfile();
     loadRecentExercises();
   }, [favorites, getExerciseById]);
-  
+
   const goalInfo = userGoal ? getGoalInfo(userGoal) : null;
-  
+  const screenWidth = Dimensions.get('window').width - 32;
+
   const chartConfig = {
     backgroundGradientFrom: '#ffffff',
     backgroundGradientTo: '#ffffff',
@@ -76,10 +80,10 @@ const HomeScreen = () => {
     strokeWidth: 2,
     decimalPlaces: 1,
     style: {
-      borderRadius: 16
-    }
+      borderRadius: 16,
+    },
   };
-  
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -90,7 +94,7 @@ const HomeScreen = () => {
           </Text>
           <Text style={styles.headerSubtitle}>Let's crush your workout today!</Text>
         </View>
-        
+
         {/* Goal Summary */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Your Goal</Text>
@@ -100,7 +104,7 @@ const HomeScreen = () => {
               {goalInfo?.description || 'Set your fitness goal in the profile section'}
             </Text>
             {goalInfo && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.startButton}
                 onPress={() => navigation.navigate('Workout')}
               >
@@ -109,21 +113,23 @@ const HomeScreen = () => {
             )}
           </View>
         </View>
-        
+
         {/* Recent Activity */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Exercises</Text>
           {recentExercises.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {recentExercises.map(exercise => (
-                <TouchableOpacity 
+              {recentExercises.map((exercise) => (
+                <TouchableOpacity
                   key={exercise.id}
                   style={styles.exerciseCard}
-                  onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: exercise.id })}
+                  onPress={() =>
+                    navigation.navigate('ExerciseDetail', { exerciseId: exercise.id })
+                  }
                 >
-                  <Image 
-                    source={{ uri: exercise.imageUri || 'https://via.placeholder.com/100' }} 
-                    style={styles.exerciseImage} 
+                  <Image
+                    source={{ uri: exercise.imageUri || 'https://via.placeholder.com/100' }}
+                    style={styles.exerciseImage}
                   />
                   <Text style={styles.exerciseName}>{exercise.name}</Text>
                 </TouchableOpacity>
@@ -133,22 +139,25 @@ const HomeScreen = () => {
             <Text style={styles.emptyText}>No recent exercises</Text>
           )}
         </View>
-        
+
         {/* Progress Chart */}
         {progressData && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Progress: {progressData.exercise}</Text>
             <LineChart
-              data={progressData}
-              width={320}
-              height={180}
+              data={{
+                labels: progressData.labels,
+                datasets: progressData.datasets,
+              }}
+              width={screenWidth}
+              height={220}
               chartConfig={chartConfig}
               bezier
               style={styles.chart}
             />
           </View>
         )}
-        
+
         {/* Diet Tips */}
         {goalInfo && (
           <View style={styles.section}>
@@ -163,6 +172,8 @@ const HomeScreen = () => {
     </View>
   );
 };
+
+export default HomeScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -262,7 +273,6 @@ const styles = StyleSheet.create({
   chart: {
     borderRadius: 16,
     marginVertical: 8,
-    paddingRight: 16,
   },
   tipCard: {
     backgroundColor: '#FFF',
@@ -286,5 +296,3 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
-
-export default HomeScreen;

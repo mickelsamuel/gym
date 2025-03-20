@@ -2,6 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import screens
@@ -69,14 +70,14 @@ const MainTabNavigator = () => {
 
 const AppNavigator = () => {
   const [isFirstLaunch, setIsFirstLaunch] = React.useState(null);
-  
+
   React.useEffect(() => {
     // Check if it's first launch
     async function checkFirstLaunch() {
       try {
         const value = await AsyncStorage.getItem('alreadyLaunched');
         if (value === null) {
-          AsyncStorage.setItem('alreadyLaunched', 'true');
+          await AsyncStorage.setItem('alreadyLaunched', 'true');
           setIsFirstLaunch(true);
         } else {
           setIsFirstLaunch(false);
@@ -86,15 +87,14 @@ const AppNavigator = () => {
         setIsFirstLaunch(false);
       }
     }
-    
     checkFirstLaunch();
   }, []);
-  
+
   // Show loading until we know if it's first launch
   if (isFirstLaunch === null) {
-    return null;
+    return null; // or a loading spinner
   }
-  
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
