@@ -1,12 +1,19 @@
-// src/screens/SetupScreen.js
-import React, { useState } from 'react';
+// SetupScreen.js
+import React, { useContext, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DatabaseService from '../services/DatabaseService';
+import { ExerciseContext } from '../context/ExerciseContext';
 
-const SetupScreen = ({ navigation }) => {
+export default function SetupScreen({ navigation }) {
+  const { darkMode } = useContext(ExerciseContext);
   const [name, setName] = useState('');
   const [goal, setGoal] = useState('');
+  const backgroundColor = darkMode ? '#1C1C1E' : '#F8F9FA';
+  const textColor = darkMode ? '#FFFFFF' : '#333';
+  const cardColor = darkMode ? '#2C2C2E' : '#FFFFFF';
+  const borderColor = darkMode ? '#555555' : '#E0E0E0';
+  const placeholderColor = darkMode ? '#888888' : '#666';
 
   const handleFinishSetup = async () => {
     if (!name || !goal) {
@@ -14,109 +21,112 @@ const SetupScreen = ({ navigation }) => {
       return;
     }
     try {
-      // Save minimal profile to the database (AsyncStorage-based)
       await DatabaseService.saveProfile({
         name,
         age: 0,
         weight: 0,
         height: 0,
         goal,
-        experience: 'beginner',
+        experience: 'beginner'
       });
-
-      // Mark that setup is done
       await AsyncStorage.setItem('alreadyLaunched', 'true');
       navigation.replace('Main');
     } catch (error) {
       Alert.alert('Error', 'Could not complete setup.');
-      console.error(error);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to GymTrackPro</Text>
-      <Text style={styles.subtitle}>Let's get some basic info to tailor your experience.</Text>
-
+    <View style={[styles.container, { backgroundColor }]}>
+      <Text style={[styles.title, { color: textColor }]}>Welcome to GymTrackPro</Text>
+      <Text style={[styles.subtitle, { color: darkMode ? '#ccc' : '#666' }]}>
+        Let's get some basic info to tailor your experience.
+      </Text>
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>Your Name</Text>
+        <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>Your Name</Text>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: cardColor,
+              borderColor,
+              color: textColor
+            }
+          ]}
           placeholder="e.g. John Doe"
+          placeholderTextColor={placeholderColor}
           value={name}
           onChangeText={setName}
         />
       </View>
-
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>Main Fitness Goal</Text>
+        <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>Main Fitness Goal</Text>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: cardColor,
+              borderColor,
+              color: textColor
+            }
+          ]}
           placeholder="e.g. strength, hypertrophy, endurance, tone"
+          placeholderTextColor={placeholderColor}
           value={goal}
           onChangeText={setGoal}
         />
       </View>
-
       <TouchableOpacity style={styles.button} onPress={handleFinishSetup}>
         <Text style={styles.buttonText}>Finish Setup</Text>
       </TouchableOpacity>
     </View>
   );
-};
-
-export default SetupScreen;
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
     paddingTop: 60,
     paddingHorizontal: 16,
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   title: {
     fontSize: 26,
     fontWeight: 'bold',
     marginBottom: 12,
-    color: '#333',
-    textAlign: 'center',
+    textAlign: 'center'
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 24,
     textAlign: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 16
   },
   label: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 8,
-    marginLeft: 4,
+    marginLeft: 4
   },
   input: {
-    backgroundColor: '#FFF',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 16,
+    fontSize: 16
   },
   button: {
     backgroundColor: '#007AFF',
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: 32
   },
   buttonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
-  },
+    fontWeight: '600'
+  }
 });

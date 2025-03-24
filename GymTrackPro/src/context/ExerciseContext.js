@@ -1,7 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Import your exercise databases
 import gymExercises from '../data/gymExercises.json';
 import dumbbellExercises from '../data/dumbbellExercises.json';
 import bodyweightExercises from '../data/bodyweightExercises.json';
@@ -16,11 +14,10 @@ export const ExerciseProvider = ({ children }) => {
     dumbbell: dumbbellExercises,
     bodyweight: bodyweightExercises,
   });
-
   const [favorites, setFavorites] = useState([]);
   const [userGoal, setUserGoal] = useState('');
+  const [darkMode, setDarkMode] = useState(false);
 
-  // Load user favorites from storage
   useEffect(() => {
     const loadFavorites = async () => {
       try {
@@ -28,65 +25,50 @@ export const ExerciseProvider = ({ children }) => {
         if (storedFavorites) {
           setFavorites(JSON.parse(storedFavorites));
         }
-      } catch (error) {
-        console.error('Error loading favorites', error);
-      }
+      } catch (error) {}
     };
-
     const loadUserGoal = async () => {
       try {
         const goal = await AsyncStorage.getItem('userGoal');
         if (goal) {
           setUserGoal(goal);
         }
-      } catch (error) {
-        console.error('Error loading user goal', error);
-      }
+      } catch (error) {}
     };
-
     loadFavorites();
     loadUserGoal();
   }, []);
 
-  // Save favorites when they change
   useEffect(() => {
     const saveFavorites = async () => {
       try {
         await AsyncStorage.setItem('favorites', JSON.stringify(favorites));
-      } catch (error) {
-        console.error('Error saving favorites', error);
-      }
+      } catch (error) {}
     };
     saveFavorites();
   }, [favorites]);
 
-  // Save user goal when it changes
   useEffect(() => {
     const saveUserGoal = async () => {
       try {
         await AsyncStorage.setItem('userGoal', userGoal);
-      } catch (error) {
-        console.error('Error saving user goal', error);
-      }
+      } catch (error) {}
     };
     saveUserGoal();
   }, [userGoal]);
 
-  // Get all exercises
   const getAllExercises = () => {
     return [
       ...exercises.gym,
       ...exercises.dumbbell,
-      ...exercises.bodyweight,
+      ...exercises.bodyweight
     ];
   };
 
-  // Get exercises by category
   const getExercisesByCategory = (category) => {
     return exercises[category] || [];
   };
 
-  // Get exercises by muscle group
   const getExercisesByMuscle = (muscleGroup) => {
     return getAllExercises().filter(
       (exercise) =>
@@ -95,60 +77,50 @@ export const ExerciseProvider = ({ children }) => {
     );
   };
 
-  // Get exercises by goal
   const getExercisesByGoal = (goal) => {
     const goalData = goals.find((g) => g.id === goal);
     if (!goalData) return getAllExercises();
-
-    // Filter exercises based on goal recommendations
     return getAllExercises().filter((exercise) => {
-      // Check if exercise matches recommended types for goal
-      const matchesType = goalData.recommendedExerciseTypes.includes(
-        exercise.type
-      );
-      // Check if target rep range matches goal
+      const matchesType = goalData.recommendedExerciseTypes.includes(exercise.type);
       const matchesRepRange = exercise.repRanges.some(
         (range) => range.goal === goal
       );
-
       return matchesType || matchesRepRange;
     });
   };
 
-  // Toggle favorite status for an exercise
   const toggleFavorite = (exerciseId) => {
-    setFavorites((prevFavorites) => {
-      if (prevFavorites.includes(exerciseId)) {
-        return prevFavorites.filter((id) => id !== exerciseId);
+    setFavorites((prev) => {
+      if (prev.includes(exerciseId)) {
+        return prev.filter((id) => id !== exerciseId);
       } else {
-        return [...prevFavorites, exerciseId];
+        return [...prev, exerciseId];
       }
     });
   };
 
-  // Check if an exercise is a favorite
   const isFavorite = (exerciseId) => {
     return favorites.includes(exerciseId);
   };
 
-  // Set user goal
   const setGoal = (goal) => {
     setUserGoal(goal);
   };
 
-  // Get information about a specific goal
   const getGoalInfo = (goalId) => {
     return goals.find((g) => g.id === goalId) || null;
   };
 
-  // Get exercise details by ID
   const getExerciseById = (id) => {
-    return getAllExercises().find((exercise) => exercise.id === id) || null;
+    return getAllExercises().find((ex) => ex.id === id) || null;
   };
 
-  // Get information about a muscle group
   const getMuscleInfo = (muscleId) => {
     return muscleGroups.find((m) => m.id === muscleId) || null;
+  };
+
+  const toggleDarkMode = () => {
+    setDarkMode((prev) => !prev);
   };
 
   return (
@@ -167,6 +139,8 @@ export const ExerciseProvider = ({ children }) => {
         getGoalInfo,
         getExerciseById,
         getMuscleInfo,
+        darkMode,
+        toggleDarkMode
       }}
     >
       {children}

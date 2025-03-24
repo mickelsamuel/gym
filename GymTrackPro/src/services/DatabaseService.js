@@ -1,30 +1,46 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// src/services/DatabaseService.js
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system'; // optional if you want to handle images
+import * as ImagePicker from 'expo-image-picker'; // optional for picking profile images
+
+/**
+ * DatabaseService:
+ *  - Manages user profile (profile, including name, etc. + profilePic)
+ *  - Manages workout history (workout_history)
+ *  - Manages custom workout plans (workout_plans)
+ *  - Manages daily weight logs (daily_weight_log)
+ *  - Provides next workout calculation
+ */
 class DatabaseService {
   constructor() {
-    // Initialize the database on instantiation.
     this.initDatabase();
   }
 
   /**
-   * Initializes the "database" by ensuring required keys exist.
+   * Ensures required AsyncStorage keys exist.
    */
   async initDatabase() {
     try {
-      // Initialize the profile if it doesn't exist.
+      // Profile
       const profile = await AsyncStorage.getItem('profile');
       if (!profile) {
         await AsyncStorage.setItem('profile', JSON.stringify({}));
       }
-      // Initialize the workout history if it doesn't exist.
+      // Workout history
       const history = await AsyncStorage.getItem('workout_history');
       if (!history) {
         await AsyncStorage.setItem('workout_history', JSON.stringify([]));
       }
-      // Initialize the workout plans if they don't exist.
+      // Workout plans
       const plans = await AsyncStorage.getItem('workout_plans');
       if (!plans) {
         await AsyncStorage.setItem('workout_plans', JSON.stringify([]));
+      }
+      // Daily weight log
+      const weightLog = await AsyncStorage.getItem('daily_weight_log');
+      if (!weightLog) {
+        await AsyncStorage.setItem('daily_weight_log', JSON.stringify([]));
       }
     } catch (error) {
       console.error('Error initializing database:', error);
@@ -32,16 +48,11 @@ class DatabaseService {
   }
 
   /* =====================
-     PROFILE METHODS
-     ===================== */
-
-  /**
-   * Saves the user's profile.
-   * @param {Object} profile - The user profile object.
-   * @returns {Promise<Object>} The saved profile.
-   */
+   * PROFILE
+   * ===================== */
   async saveProfile(profile) {
     try {
+      // profile can include { name, age, weight, height, goal, experience, profilePic }
       await AsyncStorage.setItem('profile', JSON.stringify(profile));
       return profile;
     } catch (error) {
@@ -49,42 +60,55 @@ class DatabaseService {
     }
   }
 
-  /**
-   * Retrieves the user's profile.
-   * @returns {Promise<Object|null>} The stored profile or null if not found.
-   */
   async getProfile() {
     try {
-      const profile = await AsyncStorage.getItem('profile');
-      return profile ? JSON.parse(profile) : null;
+      const profileString = await AsyncStorage.getItem('profile');
+      return profileString ? JSON.parse(profileString) : null;
     } catch (error) {
       throw error;
     }
   }
 
   /* =====================
-     WORKOUT HISTORY METHODS
-     ===================== */
+   * WEIGHT LOG
+   * ===================== */
+  async logDailyWeight({ date, weight }) {
+    try {
+      const weightString = await AsyncStorage.getItem('daily_weight_log');
+      let logs = weightString ? JSON.parse(weightString) : [];
+      // see if there's an entry for the same date
+      const existingIndex = logs.findIndex((entry) => entry.date === date);
+      if (existingIndex >= 0) {
+        logs[existingIndex].weight = weight;
+      } else {
+        logs.push({ date, weight });
+      }
+      // sort by ascending date
+      logs.sort((a, b) => new Date(a.date) - new Date(b.date));
+      await AsyncStorage.setItem('daily_weight_log', JSON.stringify(logs));
+      return logs;
+    } catch (error) {
+      throw error;
+    }
+  }
 
-  /**
-   * Saves a workout set (record) to the workout history.
-   * @param {Object} workoutSet - The workout set data.
-   * Expected format:
-   * {
-   *   date: string (ISO date),
-   *   exerciseId: string,
-   *   sets: number,
-   *   reps: number,
-   *   weight: number,
-   *   notes: string
-   * }
-   * @returns {Promise<Array>} The updated history array.
-   */
+  async getDailyWeightLog() {
+    try {
+      const weightString = await AsyncStorage.getItem('daily_weight_log');
+      return weightString ? JSON.parse(weightString) : [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /* =====================
+   * WORKOUT HISTORY
+   * ===================== */
   async saveWorkoutSet(workoutSet) {
     try {
       const historyString = await AsyncStorage.getItem('workout_history');
       let history = historyString ? JSON.parse(historyString) : [];
-      // Prepend the new workout record so that the most recent is first.
+      // newest first
       history.unshift(workoutSet);
       await AsyncStorage.setItem('workout_history', JSON.stringify(history));
       return history;
@@ -93,19 +117,14 @@ class DatabaseService {
     }
   }
 
-  /**
-   * Retrieves the workout history, optionally filtering by exercise ID.
-   * @param {string} [exerciseId] - If provided, returns only records for this exercise.
-   * @returns {Promise<Array>} An array of workout records.
-   */
   async getExerciseHistory(exerciseId) {
     try {
       const historyString = await AsyncStorage.getItem('workout_history');
       let history = historyString ? JSON.parse(historyString) : [];
       if (exerciseId) {
-        history = history.filter(entry => entry.exerciseId === exerciseId);
+        history = history.filter((entry) => entry.exerciseId === exerciseId);
       }
-      // Sort records by date (most recent first)
+      // sort newest first
       history.sort((a, b) => new Date(b.date) - new Date(a.date));
       return history;
     } catch (error) {
@@ -114,38 +133,67 @@ class DatabaseService {
   }
 
   /* =====================
-     WORKOUT PLANS METHODS
-     ===================== */
+   * CUSTOM WORKOUT PLANS
+   * ===================== */
+  // 1) getAllWorkoutLists -> just a convenience wrapper for getWorkoutPlans
+  async getAllWorkoutLists() {
+    const plans = await this.getWorkoutPlans();
+    return plans;
+  }
 
-  /**
-   * Saves a workout plan.
-   * Assumes that each plan has a unique "id" property.
-   * @param {Object} plan - The workout plan data.
-   * @returns {Promise<Array>} The updated array of workout plans.
-   */
-  async saveWorkoutPlan(plan) {
+  // 2) createWorkoutList
+  async createWorkoutList(listName) {
     try {
-      const plansString = await AsyncStorage.getItem('workout_plans');
+      let plansString = await AsyncStorage.getItem('workout_plans');
       let plans = plansString ? JSON.parse(plansString) : [];
-      const index = plans.findIndex(p => p.id === plan.id);
-      if (index !== -1) {
-        // Update existing plan.
-        plans[index] = plan;
-      } else {
-        // Add new plan.
-        plans.push(plan);
-      }
+      const newPlan = {
+        id: Date.now().toString(),
+        name: listName,
+        exercises: []
+      };
+      plans.push(newPlan);
       await AsyncStorage.setItem('workout_plans', JSON.stringify(plans));
-      return plans;
+      return newPlan;
     } catch (error) {
       throw error;
     }
   }
 
-  /**
-   * Retrieves all workout plans.
-   * @returns {Promise<Array>} An array of workout plans.
-   */
+  // addExerciseToList
+  async addExerciseToList(listId, exerciseId) {
+    try {
+      const plansString = await AsyncStorage.getItem('workout_plans');
+      let plans = plansString ? JSON.parse(plansString) : [];
+      const index = plans.findIndex((p) => p.id === listId);
+      if (index >= 0) {
+        if (!plans[index].exercises.includes(exerciseId)) {
+          plans[index].exercises.push(exerciseId);
+        }
+      }
+      await AsyncStorage.setItem('workout_plans', JSON.stringify(plans));
+      return plans[index];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // removeExerciseFromList
+  async removeExerciseFromList(listId, exerciseId) {
+    try {
+      const plansString = await AsyncStorage.getItem('workout_plans');
+      let plans = plansString ? JSON.parse(plansString) : [];
+      const index = plans.findIndex((p) => p.id === listId);
+      if (index >= 0) {
+        plans[index].exercises = plans[index].exercises.filter((id) => id !== exerciseId);
+      }
+      await AsyncStorage.setItem('workout_plans', JSON.stringify(plans));
+      return plans[index];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // 3) getWorkoutPlans
   async getWorkoutPlans() {
     try {
       const plansString = await AsyncStorage.getItem('workout_plans');
@@ -156,49 +204,36 @@ class DatabaseService {
   }
 
   /* =====================
-     PROGRESSION CALCULATION
-     ===================== */
-
-  /**
-   * Calculates the next workout recommendation for a given exercise
-   * based on its workout history.
-   * @param {string} exerciseId - The ID of the exercise.
-   * @returns {Promise<Object>} An object with recommended sets, reps, weight, and a message.
-   */
+   * NEXT WORKOUT RECOMMENDATION
+   * ===================== */
   async calculateNextWorkout(exerciseId) {
     try {
       const history = await this.getExerciseHistory(exerciseId);
       if (history.length === 0) {
         return {
-          message:
-            "No previous data found. Start with a weight you're comfortable with for 3 sets of 8-12 reps.",
+          message: "No previous data found. Start with a weight you're comfortable with for 3 sets of 8-12 reps."
         };
       }
-
-      // Use the most recent workout set.
+      // newest first
       const lastWorkout = history[0];
-
-      // Example logic for hypertrophy:
-      // - If reps are 12 or more, increase weight by 5% and reset reps to 8.
-      // - Otherwise, add 1 rep.
       let newWeight = lastWorkout.weight;
       let newReps = lastWorkout.reps;
-      let recommendationMessage = '';
+      let message = '';
 
       if (lastWorkout.reps >= 12) {
-        newWeight = Math.round(lastWorkout.weight * 1.05 * 100) / 100; // Increase weight by 5%, rounded to 2 decimals.
-        newReps = 8; // Reset rep count.
-        recommendationMessage = 'Increase weight by 5% and reset reps to 8.';
+        newWeight = Math.round(lastWorkout.weight * 1.05 * 100) / 100;
+        newReps = 8;
+        message = 'Increased weight by ~5% and reset reps to 8.';
       } else {
-        newReps = lastWorkout.reps + 1;
-        recommendationMessage = 'Increase reps by 1.';
+        newReps += 1;
+        message = 'Increase your reps by 1.';
       }
 
       return {
         sets: lastWorkout.sets,
         reps: newReps,
         weight: newWeight,
-        message: recommendationMessage,
+        message
       };
     } catch (error) {
       throw error;

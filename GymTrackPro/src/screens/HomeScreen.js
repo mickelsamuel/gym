@@ -1,4 +1,3 @@
-// src/screens/HomeScreen.js
 import React, { useContext, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -8,99 +7,85 @@ import { LineChart } from 'react-native-chart-kit';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
-  const { userGoal, getGoalInfo, favorites, getExerciseById } = useContext(ExerciseContext);
+  const { userGoal, getGoalInfo, favorites, getExerciseById, darkMode } = useContext(ExerciseContext);
   const [profile, setProfile] = useState(null);
   const [recentExercises, setRecentExercises] = useState([]);
   const [progressData, setProgressData] = useState(null);
 
   useEffect(() => {
-    // Load user profile from the database
     const loadProfile = async () => {
       try {
         const userProfile = await DatabaseService.getProfile();
         setProfile(userProfile);
-      } catch (error) {
-        console.error('Error loading profile', error);
-      }
+      } catch (error) {}
     };
-
-    // Load recent exercises based on favorites
     const loadRecentExercises = async () => {
       try {
-        // Use up to 3 favorite exercise IDs as recent
         const recentExerciseIds = favorites.slice(0, 3);
-        const exercises = recentExerciseIds
-          .map((id) => getExerciseById(id))
-          .filter(Boolean);
+        const exercises = recentExerciseIds.map((id) => getExerciseById(id)).filter(Boolean);
         setRecentExercises(exercises);
-
-        // Generate progress chart data for the first favorite exercise if available
         if (exercises.length > 0) {
           const historyData = await DatabaseService.getExerciseHistory(exercises[0].id);
           if (historyData.length > 0) {
-            // Limit chart to 5 entries
             const sliced = historyData.slice(0, 5);
-            const dates = sliced
-              .map((entry) => {
-                const date = new Date(entry.date);
-                return `${date.getMonth() + 1}/${date.getDate()}`;
-              })
-              .reverse();
+            const dates = sliced.map((entry) => {
+              const date = new Date(entry.date);
+              return `${date.getMonth() + 1}/${date.getDate()}`;
+            }).reverse();
             const weights = sliced.map((entry) => entry.weight).reverse();
-
             setProgressData({
               labels: dates,
               datasets: [
                 {
                   data: weights,
-                  color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-                  strokeWidth: 2,
-                },
+                  strokeWidth: 2
+                }
               ],
-              exercise: exercises[0].name,
+              exercise: exercises[0].name
             });
           }
         }
-      } catch (error) {
-        console.error('Error loading recent exercises', error);
-      }
+      } catch (error) {}
     };
-
     loadProfile();
     loadRecentExercises();
   }, [favorites, getExerciseById]);
 
   const goalInfo = userGoal ? getGoalInfo(userGoal) : null;
   const screenWidth = Dimensions.get('window').width - 32;
+  const backgroundColor = darkMode ? '#1C1C1E' : '#F8F9FA';
+  const textColor = darkMode ? '#FFFFFF' : '#333';
+  const cardColor = darkMode ? '#2C2C2E' : '#FFF';
 
   const chartConfig = {
-    backgroundGradientFrom: '#ffffff',
-    backgroundGradientTo: '#ffffff',
+    backgroundGradientFrom: cardColor,
+    backgroundGradientTo: cardColor,
     color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
     strokeWidth: 2,
     decimalPlaces: 1,
     style: {
-      borderRadius: 16,
-    },
+      borderRadius: 16
+    }
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>
+          <Text style={[styles.headerTitle, { color: textColor }]}>
             Welcome{profile?.name ? `, ${profile.name}` : ''}
           </Text>
-          <Text style={styles.headerSubtitle}>Let's crush your workout today!</Text>
+          <Text style={[styles.headerSubtitle, { color: darkMode ? '#ccc' : '#666' }]}>
+            Let's crush your workout today!
+          </Text>
         </View>
-
-        {/* Goal Summary */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Goal</Text>
-          <View style={styles.goalCard}>
-            <Text style={styles.goalTitle}>{goalInfo?.name || 'Not set'}</Text>
-            <Text style={styles.goalDescription}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Your Goal</Text>
+          <View style={[styles.goalCard, { backgroundColor: cardColor }]}>
+            <Text style={[styles.goalTitle, { color: textColor }]}>
+              {goalInfo?.name || 'Not set'}
+            </Text>
+            <Text style={[styles.goalDescription, { color: darkMode ? '#aaa' : '#666' }]}>
               {goalInfo?.description || 'Set your fitness goal in the profile section'}
             </Text>
             {goalInfo && (
@@ -113,41 +98,41 @@ const HomeScreen = () => {
             )}
           </View>
         </View>
-
-        {/* Recent Activity */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Exercises</Text>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Recent Exercises</Text>
           {recentExercises.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {recentExercises.map((exercise) => (
                 <TouchableOpacity
                   key={exercise.id}
-                  style={styles.exerciseCard}
-                  onPress={() =>
-                    navigation.navigate('ExerciseDetail', { exerciseId: exercise.id })
-                  }
+                  style={[styles.exerciseCard, { backgroundColor: cardColor }]}
+                  onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: exercise.id })}
                 >
                   <Image
                     source={{ uri: exercise.imageUri || 'https://via.placeholder.com/100' }}
                     style={styles.exerciseImage}
                   />
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
+                  <Text style={[styles.exerciseName, { color: textColor }]}>
+                    {exercise.name}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           ) : (
-            <Text style={styles.emptyText}>No recent exercises</Text>
+            <Text style={[styles.emptyText, { color: darkMode ? '#999' : '#999' }]}>
+              No recent exercises
+            </Text>
           )}
         </View>
-
-        {/* Progress Chart */}
         {progressData && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Progress: {progressData.exercise}</Text>
+            <Text style={[styles.sectionTitle, { color: textColor }]}>
+              Progress: {progressData.exercise}
+            </Text>
             <LineChart
               data={{
                 labels: progressData.labels,
-                datasets: progressData.datasets,
+                datasets: progressData.datasets
               }}
               width={screenWidth}
               height={220}
@@ -157,14 +142,14 @@ const HomeScreen = () => {
             />
           </View>
         )}
-
-        {/* Diet Tips */}
         {goalInfo && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Nutrition Tips</Text>
-            <View style={styles.tipCard}>
-              <Text style={styles.tipTitle}>For {goalInfo.name}</Text>
-              <Text style={styles.tipText}>{goalInfo.nutritionTips}</Text>
+            <Text style={[styles.sectionTitle, { color: textColor }]}>Nutrition Tips</Text>
+            <View style={[styles.tipCard, { backgroundColor: cardColor }]}>
+              <Text style={[styles.tipTitle, { color: textColor }]}>For {goalInfo.name}</Text>
+              <Text style={[styles.tipText, { color: darkMode ? '#aaa' : '#666' }]}>
+                {goalInfo.nutritionTips}
+              </Text>
             </View>
           </View>
         )}
@@ -177,55 +162,48 @@ export default HomeScreen;
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
+    flex: 1
   },
   scrollContainer: {
     padding: 16,
-    paddingTop: 60,
+    paddingTop: 60
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 24
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: 'bold'
   },
   headerSubtitle: {
     fontSize: 16,
-    color: '#666',
-    marginTop: 4,
+    marginTop: 4
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 24
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 12,
-    color: '#333',
+    marginBottom: 12
   },
   goalCard: {
-    backgroundColor: '#FFF',
     borderRadius: 16,
     padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 2
   },
   goalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    marginBottom: 8
   },
   goalDescription: {
     fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
+    lineHeight: 20
   },
   startButton: {
     backgroundColor: '#007AFF',
@@ -233,15 +211,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 16
   },
   startButtonText: {
     color: '#FFF',
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 16
   },
   exerciseCard: {
-    backgroundColor: '#FFF',
     borderRadius: 12,
     width: 120,
     marginRight: 12,
@@ -251,48 +228,43 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   exerciseImage: {
     width: 70,
     height: 70,
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 8
   },
   exerciseName: {
     fontSize: 14,
     fontWeight: '500',
-    textAlign: 'center',
-    color: '#333',
+    textAlign: 'center'
   },
   emptyText: {
     fontSize: 14,
-    color: '#999',
-    fontStyle: 'italic',
+    fontStyle: 'italic'
   },
   chart: {
     borderRadius: 16,
-    marginVertical: 8,
+    marginVertical: 8
   },
   tipCard: {
-    backgroundColor: '#FFF',
     borderRadius: 16,
     padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 2
   },
   tipTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 8,
-    color: '#333',
+    marginBottom: 8
   },
   tipText: {
     fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
+    lineHeight: 20
+  }
 });

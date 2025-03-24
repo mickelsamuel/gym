@@ -1,22 +1,21 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useContext } from 'react';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-
-// Import screens
 import HomeScreen from '../screens/HomeScreen';
 import ExercisesScreen from '../screens/ExercisesScreen';
 import ExerciseDetailScreen from '../screens/ExerciseDetailScreen';
 import WorkoutScreen from '../screens/WorkoutScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SetupScreen from '../screens/SetupScreen';
+import CustomWorkoutDetailScreen from '../screens/CustomWorkoutDetailScreen';
+import { ExerciseContext } from '../context/ExerciseContext';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-// Exercise stack navigator
 const ExerciseStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -26,12 +25,12 @@ const ExerciseStack = () => {
   );
 };
 
-// Workout stack navigator
 const WorkoutStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="WorkoutMain" component={WorkoutScreen} />
       <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
+      <Stack.Screen name="CustomWorkoutDetail" component={CustomWorkoutDetailScreen} />
     </Stack.Navigator>
   );
 };
@@ -42,7 +41,6 @@ const MainTabNavigator = () => {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Exercises') {
@@ -52,7 +50,6 @@ const MainTabNavigator = () => {
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
-
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#007AFF',
@@ -70,9 +67,9 @@ const MainTabNavigator = () => {
 
 const AppNavigator = () => {
   const [isFirstLaunch, setIsFirstLaunch] = React.useState(null);
+  const { darkMode } = useContext(ExerciseContext);
 
   React.useEffect(() => {
-    // Check if it's first launch
     async function checkFirstLaunch() {
       try {
         const value = await AsyncStorage.getItem('alreadyLaunched');
@@ -83,20 +80,18 @@ const AppNavigator = () => {
           setIsFirstLaunch(false);
         }
       } catch (error) {
-        console.log(error);
         setIsFirstLaunch(false);
       }
     }
     checkFirstLaunch();
   }, []);
 
-  // Show loading until we know if it's first launch
   if (isFirstLaunch === null) {
-    return null; // or a loading spinner
+    return null;
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={darkMode ? DarkTheme : DefaultTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isFirstLaunch ? (
           <Stack.Screen name="Setup" component={SetupScreen} />
