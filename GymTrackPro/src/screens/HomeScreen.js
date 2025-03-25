@@ -1,121 +1,105 @@
-// screens/HomeScreen.js
-
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect } from 'react'
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Dimensions,
   Modal
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { ExerciseContext } from '../context/ExerciseContext';
-import DatabaseService from '../services/DatabaseService';
-import { LineChart } from 'react-native-chart-kit';
+} from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import { ExerciseContext } from '../context/ExerciseContext'
+import DatabaseService from '../services/DatabaseService'
+import { LineChart } from 'react-native-chart-kit'
 
-const HomeScreen = () => {
-  const navigation = useNavigation();
+export default function HomeScreen() {
+  const navigation = useNavigation()
   const {
     userGoal,
     getGoalInfo,
     favorites,
     getExerciseById,
     darkMode,
-    setGoal  // Make sure setGoal is exported from ExerciseContext
-  } = useContext(ExerciseContext);
+    setGoal
+  } = useContext(ExerciseContext)
 
-  const [profile, setProfile] = useState(null);
-  const [recentExercises, setRecentExercises] = useState([]);
-  const [progressData, setProgressData] = useState(null);
+  const [profile, setProfile] = useState(null)
+  const [recentExercises, setRecentExercises] = useState([])
+  const [progressData, setProgressData] = useState(null)
+  const [showGoalModal, setShowGoalModal] = useState(false)
 
-  // State to control showing the goal selection modal
-  const [showGoalModal, setShowGoalModal] = useState(false);
+  useEffect(() => {
+    loadProfile()
+    loadRecentExercises()
+  }, [favorites])
 
-  // If userGoal is not set, we show the modal after initial load
   useEffect(() => {
     if (!userGoal) {
-      setShowGoalModal(true);
+      setShowGoalModal(true)
     }
-  }, [userGoal]);
+  }, [userGoal])
 
-  // Load user profile & recent exercises
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const userProfile = await DatabaseService.getProfile();
-        setProfile(userProfile);
-      } catch (error) {
-        // handle or ignore error
-      }
-    };
+  async function loadProfile() {
+    try {
+      const userProfile = await DatabaseService.getProfile()
+      setProfile(userProfile)
+    } catch {}
+  }
 
-    const loadRecentExercises = async () => {
-      try {
-        const recentExerciseIds = favorites.slice(0, 3);
-        const exercises = recentExerciseIds
-          .map((id) => getExerciseById(id))
-          .filter(Boolean);
-        setRecentExercises(exercises);
+  async function loadRecentExercises() {
+    try {
+      const recentExerciseIds = favorites.slice(0, 3)
+      const exercises = recentExerciseIds.map(id => getExerciseById(id)).filter(Boolean)
+      setRecentExercises(exercises)
 
-        if (exercises.length > 0) {
-          const historyData = await DatabaseService.getExerciseHistory(
-            exercises[0].id
-          );
-          if (historyData.length > 0) {
-            const sliced = historyData.slice(0, 5);
-            const dates = sliced
-              .map((entry) => {
-                const date = new Date(entry.date);
-                return `${date.getMonth() + 1}/${date.getDate()}`;
-              })
-              .reverse();
-            const weights = sliced.map((entry) => entry.weight).reverse();
-            setProgressData({
-              labels: dates,
-              datasets: [
-                {
-                  data: weights,
-                  strokeWidth: 2
-                }
-              ],
-              exercise: exercises[0].name
-            });
-          }
+      if (exercises.length > 0) {
+        const historyData = await DatabaseService.getExerciseHistory(exercises[0].id)
+        if (historyData.length > 0) {
+          const sliced = historyData.slice(0, 5)
+          const dates = sliced
+            .map(entry => {
+              const date = new Date(entry.date)
+              return `${date.getMonth() + 1}/${date.getDate()}`
+            })
+            .reverse()
+          const weights = sliced.map(entry => entry.weight).reverse()
+          setProgressData({
+            labels: dates,
+            datasets: [
+              {
+                data: weights,
+                strokeWidth: 2
+              }
+            ],
+            exercise: exercises[0].name
+          })
         }
-      } catch (error) {
-        // handle or ignore error
       }
-    };
+    } catch {}
+  }
 
-    loadProfile();
-    loadRecentExercises();
-  }, [favorites, getExerciseById]);
-
-  // When user picks a goal from the modal
-  const handleSelectGoal = (goalId) => {
-    setGoal(goalId); // This updates userGoal in context
-    setShowGoalModal(false);
-  };
-
-  const goalInfo = userGoal ? getGoalInfo(userGoal) : null;
-  const screenWidth = Dimensions.get('window').width - 32;
-  const backgroundColor = darkMode ? '#1C1C1E' : '#F8F9FA';
-  const textColor = darkMode ? '#FFFFFF' : '#333';
-  const cardColor = darkMode ? '#2C2C2E' : '#FFF';
+  const goalInfo = userGoal ? getGoalInfo(userGoal) : null
+  const screenWidth = Dimensions.get('window').width - 32
+  const backgroundColor = darkMode ? '#1C1C1E' : '#F8F9FA'
+  const textColor = darkMode ? '#FFFFFF' : '#333333'
+  const cardColor = darkMode ? '#2C2C2E' : '#FFFFFF'
 
   const chartConfig = {
     backgroundGradientFrom: cardColor,
     backgroundGradientTo: cardColor,
-    color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+    color: opacity => `rgba(0, 122, 255, ${opacity})`,
     strokeWidth: 2,
     decimalPlaces: 1,
     style: {
       borderRadius: 16
     }
-  };
+  }
+
+  const handleSelectGoal = goalId => {
+    setGoal(goalId)
+    setShowGoalModal(false)
+  }
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
@@ -153,18 +137,14 @@ const HomeScreen = () => {
           <Text style={[styles.sectionTitle, { color: textColor }]}>Recent Exercises</Text>
           {recentExercises.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {recentExercises.map((exercise) => (
+              {recentExercises.map(ex => (
                 <TouchableOpacity
-                  key={exercise.id}
+                  key={ex.id}
                   style={[styles.exerciseCard, { backgroundColor: cardColor }]}
-                  onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: exercise.id })}
+                  onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: ex.id })}
                 >
-                  <Image
-                    source={{ uri: exercise.imageUri || 'https://via.placeholder.com/100' }}
-                    style={styles.exerciseImage}
-                  />
                   <Text style={[styles.exerciseName, { color: textColor }]}>
-                    {exercise.name}
+                    {ex.name}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -208,39 +188,40 @@ const HomeScreen = () => {
         )}
       </ScrollView>
 
-      {/* Modal for picking goal if userGoal is not set */}
       <Modal visible={showGoalModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.goalModal, { backgroundColor: cardColor }]}>
-            <Text style={[styles.modalTitle, { color: textColor }]}>
-              Select Your Fitness Goal
-            </Text>
-
-            <TouchableOpacity onPress={() => handleSelectGoal('strength')}>
-              <Text style={[styles.modalOption, { color: textColor }]}>Strength</Text>
+            <Text style={[styles.modalTitle, { color: textColor }]}>Select Your Fitness Goal</Text>
+            <TouchableOpacity onPress={() => handleSelectGoal('strength')} style={styles.goalOption}>
+              <Text style={[styles.goalOptionTitle, { color: textColor }]}>Strength</Text>
+              <Text style={[styles.goalOptionDescription, { color: darkMode ? '#aaa' : '#666' }]}>
+                Focus on increasing maximal power and heavy lifting.
+              </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => handleSelectGoal('hypertrophy')}>
-              <Text style={[styles.modalOption, { color: textColor }]}>Hypertrophy</Text>
+            <TouchableOpacity onPress={() => handleSelectGoal('hypertrophy')} style={styles.goalOption}>
+              <Text style={[styles.goalOptionTitle, { color: textColor }]}>Hypertrophy</Text>
+              <Text style={[styles.goalOptionDescription, { color: darkMode ? '#aaa' : '#666' }]}>
+                Emphasize muscle growth and moderate-to-high volume workouts.
+              </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => handleSelectGoal('endurance')}>
-              <Text style={[styles.modalOption, { color: textColor }]}>Endurance</Text>
+            <TouchableOpacity onPress={() => handleSelectGoal('endurance')} style={styles.goalOption}>
+              <Text style={[styles.goalOptionTitle, { color: textColor }]}>Endurance</Text>
+              <Text style={[styles.goalOptionDescription, { color: darkMode ? '#aaa' : '#666' }]}>
+                Improve stamina and long-duration performance.
+              </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => handleSelectGoal('tone')}>
-              <Text style={[styles.modalOption, { color: textColor }]}>Tone</Text>
+            <TouchableOpacity onPress={() => handleSelectGoal('tone')} style={styles.goalOption}>
+              <Text style={[styles.goalOptionTitle, { color: textColor }]}>Tone</Text>
+              <Text style={[styles.goalOptionDescription, { color: darkMode ? '#aaa' : '#666' }]}>
+                Achieve a lean physique with moderate resistance training.
+              </Text>
             </TouchableOpacity>
-
-            {/* You can add more goals if needed */}
           </View>
         </View>
       </Modal>
     </View>
-  );
-};
-
-export default HomeScreen;
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -272,10 +253,6 @@ const styles = StyleSheet.create({
   goalCard: {
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     elevation: 2
   },
   goalTitle: {
@@ -301,22 +278,12 @@ const styles = StyleSheet.create({
     fontSize: 16
   },
   exerciseCard: {
-    borderRadius: 12,
     width: 120,
-    marginRight: 12,
+    borderRadius: 12,
     padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
     elevation: 2,
+    marginRight: 12,
     alignItems: 'center'
-  },
-  exerciseImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
-    marginBottom: 8
   },
   exerciseName: {
     fontSize: 14,
@@ -334,10 +301,6 @@ const styles = StyleSheet.create({
   tipCard: {
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     elevation: 2
   },
   tipTitle: {
@@ -349,7 +312,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20
   },
-  /* Modal styling */
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -367,10 +329,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center'
   },
-  modalOption: {
+  goalOption: {
+    marginBottom: 16
+  },
+  goalOptionTitle: {
     fontSize: 18,
-    marginVertical: 8,
-    textAlign: 'center',
-    fontWeight: '500'
+    fontWeight: '600'
+  },
+  goalOptionDescription: {
+    fontSize: 14
   }
-});
+})

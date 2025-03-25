@@ -5,7 +5,7 @@ import HomeScreen from '../screens/HomeScreen';
 import ExercisesScreen from '../screens/ExercisesScreen';
 import WorkoutScreen from '../screens/WorkoutScreen';
 import ProfileScreen from '../screens/ProfileScreen';
-import SocialScreen from '../screens/SocialScreen'; 
+import SocialScreen from '../screens/SocialScreen';
 import { Ionicons } from '@expo/vector-icons';
 
 const Tab = createBottomTabNavigator();
@@ -19,8 +19,8 @@ export default function MainTabNavigator() {
           if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
           else if (route.name === 'Exercises') iconName = focused ? 'fitness' : 'fitness-outline';
           else if (route.name === 'Workout') iconName = focused ? 'barbell' : 'barbell-outline';
-          else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
           else if (route.name === 'Social') iconName = focused ? 'people' : 'people-outline';
+          else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#007AFF',

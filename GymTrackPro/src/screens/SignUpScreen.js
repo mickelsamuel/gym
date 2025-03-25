@@ -45,9 +45,16 @@ export default function SignUpScreen() {
 
   const handleSignUp = async () => {
     try {
-      if (!fullName || !username || !age || !weight || !email || !password ||
-          (isMetric && !heightCm) ||
-          (!isMetric && (!heightFeet || !heightInches))) {
+      if (
+        !fullName || 
+        !username || 
+        !age || 
+        !weight || 
+        !email || 
+        !password ||
+        (isMetric && !heightCm) ||
+        (!isMetric && (!heightFeet || !heightInches))
+      ) {
         Alert.alert('Error', 'All fields are required. Please fill everything.');
         return;
       }
@@ -64,6 +71,7 @@ export default function SignUpScreen() {
       }
 
       if (isMetric) {
+        // height in cm, weight in kg
         if (numericHeight < 50 || numericHeight > 300) {
           Alert.alert('Error', 'Height must be between 50 cm and 300 cm.');
           return;
@@ -73,6 +81,7 @@ export default function SignUpScreen() {
           return;
         }
       } else {
+        // height in ft/in, weight in lbs
         if (numericHeight < 36 || numericHeight > 96) {
           Alert.alert('Error', 'Height must be between 3 ft and 8 ft.');
           return;
@@ -84,7 +93,10 @@ export default function SignUpScreen() {
       }
 
       if (username.length < 3 || username.length > 20 || !/^[a-zA-Z0-9_]+$/.test(username)) {
-        Alert.alert('Invalid Username', 'Username must be 3–20 characters long and contain only letters, numbers, or underscores.');
+        Alert.alert(
+          'Invalid Username',
+          'Username must be 3–20 characters long and contain only letters, numbers, or underscores.'
+        );
         return;
       }
 
@@ -117,7 +129,10 @@ export default function SignUpScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer} 
+          keyboardShouldPersistTaps="handled"
+        >
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Text style={styles.backButtonText}>{'<'} Back</Text>
           </TouchableOpacity>
@@ -126,33 +141,93 @@ export default function SignUpScreen() {
           <Text style={styles.title}>Create an Account</Text>
 
           <Text style={styles.inputLabel}>Full Name</Text>
-          <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholder="John Smith" placeholderTextColor="#999" />
+          <TextInput
+            style={styles.input}
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="John Smith"
+            placeholderTextColor="#999"
+          />
 
           <Text style={styles.inputLabel}>Username (public)</Text>
-          <TextInput style={styles.input} value={username} onChangeText={setUsername} placeholder="johndoe123" placeholderTextColor="#999" autoCapitalize="none" />
+          <TextInput
+            style={styles.input}
+            value={username}
+            onChangeText={setUsername}
+            placeholder="johndoe123"
+            placeholderTextColor="#999"
+            autoCapitalize="none"
+          />
 
           <Text style={styles.inputLabel}>Age</Text>
-          <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="number-pad" placeholder="e.g. 25" placeholderTextColor="#999" />
+          <TextInput
+            style={styles.input}
+            value={age}
+            onChangeText={setAge}
+            keyboardType="number-pad"
+            placeholder="e.g. 25"
+            placeholderTextColor="#999"
+          />
 
           <Text style={styles.inputLabel}>Height</Text>
           {isMetric ? (
-            <TextInput style={styles.input} value={heightCm} onChangeText={setHeightCm} keyboardType="numeric" placeholder="cm" placeholderTextColor="#999" />
+            <TextInput
+              style={styles.input}
+              value={heightCm}
+              onChangeText={setHeightCm}
+              keyboardType="numeric"
+              placeholder="cm"
+              placeholderTextColor="#999"
+            />
           ) : (
             <View style={styles.row}>
-              <TextInput style={[styles.input, styles.halfInput]} value={heightFeet} onChangeText={setHeightFeet} keyboardType="numeric" placeholder="ft" placeholderTextColor="#999" />
-              <TextInput style={[styles.input, styles.halfInput]} value={heightInches} onChangeText={setHeightInches} keyboardType="numeric" placeholder="in" placeholderTextColor="#999" />
+              <TextInput
+                style={[styles.input, styles.halfInput]}
+                value={heightFeet}
+                onChangeText={setHeightFeet}
+                keyboardType="numeric"
+                placeholder="ft"
+                placeholderTextColor="#999"
+              />
+              <TextInput
+                style={[styles.input, styles.halfInput]}
+                value={heightInches}
+                onChangeText={setHeightInches}
+                keyboardType="numeric"
+                placeholder="in"
+                placeholderTextColor="#999"
+              />
             </View>
           )}
 
-          <Text style={styles.inputLabel}>Weight ({isMetric ? 'kg' : 'lbs'})</Text>
-          <TextInput style={styles.input} value={weight} onChangeText={setWeight} keyboardType="numeric" placeholder={isMetric ? 'e.g. 70' : 'e.g. 154'} placeholderTextColor="#999" />
+          <Text style={styles.inputLabel}>
+            Weight ({isMetric ? 'kg' : 'lbs'})
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={weight}
+            onChangeText={setWeight}
+            keyboardType="numeric"
+            placeholder={isMetric ? 'e.g. 70' : 'e.g. 154'}
+            placeholderTextColor="#999"
+          />
 
           <TouchableOpacity onPress={handleUnitToggle} style={styles.unitToggle}>
-            <Text style={styles.unitToggleText}>Switch to {isMetric ? 'Imperial (ft/in, lbs)' : 'Metric (cm, kg)'}</Text>
+            <Text style={styles.unitToggleText}>
+              Switch to {isMetric ? 'Imperial (ft/in, lbs)' : 'Metric (cm, kg)'}
+            </Text>
           </TouchableOpacity>
 
           <Text style={styles.inputLabel}>Email</Text>
-          <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="john@example.com" placeholderTextColor="#999" autoCapitalize="none" keyboardType="email-address" />
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="john@example.com"
+            placeholderTextColor="#999"
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
 
           <Text style={styles.inputLabel}>Password</Text>
           <View style={styles.passwordContainer}>
@@ -165,7 +240,9 @@ export default function SignUpScreen() {
               secureTextEntry={!showPassword}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.showHideButton}>
-              <Text style={{ color: '#007AFF', fontWeight: '500' }}>{showPassword ? 'Hide' : 'Show'}</Text>
+              <Text style={{ color: '#007AFF', fontWeight: '500' }}>
+                {showPassword ? 'Hide' : 'Show'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -173,8 +250,13 @@ export default function SignUpScreen() {
             <Text style={styles.buttonText}>Sign Up</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Login')} style={{ marginTop: 16 }}>
-            <Text style={styles.link}>Already have an account? <Text style={{ fontWeight: 'bold' }}>Login</Text></Text>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('Login')} 
+            style={{ marginTop: 16 }}
+          >
+            <Text style={styles.link}>
+              Already have an account? <Text style={{ fontWeight: 'bold' }}>Login</Text>
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

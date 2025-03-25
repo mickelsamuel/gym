@@ -1,121 +1,165 @@
-// screens/ExercisesScreen.js
-import React, { useContext, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Picker } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { ExerciseContext } from '../context/ExerciseContext';
+import React, { useContext, useState } from 'react'
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+  ScrollView
+} from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { useNavigation } from '@react-navigation/native'
+import { ExerciseContext } from '../context/ExerciseContext'
 
-// We can use a multi-select or dropdown for muscle group + exercise type
 const muscleGroupOptions = [
-  { label: 'All Muscles', value: '' },
+  { label: 'All', value: '' },
   { label: 'Chest', value: 'chest' },
   { label: 'Back', value: 'back' },
   { label: 'Legs', value: 'legs' },
-  // ... you can add more
-];
+  { label: 'Shoulders', value: 'shoulders' },
+  { label: 'Arms', value: 'arms' }
+]
 
 const exerciseTypeOptions = [
-  { label: 'All Types', value: '' },
+  { label: 'All', value: '' },
   { label: 'Gym', value: 'gym' },
   { label: 'Dumbbell', value: 'dumbbell' },
   { label: 'Bodyweight', value: 'bodyweight' }
-];
+]
 
 export default function ExercisesScreen() {
-  const navigation = useNavigation();
-  const { getAllExercises, darkMode } = useContext(ExerciseContext);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMuscle, setSelectedMuscle] = useState('');
-  const [selectedType, setSelectedType] = useState('');
+  const navigation = useNavigation()
+  const { getAllExercises, darkMode } = useContext(ExerciseContext)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedMuscle, setSelectedMuscle] = useState('')
+  const [selectedType, setSelectedType] = useState('')
+  const allExercises = getAllExercises()
 
-  const allExercises = getAllExercises();
+  const filteredExercises = allExercises.filter(ex => {
+    const matchName = ex.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchType = selectedType ? ex.type === selectedType : true
+    const matchMuscle = selectedMuscle
+      ? ex.primaryMuscles.includes(selectedMuscle) || ex.secondaryMuscles.includes(selectedMuscle)
+      : true
+    return matchName && matchType && matchMuscle
+  })
 
-  // Filter by name, muscle, type
-  const filteredExercises = allExercises.filter((ex) => {
-    const matchName = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchType = selectedType ? ex.type === selectedType : true;
-    const matchMuscle =
-      selectedMuscle
-        ? (ex.primaryMuscles.includes(selectedMuscle) || ex.secondaryMuscles.includes(selectedMuscle))
-        : true;
-    return matchName && matchType && matchMuscle;
-  });
+  const backgroundColor = darkMode ? '#1C1C1E' : '#F8F9FA'
+  const textColor = darkMode ? '#FFFFFF' : '#333333'
+  const cardColor = darkMode ? '#2C2C2E' : '#FFFFFF'
+  const borderColor = darkMode ? '#555555' : '#E0E0E0'
+  const placeholderColor = darkMode ? '#888888' : '#666666'
 
-  const backgroundColor = darkMode ? '#1C1C1E' : '#F8F9FA';
-  const textColor = darkMode ? '#FFFFFF' : '#333';
-  const cardColor = darkMode ? '#2C2C2E' : '#FFF';
-  const borderColor = darkMode ? '#555555' : '#E0E0E0';
-  const placeholderColor = darkMode ? '#888888' : '#666';
+  function dismissKeyboard() {
+    Keyboard.dismiss()
+  }
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.itemContainer, { backgroundColor: cardColor }]}
-      onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: item.id })}
-    >
-      <Text style={[styles.itemName, { color: textColor }]}>{item.name}</Text>
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color={darkMode ? '#ccc' : '#666'}
-      />
-    </TouchableOpacity>
-  );
+  function renderItem({ item }) {
+    return (
+      <TouchableOpacity
+        style={[styles.itemContainer, { backgroundColor: cardColor }]}
+        onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: item.id })}
+      >
+        <Text style={[styles.itemName, { color: textColor }]}>{item.name}</Text>
+        <Ionicons name="chevron-forward" size={20} color={darkMode ? '#ccc' : '#666'} />
+      </TouchableOpacity>
+    )
+  }
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
-      <Text style={[styles.title, { color: textColor }]}>All Exercises</Text>
+    <TouchableWithoutFeedback onPress={dismissKeyboard} accessible={false}>
+      <KeyboardAvoidingView
+        style={[styles.container, { backgroundColor }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <Text style={[styles.title, { color: textColor }]}>All Exercises</Text>
+          <View style={[styles.searchContainer, { borderColor, backgroundColor: cardColor }]}>
+            <Ionicons name="search" size={20} color={placeholderColor} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { color: textColor }]}
+              placeholder="Search exercises..."
+              placeholderTextColor={placeholderColor}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+          <Text style={[styles.filterLabel, { color: textColor }]}>Filter by Muscle</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {muscleGroupOptions.map(opt => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: selectedMuscle === opt.value ? '#007AFF' : cardColor,
+                    borderColor
+                  }
+                ]}
+                onPress={() => setSelectedMuscle(opt.value)}
+              >
+                <Text
+                  style={{
+                    color: selectedMuscle === opt.value ? '#FFF' : textColor
+                  }}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
 
-      {/* Search */}
-      <View style={[styles.searchContainer, { borderColor, backgroundColor: cardColor }]}>
-        <Ionicons
-          name="search"
-          size={20}
-          color={placeholderColor}
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={[styles.searchInput, { color: textColor }]}
-          placeholder="Search exercises..."
-          placeholderTextColor={placeholderColor}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
+          <Text style={[styles.filterLabel, { color: textColor }]}>Filter by Type</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {exerciseTypeOptions.map(opt => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: selectedType === opt.value ? '#007AFF' : cardColor,
+                    borderColor
+                  }
+                ]}
+                onPress={() => setSelectedType(opt.value)}
+              >
+                <Text
+                  style={{
+                    color: selectedType === opt.value ? '#FFF' : textColor
+                  }}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
 
-      {/* Filter by muscle group */}
-      <View style={[styles.filterRow]}>
-        <Picker
-          style={[styles.filterPicker, { color: textColor }]}
-          selectedValue={selectedMuscle}
-          onValueChange={(val) => setSelectedMuscle(val)}
-        >
-          {muscleGroupOptions.map((opt) => (
-            <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
-          ))}
-        </Picker>
-        <Picker
-          style={[styles.filterPicker, { color: textColor }]}
-          selectedValue={selectedType}
-          onValueChange={(val) => setSelectedType(val)}
-        >
-          {exerciseTypeOptions.map((opt) => (
-            <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
-          ))}
-        </Picker>
-      </View>
-
-      <FlatList
-        data={filteredExercises}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-      />
-    </View>
-  );
+          <FlatList
+            data={filteredExercises}
+            keyExtractor={item => item.id}
+            renderItem={renderItem}
+            style={{ marginTop: 16 }}
+            contentContainerStyle={{ paddingBottom: 50 }}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
+  )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 50, paddingHorizontal: 16 },
+  container: {
+    flex: 1
+  },
+  scrollContent: {
+    padding: 16,
+    paddingTop: 60
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -132,7 +176,19 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1 },
-  listContent: { paddingBottom: 20 },
+  filterLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8
+  },
+  chip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginRight: 8,
+    marginBottom: 12
+  },
   itemContainer: {
     padding: 16,
     borderRadius: 8,
@@ -142,14 +198,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 2
   },
-  itemName: { fontSize: 16 },
-  filterRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    justifyContent: 'space-between'
-  },
-  filterPicker: {
-    flex: 1,
-    marginHorizontal: 4,
-  },
-});
+  itemName: {
+    fontSize: 16
+  }
+})
