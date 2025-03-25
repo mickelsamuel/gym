@@ -73,5 +73,30 @@
     "id": "upperBack",
     "name": "Upper Back",
     "color": "#7D3C98"
+  },
+  {
+    "id": "obliques",
+    "name": "Obliques",
+    "color": "#16A085"
+  },
+  {
+    "id": "adductors",
+    "name": "Adductors",
+    "color": "#F44336"
+  },
+  {
+    "id": "abductors",
+    "name": "Abductors",
+    "color": "#9C27B0"
+  },
+  {
+    "id": "traps",
+    "name": "Trapezius",
+    "color": "#34495E"
+  },
+  {
+    "id": "neck",
+    "name": "Neck",
+    "color": "#2E4053"
   }
 ]

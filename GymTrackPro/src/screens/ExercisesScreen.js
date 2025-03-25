@@ -1,18 +1,46 @@
-// ExercisesScreen.js
+// screens/ExercisesScreen.js
 import React, { useContext, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Picker } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { ExerciseContext } from '../context/ExerciseContext';
+
+// We can use a multi-select or dropdown for muscle group + exercise type
+const muscleGroupOptions = [
+  { label: 'All Muscles', value: '' },
+  { label: 'Chest', value: 'chest' },
+  { label: 'Back', value: 'back' },
+  { label: 'Legs', value: 'legs' },
+  // ... you can add more
+];
+
+const exerciseTypeOptions = [
+  { label: 'All Types', value: '' },
+  { label: 'Gym', value: 'gym' },
+  { label: 'Dumbbell', value: 'dumbbell' },
+  { label: 'Bodyweight', value: 'bodyweight' }
+];
 
 export default function ExercisesScreen() {
   const navigation = useNavigation();
   const { getAllExercises, darkMode } = useContext(ExerciseContext);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMuscle, setSelectedMuscle] = useState('');
+  const [selectedType, setSelectedType] = useState('');
+
   const allExercises = getAllExercises();
-  const filteredExercises = allExercises.filter((ex) =>
-    ex.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+
+  // Filter by name, muscle, type
+  const filteredExercises = allExercises.filter((ex) => {
+    const matchName = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchType = selectedType ? ex.type === selectedType : true;
+    const matchMuscle =
+      selectedMuscle
+        ? (ex.primaryMuscles.includes(selectedMuscle) || ex.secondaryMuscles.includes(selectedMuscle))
+        : true;
+    return matchName && matchType && matchMuscle;
+  });
+
   const backgroundColor = darkMode ? '#1C1C1E' : '#F8F9FA';
   const textColor = darkMode ? '#FFFFFF' : '#333';
   const cardColor = darkMode ? '#2C2C2E' : '#FFF';
@@ -36,6 +64,8 @@ export default function ExercisesScreen() {
   return (
     <View style={[styles.container, { backgroundColor }]}>
       <Text style={[styles.title, { color: textColor }]}>All Exercises</Text>
+
+      {/* Search */}
       <View style={[styles.searchContainer, { borderColor, backgroundColor: cardColor }]}>
         <Ionicons
           name="search"
@@ -51,6 +81,29 @@ export default function ExercisesScreen() {
           onChangeText={setSearchQuery}
         />
       </View>
+
+      {/* Filter by muscle group */}
+      <View style={[styles.filterRow]}>
+        <Picker
+          style={[styles.filterPicker, { color: textColor }]}
+          selectedValue={selectedMuscle}
+          onValueChange={(val) => setSelectedMuscle(val)}
+        >
+          {muscleGroupOptions.map((opt) => (
+            <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
+          ))}
+        </Picker>
+        <Picker
+          style={[styles.filterPicker, { color: textColor }]}
+          selectedValue={selectedType}
+          onValueChange={(val) => setSelectedType(val)}
+        >
+          {exerciseTypeOptions.map((opt) => (
+            <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
+          ))}
+        </Picker>
+      </View>
+
       <FlatList
         data={filteredExercises}
         keyExtractor={(item) => item.id}
@@ -62,11 +115,7 @@ export default function ExercisesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: 50,
-    paddingHorizontal: 16
-  },
+  container: { flex: 1, paddingTop: 50, paddingHorizontal: 16 },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -81,15 +130,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 40
   },
-  searchIcon: {
-    marginRight: 8
-  },
-  searchInput: {
-    flex: 1
-  },
-  listContent: {
-    paddingBottom: 20
-  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1 },
+  listContent: { paddingBottom: 20 },
   itemContainer: {
     padding: 16,
     borderRadius: 8,
@@ -97,13 +140,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
     elevation: 2
   },
-  itemName: {
-    fontSize: 16
-  }
+  itemName: { fontSize: 16 },
+  filterRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    justifyContent: 'space-between'
+  },
+  filterPicker: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
 });

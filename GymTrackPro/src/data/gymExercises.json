@@ -84,7 +84,6 @@
     ],
     "weightUnit": "lbs"
   },
-
   {
     "id": "gym_006",
     "name": "Incline Barbell Bench Press",
@@ -153,7 +152,6 @@
     ],
     "weightUnit": "lbs"
   },
-
   {
     "id": "gym_010",
     "name": "Leg Curl",
@@ -253,6 +251,74 @@
       { "goal": "hypertrophy", "sets": 3, "minReps": 8, "maxReps": 12, "restSeconds": 60 },
       { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
       { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "gym_016",
+    "name": "Kettlebell Swing",
+    "category": "Full Body",
+    "type": "gym",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["glutes", "hamstrings"],
+    "secondaryMuscles": ["lowerBack", "shoulders", "core"],
+    "instructions": "Stand with feet shoulder-width apart, holding a kettlebell with both hands. Hinge at the hips to swing it back, then drive your hips forward to swing it up to chest level. Let it fall back and repeat.",
+    "repRanges": [
+      { "goal": "strength", "sets": 5, "minReps": 5, "maxReps": 6, "restSeconds": 60 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 8, "maxReps": 10, "restSeconds": 45 },
+      { "goal": "endurance", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 10, "maxReps": 15, "restSeconds": 30 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "gym_017",
+    "name": "Kettlebell Goblet Squat",
+    "category": "Legs",
+    "type": "gym",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["legs", "glutes"],
+    "secondaryMuscles": ["core"],
+    "instructions": "Hold the kettlebell at chest height by the horns. Keep your torso upright as you squat down, then drive through your heels to stand.",
+    "repRanges": [
+      { "goal": "strength", "sets": 5, "minReps": 5, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 8, "maxReps": 10, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 10, "maxReps": 12, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "gym_018",
+    "name": "Turkish Get-Up",
+    "category": "Full Body",
+    "type": "gym",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["core", "shoulders"],
+    "secondaryMuscles": ["legs", "glutes"],
+    "instructions": "Lie on your back holding a kettlebell or dumbbell overhead with one arm. Stand up step by step while keeping the weight overhead, then reverse the movement to the floor. Keep eyes on the weight and core tight.",
+    "repRanges": [
+      { "goal": "strength", "sets": 3, "minReps": 3, "maxReps": 5, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 3, "minReps": 5, "maxReps": 7, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 2, "minReps": 8, "maxReps": 10, "restSeconds": 45 },
+      { "goal": "tone", "sets": 2, "minReps": 6, "maxReps": 8, "restSeconds": 45 }
+    ],
+    "weightUnit": "lbs"
+  },
+  {
+    "id": "gym_019",
+    "name": "Smith Machine Shoulder Press",
+    "category": "Shoulders",
+    "type": "gym",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["shoulders"],
+    "secondaryMuscles": ["triceps"],
+    "instructions": "Set the bar on the Smith machine at shoulder level. Grip the bar slightly wider than shoulder-width. Press it overhead until arms are extended, then lower back to shoulder height.",
+    "repRanges": [
+      { "goal": "strength", "sets": 4, "minReps": 4, "maxReps": 6, "restSeconds": 90 },
+      { "goal": "hypertrophy", "sets": 3, "minReps": 8, "maxReps": 10, "restSeconds": 60 },
+      { "goal": "endurance", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 45 },
+      { "goal": "tone", "sets": 3, "minReps": 10, "maxReps": 12, "restSeconds": 45 }
     ],
     "weightUnit": "lbs"
   }

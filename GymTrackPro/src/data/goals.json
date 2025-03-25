@@ -26,5 +26,19 @@
     "description": "Achieve a lean, defined look with moderate weights and reps.",
     "nutritionTips": "Focus on a slight caloric deficit, high protein, and consistent workouts.",
     "recommendedExerciseTypes": ["gym", "dumbbell", "bodyweight"]
+  },
+  {
+    "id": "fatLoss",
+    "name": "Fat Loss",
+    "description": "Emphasize calorie-burning workouts and a caloric deficit to lose body fat.",
+    "nutritionTips": "Stay in a moderate calorie deficit with high protein and vegetables. Maintain resistance training to preserve lean mass.",
+    "recommendedExerciseTypes": ["bodyweight", "gym", "dumbbell", "cardio"]
+  },
+  {
+    "id": "conditioning",
+    "name": "Conditioning",
+    "description": "Combine cardio and functional training to improve overall athletic performance.",
+    "nutritionTips": "Aim for balanced macros with enough carbs to support high-intensity intervals. Stay hydrated.",
+    "recommendedExerciseTypes": ["gym", "bodyweight", "cardio"]
   }
 ]

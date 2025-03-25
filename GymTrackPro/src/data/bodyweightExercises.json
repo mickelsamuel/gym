@@ -84,7 +84,6 @@
     ],
     "weightUnit": "bodyweight"
   },
-
   {
     "id": "bw_006",
     "name": "Chin-Up",
@@ -252,6 +251,74 @@
       { "goal": "hypertrophy", "sets": 4, "minReps": 6, "maxReps": 8, "restSeconds": 60 },
       { "goal": "endurance", "sets": 3, "minReps": 10, "maxReps": 12, "restSeconds": 45 },
       { "goal": "tone", "sets": 3, "minReps": 10, "maxReps": 12, "restSeconds": 45 }
+    ],
+    "weightUnit": "bodyweight"
+  },
+  {
+    "id": "bw_016",
+    "name": "Single-Leg Hip Thrust",
+    "category": "Glutes",
+    "type": "bodyweight",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["glutes", "hamstrings"],
+    "secondaryMuscles": ["core"],
+    "instructions": "Rest your upper back on a bench or step. With one foot on the floor, lift your hips by driving through the heel, extending the hips fully. Keep the other leg raised. Lower hips under control and repeat.",
+    "repRanges": [
+      { "goal": "strength", "sets": 4, "minReps": 8, "maxReps": 10, "restSeconds": 60 },
+      { "goal": "hypertrophy", "sets": 4, "minReps": 12, "maxReps": 15, "restSeconds": 45 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 30 }
+    ],
+    "weightUnit": "bodyweight"
+  },
+  {
+    "id": "bw_017",
+    "name": "Superman",
+    "category": "Back",
+    "type": "bodyweight",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["lowerBack"],
+    "secondaryMuscles": ["glutes", "core"],
+    "instructions": "Lie face down on the floor with arms extended. Simultaneously lift your arms, chest, and legs off the ground, squeezing your lower back and glutes. Hold briefly, then lower back down.",
+    "repRanges": [
+      { "goal": "strength", "sets": 3, "minReps": 8, "maxReps": 10, "restSeconds": 45 },
+      { "goal": "hypertrophy", "sets": 3, "minReps": 10, "maxReps": 12, "restSeconds": 45 },
+      { "goal": "endurance", "sets": 3, "minReps": 15, "maxReps": 20, "restSeconds": 30 },
+      { "goal": "tone", "sets": 3, "minReps": 12, "maxReps": 15, "restSeconds": 30 }
+    ],
+    "weightUnit": "bodyweight"
+  },
+  {
+    "id": "bw_018",
+    "name": "Bear Crawl",
+    "category": "Full Body",
+    "type": "bodyweight",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["shoulders", "core", "legs"],
+    "secondaryMuscles": ["back", "hipFlexors"],
+    "instructions": "Start on all fours with knees slightly off the ground. Move forward by simultaneously stepping your right hand and left foot, then left hand and right foot, keeping your hips low and core braced.",
+    "repRanges": [
+      { "goal": "strength", "sets": 3, "minReps": 20, "maxReps": 30, "restSeconds": 60 },
+      { "goal": "hypertrophy", "sets": 3, "minReps": 30, "maxReps": 40, "restSeconds": 45 },
+      { "goal": "endurance", "sets": 2, "minReps": 50, "maxReps": 60, "restSeconds": 30 },
+      { "goal": "tone", "sets": 2, "minReps": 40, "maxReps": 50, "restSeconds": 30 }
+    ],
+    "weightUnit": "bodyweight"
+  },
+  {
+    "id": "bw_019",
+    "name": "Hollow Body Hold",
+    "category": "Core",
+    "type": "bodyweight",
+    "imageUri": "https://via.placeholder.com/300",
+    "primaryMuscles": ["core"],
+    "secondaryMuscles": ["hipFlexors"],
+    "instructions": "Lie on your back, press your lower back into the floor, then lift legs and shoulders off the ground, arms overhead. Keep your core tight and hold this hollow position without letting your back arch.",
+    "repRanges": [
+      { "goal": "strength", "sets": 3, "minReps": 20, "maxReps": 30, "restSeconds": 45 },
+      { "goal": "hypertrophy", "sets": 3, "minReps": 30, "maxReps": 40, "restSeconds": 30 },
+      { "goal": "endurance", "sets": 2, "minReps": 40, "maxReps": 60, "restSeconds": 30 },
+      { "goal": "tone", "sets": 2, "minReps": 30, "maxReps": 40, "restSeconds": 30 }
     ],
     "weightUnit": "bodyweight"
   }
