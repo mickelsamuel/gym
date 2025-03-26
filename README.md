@@ -172,37 +172,37 @@ GymTrackPro/
 ## Screenshots
 
 ### Login Screen
-![Login](./screenshots/login.PNG)
+<img src="./screenshots/login.PNG" width="300"/>
 
 ### Sign Up Screen
-![Sign Up](./screenshots/singup.PNG)
+<img src="./screenshots/singup.PNG" width="300"/>
 
 ### Home Tab
-![Home Tab](./screenshots/hometab.PNG)
+<img src="./screenshots/hometab.PNG" width="300"/>
 
 ### Exercises Tab
-![Exercises Tab](./screenshots/exercisestab.PNG)
+<img src="./screenshots/exercisestab.PNG" width="300"/>
 
 ### Workout Tab
-![Workout Tab](./screenshots/workouttab.PNG)
+<img src="./screenshots/workouttab.PNG" width="300"/>
 
 ### Logging a Workout
-![Log Workout](./screenshots/logworkout.PNG)
+<img src="./screenshots/logworkout.PNG" width="300"/>
 
 ### Profile Tab
-![Profile Tab](./screenshots/profiletab.PNG)
+<img src="./screenshots/profiletab.PNG" width="300"/>
 
 ### Reset Password
-![Reset Password](./screenshots/resetpassword.PNG)
+<img src="./screenshots/resetpassword.PNG" width="300"/>
 
 ### Social Tab
-![Social Tab](./screenshots/socialtab.PNG)
+<img src="./screenshots/socialtab.PNG" width="300"/>
 
 ### Workout Detail (Example 1)
-![Workout Detail 1](./screenshots/workoutdetial1.PNG)
+<img src="./screenshots/workoutdetial1.PNG" width="300"/>
 
 ### Workout Detail (Example 2)
-![Workout Detail 2](./screenshots/workoutdetial2.PNG)
+<img src="./screenshots/workoutdetial2.PNG" width="300"/>
 
 ---
 
