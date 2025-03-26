@@ -1,7 +1,7 @@
 // context/ExerciseContext.js
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import gymExercises from '../data/gymExercises.json';
+import gymExercises from "../data/gymExercises";
 import dumbbellExercises from '../data/dumbbellExercises.json';
 import bodyweightExercises from '../data/bodyweightExercises.json';
 import muscleGroups from '../data/muscleGroups.json';

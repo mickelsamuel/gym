@@ -150,7 +150,7 @@ export default function ExerciseDetailScreen() {
             />
           </TouchableOpacity>
         </View>
-        <Image source={{ uri: exercise.imageUri || 'https://via.placeholder.com/300' }} style={styles.exerciseImage} />
+        <Image source={exercise.image || require('../images/barbell-bench-press.png')} style={styles.exerciseImage} />
         <View style={styles.infoContainer}>
           <Text style={[styles.exerciseName, { color: textColor }]}>{exercise.name}</Text>
           <Text style={[styles.exerciseCategory, { color: darkMode ? '#ccc' : '#666' }]}>{exercise.category}</Text>
