@@ -1,11 +1,12 @@
 // data/dumbbellExercises.js
+
 const dumbbellExercises = [
   {
     id: "db_001",
     name: "Dumbbell Shoulder Press",
     category: "Shoulders",
     type: "dumbbell",
-    image: require("../images/dumbbell_shoulder_press.png"),
+    image: null,
     primaryMuscles: ["shoulders"],
     secondaryMuscles: ["triceps"],
     instructions:
@@ -23,7 +24,7 @@ const dumbbellExercises = [
     name: "Dumbbell Curl",
     category: "Arms",
     type: "dumbbell",
-    image: require("../images/dumbbell_curl.png"),
+    image: null,
     primaryMuscles: ["biceps"],
     secondaryMuscles: [],
     instructions:
@@ -41,7 +42,7 @@ const dumbbellExercises = [
     name: "Dumbbell Row",
     category: "Back",
     type: "dumbbell",
-    image: require("../images/dumbbell_row.png"),
+    image: null,
     primaryMuscles: ["lats", "back"],
     secondaryMuscles: ["biceps", "shoulders"],
     instructions:
@@ -59,7 +60,7 @@ const dumbbellExercises = [
     name: "Dumbbell Bench Press",
     category: "Chest",
     type: "dumbbell",
-    image: require("../images/dumbbell_bench_press.png"),
+    image: null,
     primaryMuscles: ["chest"],
     secondaryMuscles: ["triceps", "shoulders"],
     instructions:
@@ -77,7 +78,7 @@ const dumbbellExercises = [
     name: "Incline Dumbbell Press",
     category: "Chest",
     type: "dumbbell",
-    image: require("../images/dumbbell_incline_press.png"),
+    image: null,
     primaryMuscles: ["chest"],
     secondaryMuscles: ["shoulders", "triceps"],
     instructions:
@@ -95,7 +96,7 @@ const dumbbellExercises = [
     name: "Incline Dumbbell Fly",
     category: "Chest",
     type: "dumbbell",
-    image: require("../images/dumbbell_incline_fly.png"),
+    image: null,
     primaryMuscles: ["chest"],
     secondaryMuscles: ["shoulders"],
     instructions:
@@ -113,7 +114,7 @@ const dumbbellExercises = [
     name: "Dumbbell Lunge",
     category: "Legs",
     type: "dumbbell",
-    image: require("../images/dumbbell_lunge.png"),
+    image: null,
     primaryMuscles: ["legs"],
     secondaryMuscles: ["glutes", "core"],
     instructions:
@@ -131,7 +132,7 @@ const dumbbellExercises = [
     name: "Dumbbell Fly",
     category: "Chest",
     type: "dumbbell",
-    image: require("../images/dumbbell_fly.png"),
+    image: null,
     primaryMuscles: ["chest"],
     secondaryMuscles: ["shoulders"],
     instructions:
@@ -149,7 +150,7 @@ const dumbbellExercises = [
     name: "Hammer Curl",
     category: "Arms",
     type: "dumbbell",
-    image: require("../images/hammer_curl.png"),
+    image: null,
     primaryMuscles: ["biceps", "forearms"],
     secondaryMuscles: [],
     instructions:
@@ -167,7 +168,7 @@ const dumbbellExercises = [
     name: "Dumbbell Skull Crusher",
     category: "Arms",
     type: "dumbbell",
-    image: require("../images/dumbbell_skull_crusher.png"),
+    image: null,
     primaryMuscles: ["triceps"],
     secondaryMuscles: [],
     instructions:
@@ -185,7 +186,7 @@ const dumbbellExercises = [
     name: "Dumbbell Triceps Kickback",
     category: "Arms",
     type: "dumbbell",
-    image: require("../images/dumbbell_triceps_kickback.png"),
+    image: null,
     primaryMuscles: ["triceps"],
     secondaryMuscles: ["shoulders"],
     instructions:
@@ -203,7 +204,7 @@ const dumbbellExercises = [
     name: "Dumbbell Lateral Raise",
     category: "Shoulders",
     type: "dumbbell",
-    image: require("../images/dumbbell_lateral_raise.png"),
+    image: null,
     primaryMuscles: ["shoulders"],
     secondaryMuscles: [],
     instructions:
@@ -221,7 +222,7 @@ const dumbbellExercises = [
     name: "Dumbbell Front Raise",
     category: "Shoulders",
     type: "dumbbell",
-    image: require("../images/dumbbell_front_raise.png"),
+    image: null,
     primaryMuscles: ["shoulders"],
     secondaryMuscles: [],
     instructions:
@@ -239,7 +240,7 @@ const dumbbellExercises = [
     name: "Goblet Squat",
     category: "Legs",
     type: "dumbbell",
-    image: require("../images/goblet_squat.png"),
+    image: null,
     primaryMuscles: ["legs", "glutes"],
     secondaryMuscles: ["core"],
     instructions:
@@ -257,7 +258,7 @@ const dumbbellExercises = [
     name: "Dumbbell Step-Up",
     category: "Legs",
     type: "dumbbell",
-    image: require("../images/dumbbell_step_up.png"),
+    image: null,
     primaryMuscles: ["legs", "glutes"],
     secondaryMuscles: ["core"],
     instructions:
@@ -275,7 +276,7 @@ const dumbbellExercises = [
     name: "Dumbbell Calf Raise",
     category: "Legs",
     type: "dumbbell",
-    image: require("../images/dumbbell_calf_raise.png"),
+    image: null,
     primaryMuscles: ["calves"],
     secondaryMuscles: [],
     instructions:
@@ -293,7 +294,7 @@ const dumbbellExercises = [
     name: "Dumbbell Romanian Deadlift",
     category: "Legs",
     type: "dumbbell",
-    image: require("../images/dumbbell_romanian_deadlift.png"),
+    image: null,
     primaryMuscles: ["hamstrings", "glutes"],
     secondaryMuscles: ["lowerBack"],
     instructions:
@@ -311,7 +312,7 @@ const dumbbellExercises = [
     name: "Dumbbell Bulgarian Split Squat",
     category: "Legs",
     type: "dumbbell",
-    image: require("../images/dumbbell_bulgarian_split_squat.png"),
+    image: null,
     primaryMuscles: ["legs", "glutes"],
     secondaryMuscles: ["core"],
     instructions:
@@ -329,7 +330,7 @@ const dumbbellExercises = [
     name: "Dumbbell Farmer's Walk",
     category: "Full Body",
     type: "dumbbell",
-    image: require("../images/dumbbell_farmers_walk.png"),
+    image: null,
     primaryMuscles: ["forearms", "core"],
     secondaryMuscles: ["shoulders", "legs"],
     instructions:
@@ -347,7 +348,7 @@ const dumbbellExercises = [
     name: "Dumbbell Thruster",
     category: "Full Body",
     type: "dumbbell",
-    image: require("../images/dumbbell_thruster.png"),
+    image: null,
     primaryMuscles: ["legs", "shoulders"],
     secondaryMuscles: ["core", "triceps"],
     instructions:
@@ -365,7 +366,7 @@ const dumbbellExercises = [
     name: "Dumbbell Snatch",
     category: "Full Body",
     type: "dumbbell",
-    image: require("../images/dumbbell_snatch.png"),
+    image: null,
     primaryMuscles: ["legs", "shoulders", "back"],
     secondaryMuscles: ["core", "traps"],
     instructions:
@@ -383,7 +384,7 @@ const dumbbellExercises = [
     name: "Dumbbell Upright Row",
     category: "Shoulders",
     type: "dumbbell",
-    image: require("../images/dumbbell_upright_row.png"),
+    image: null,
     primaryMuscles: ["shoulders", "trapezius"],
     secondaryMuscles: ["biceps"],
     instructions:
@@ -401,7 +402,7 @@ const dumbbellExercises = [
     name: "Dumbbell Reverse Fly",
     category: "Shoulders",
     type: "dumbbell",
-    image: require("../images/dumbbell_reverse_fly.png"),
+    image: null,
     primaryMuscles: ["rearDelts"],
     secondaryMuscles: ["upperBack"],
     instructions:
@@ -411,6 +412,42 @@ const dumbbellExercises = [
       { goal: "hypertrophy", sets: 3, minReps: 8, maxReps: 10, restSeconds: 45 },
       { goal: "endurance", sets: 3, minReps: 10, maxReps: 12, restSeconds: 30 },
       { goal: "tone", sets: 3, minReps: 8, maxReps: 10, restSeconds: 30 }
+    ],
+    weightUnit: "lbs"
+  },
+  {
+    id: "db_024",
+    name: "Dumbbell Pullover",
+    category: "Chest",
+    type: "dumbbell",
+    image: null,
+    primaryMuscles: ["chest", "lats"],
+    secondaryMuscles: ["triceps", "core"],
+    instructions:
+      "Lie on a bench with a dumbbell held over your chest. Keeping your arms slightly bent, lower the weight behind your head until you feel a stretch, then pull it back over your chest.",
+    repRanges: [
+      { goal: "strength", sets: 4, minReps: 6, maxReps: 8, restSeconds: 90 },
+      { goal: "hypertrophy", sets: 4, minReps: 8, maxReps: 12, restSeconds: 60 },
+      { goal: "endurance", sets: 3, minReps: 12, maxReps: 15, restSeconds: 45 },
+      { goal: "tone", sets: 3, minReps: 10, maxReps: 12, restSeconds: 45 }
+    ],
+    weightUnit: "lbs"
+  },
+  {
+    id: "db_025",
+    name: "Decline Dumbbell Press",
+    category: "Chest",
+    type: "dumbbell",
+    image: null,
+    primaryMuscles: ["chest"],
+    secondaryMuscles: ["triceps", "shoulders"],
+    instructions:
+      "Lie on a decline bench with a dumbbell in each hand. Press the weights upward until arms are extended, then lower them slowly.",
+    repRanges: [
+      { goal: "strength", sets: 5, minReps: 3, maxReps: 5, restSeconds: 90 },
+      { goal: "hypertrophy", sets: 4, minReps: 8, maxReps: 12, restSeconds: 60 },
+      { goal: "endurance", sets: 3, minReps: 12, maxReps: 15, restSeconds: 30 },
+      { goal: "tone", sets: 3, minReps: 10, maxReps: 12, restSeconds: 45 }
     ],
     weightUnit: "lbs"
   }

@@ -1,11 +1,12 @@
 // data/gymExercises.js
+
 const gymExercises = [
   {
     id: "gym_001",
     name: "Barbell Bench Press",
     category: "Chest",
     type: "gym",
-    image: require("../images/barbell_bench_press.png"),
+    image: null,
     primaryMuscles: ["chest"],
     secondaryMuscles: ["triceps", "shoulders"],
     instructions:
@@ -23,7 +24,7 @@ const gymExercises = [
     name: "Barbell Squat",
     category: "Legs",
     type: "gym",
-    image: require("../images/barbell_squat.png"),
+    image: null,
     primaryMuscles: ["legs"],
     secondaryMuscles: ["glutes", "core"],
     instructions:
@@ -41,7 +42,7 @@ const gymExercises = [
     name: "Deadlift",
     category: "Back/Legs",
     type: "gym",
-    image: require("../images/deadlift.png"),
+    image: null,
     primaryMuscles: ["back", "legs"],
     secondaryMuscles: ["glutes", "core"],
     instructions:
@@ -59,9 +60,8 @@ const gymExercises = [
     name: "Overhead Press",
     category: "Shoulders",
     type: "gym",
-    image: require("../images/overhead_press.png"),
+    image: null,
     primaryMuscles: ["shoulders"],
-    // Changed secondary from "upperChest" to "chest" to match muscleGroups
     secondaryMuscles: ["triceps", "chest"],
     instructions:
       "Stand with a barbell at shoulder height. Press the bar overhead until your arms are fully extended, then lower it back to shoulder height.",
@@ -78,7 +78,7 @@ const gymExercises = [
     name: "Barbell Row",
     category: "Back",
     type: "gym",
-    image: require("../images/barbell_row.png"),
+    image: null,
     primaryMuscles: ["back"],
     secondaryMuscles: ["biceps", "shoulders"],
     instructions:
@@ -96,7 +96,7 @@ const gymExercises = [
     name: "Lat Pulldown",
     category: "Back",
     type: "gym",
-    image: require("../images/lat_pulldown.png"),
+    image: null,
     primaryMuscles: ["lats"],
     secondaryMuscles: ["biceps", "upperBack"],
     instructions:
@@ -114,7 +114,7 @@ const gymExercises = [
     name: "Leg Press",
     category: "Legs",
     type: "gym",
-    image: require("../images/leg_press.png"),
+    image: null,
     primaryMuscles: ["legs"],
     secondaryMuscles: ["glutes"],
     instructions:
@@ -132,7 +132,7 @@ const gymExercises = [
     name: "Leg Extension",
     category: "Legs",
     type: "gym",
-    image: require("../images/leg_extension.png"),
+    image: null,
     primaryMuscles: ["legs"],
     secondaryMuscles: [],
     instructions:
@@ -150,9 +150,9 @@ const gymExercises = [
     name: "Leg Curl",
     category: "Legs",
     type: "gym",
-    image: require("../images/leg_curl.png"),
-    primaryMuscles: ["legs"],
-    secondaryMuscles: ["hamstrings"],
+    image: null,
+    primaryMuscles: ["legs", "hamstrings"],
+    secondaryMuscles: [],
     instructions:
       "Lie face down on a leg curl machine with the pad against your calves. Curl your legs upward, then slowly lower them back down.",
     repRanges: [
@@ -168,7 +168,7 @@ const gymExercises = [
     name: "Cable Fly",
     category: "Chest",
     type: "gym",
-    image: require("../images/cable_fly.png"),
+    image: null,
     primaryMuscles: ["chest"],
     secondaryMuscles: ["shoulders"],
     instructions:
@@ -186,7 +186,7 @@ const gymExercises = [
     name: "Seated Cable Row",
     category: "Back",
     type: "gym",
-    image: require("../images/seated_cable_row.png"),
+    image: null,
     primaryMuscles: ["back"],
     secondaryMuscles: ["biceps", "shoulders"],
     instructions:
@@ -204,7 +204,7 @@ const gymExercises = [
     name: "Smith Machine Squat",
     category: "Legs",
     type: "gym",
-    image: require("../images/smith_machine_squat.png"),
+    image: null,
     primaryMuscles: ["legs"],
     secondaryMuscles: ["glutes"],
     instructions:
@@ -222,7 +222,7 @@ const gymExercises = [
     name: "Cable Bicep Curl",
     category: "Arms",
     type: "gym",
-    image: require("../images/cable_bicep_curl.png"),
+    image: null,
     primaryMuscles: ["biceps"],
     secondaryMuscles: [],
     instructions:
@@ -240,7 +240,7 @@ const gymExercises = [
     name: "Cable Triceps Pushdown",
     category: "Arms",
     type: "gym",
-    image: require("../images/cable_triceps_pushdown.png"),
+    image: null,
     primaryMuscles: ["triceps"],
     secondaryMuscles: [],
     instructions:
@@ -258,7 +258,7 @@ const gymExercises = [
     name: "Pec Deck Machine",
     category: "Chest",
     type: "gym",
-    image: require("../images/pec_deck_machine.png"),
+    image: null,
     primaryMuscles: ["chest"],
     secondaryMuscles: ["shoulders"],
     instructions:
@@ -276,7 +276,7 @@ const gymExercises = [
     name: "Assisted Pull-Up Machine",
     category: "Back",
     type: "gym",
-    image: require("../images/assisted_pull_up.png"),
+    image: null,
     primaryMuscles: ["lats"],
     secondaryMuscles: ["biceps", "shoulders"],
     instructions:
@@ -294,7 +294,7 @@ const gymExercises = [
     name: "Chest Press Machine",
     category: "Chest",
     type: "gym",
-    image: require("../images/chest_press_machine.png"),
+    image: null,
     primaryMuscles: ["chest"],
     secondaryMuscles: ["triceps", "shoulders"],
     instructions:
@@ -312,7 +312,7 @@ const gymExercises = [
     name: "Seated Dumbbell Shoulder Press",
     category: "Shoulders",
     type: "gym",
-    image: require("../images/seated_dumbbell_shoulder_press.png"),
+    image: null,
     primaryMuscles: ["shoulders"],
     secondaryMuscles: ["triceps"],
     instructions:
@@ -330,7 +330,7 @@ const gymExercises = [
     name: "Abdominal Crunch Machine",
     category: "Core",
     type: "gym",
-    image: require("../images/abdominal_crunch_machine.png"),
+    image: null,
     primaryMuscles: ["core"],
     secondaryMuscles: [],
     instructions:
@@ -348,7 +348,7 @@ const gymExercises = [
     name: "Calf Raise Machine",
     category: "Legs",
     type: "gym",
-    image: require("../images/calf_raise_machine.png"),
+    image: null,
     primaryMuscles: ["calves"],
     secondaryMuscles: [],
     instructions:
@@ -358,6 +358,132 @@ const gymExercises = [
       { goal: "hypertrophy", sets: 4, minReps: 10, maxReps: 12, restSeconds: 45 },
       { goal: "endurance", sets: 3, minReps: 15, maxReps: 20, restSeconds: 30 },
       { goal: "tone", sets: 3, minReps: 12, maxReps: 15, restSeconds: 30 }
+    ],
+    weightUnit: "lbs"
+  },
+  {
+    id: "gym_021",
+    name: "Bicep 21",
+    category: "Arms",
+    type: "gym",
+    image: null,
+    primaryMuscles: ["biceps"],
+    secondaryMuscles: [],
+    instructions:
+      "Hold a barbell or EZ bar with an underhand grip. Perform 7 reps in the bottom half of the range, 7 reps in the top half, and 7 reps through the full range for a total of 21 reps.",
+    repRanges: [
+      { goal: "strength", sets: 3, minReps: 21, maxReps: 21, restSeconds: 90 },
+      { goal: "hypertrophy", sets: 3, minReps: 21, maxReps: 21, restSeconds: 60 },
+      { goal: "endurance", sets: 2, minReps: 21, maxReps: 21, restSeconds: 45 },
+      { goal: "tone", sets: 2, minReps: 21, maxReps: 21, restSeconds: 45 }
+    ],
+    weightUnit: "lbs"
+  },
+  {
+    id: "gym_022",
+    name: "Machine Bicep Curl",
+    category: "Arms",
+    type: "gym",
+    image: null,
+    primaryMuscles: ["biceps"],
+    secondaryMuscles: [],
+    instructions:
+      "Sit at a bicep curl machine with your arms on the pad. Curl the handles upward by bending your elbows, then lower slowly.",
+    repRanges: [
+      { goal: "strength", sets: 4, minReps: 5, maxReps: 7, restSeconds: 60 },
+      { goal: "hypertrophy", sets: 4, minReps: 8, maxReps: 10, restSeconds: 45 },
+      { goal: "endurance", sets: 3, minReps: 12, maxReps: 15, restSeconds: 30 },
+      { goal: "tone", sets: 3, minReps: 10, maxReps: 12, restSeconds: 45 }
+    ],
+    weightUnit: "lbs"
+  },
+  {
+    id: "gym_023",
+    name: "Cable Rear Delt Fly",
+    category: "Shoulders",
+    type: "gym",
+    image: null,
+    primaryMuscles: ["rearDelts"],
+    secondaryMuscles: ["upperBack"],
+    instructions:
+      "Stand in the center of a cable crossover with cables set at chest height. Cross your arms in front, gripping opposite cables. With a slight bend in your elbows, pull the cables out and back, focusing on your rear delts.",
+    repRanges: [
+      { goal: "strength", sets: 3, minReps: 5, maxReps: 7, restSeconds: 60 },
+      { goal: "hypertrophy", sets: 3, minReps: 8, maxReps: 10, restSeconds: 45 },
+      { goal: "endurance", sets: 3, minReps: 10, maxReps: 12, restSeconds: 30 },
+      { goal: "tone", sets: 3, minReps: 8, maxReps: 10, restSeconds: 30 }
+    ],
+    weightUnit: "lbs"
+  },
+  {
+    id: "gym_024",
+    name: "Close-Grip Cable Row",
+    category: "Back",
+    type: "gym",
+    image: null,
+    primaryMuscles: ["back", "lats"],
+    secondaryMuscles: ["biceps", "shoulders"],
+    instructions:
+      "Sit at a cable row station with a close-grip handle. Pull the handle to your abdomen while keeping your back straight, then extend your arms fully.",
+    repRanges: [
+      { goal: "strength", sets: 5, minReps: 4, maxReps: 6, restSeconds: 90 },
+      { goal: "hypertrophy", sets: 4, minReps: 8, maxReps: 12, restSeconds: 60 },
+      { goal: "endurance", sets: 3, minReps: 15, maxReps: 20, restSeconds: 30 },
+      { goal: "tone", sets: 3, minReps: 12, maxReps: 15, restSeconds: 45 }
+    ],
+    weightUnit: "lbs"
+  },
+  {
+    id: "gym_025",
+    name: "Reverse-Grip Lat Pulldown",
+    category: "Back",
+    type: "gym",
+    image: null,
+    primaryMuscles: ["lats", "biceps"],
+    secondaryMuscles: ["upperBack", "forearms"],
+    instructions:
+      "Sit at a lat pulldown machine with an underhand (supinated) grip. Pull the bar down toward your chest, then slowly return to the start.",
+    repRanges: [
+      { goal: "strength", sets: 5, minReps: 4, maxReps: 6, restSeconds: 90 },
+      { goal: "hypertrophy", sets: 4, minReps: 8, maxReps: 12, restSeconds: 60 },
+      { goal: "endurance", sets: 3, minReps: 15, maxReps: 20, restSeconds: 30 },
+      { goal: "tone", sets: 3, minReps: 12, maxReps: 15, restSeconds: 45 }
+    ],
+    weightUnit: "lbs"
+  },
+  {
+    id: "gym_026",
+    name: "Machine Shoulder Press",
+    category: "Shoulders",
+    type: "gym",
+    image: null,
+    primaryMuscles: ["shoulders"],
+    secondaryMuscles: ["triceps"],
+    instructions:
+      "Sit at the shoulder press machine. Grip the handles at shoulder level, then press upward until your arms are extended, returning slowly.",
+    repRanges: [
+      { goal: "strength", sets: 4, minReps: 5, maxReps: 6, restSeconds: 90 },
+      { goal: "hypertrophy", sets: 4, minReps: 8, maxReps: 12, restSeconds: 60 },
+      { goal: "endurance", sets: 3, minReps: 12, maxReps: 15, restSeconds: 30 },
+      { goal: "tone", sets: 3, minReps: 10, maxReps: 12, restSeconds: 45 }
+    ],
+    weightUnit: "lbs"
+  },
+  {
+    id: "gym_027",
+    name: "Wide-Grip Cable Row",
+    category: "Back",
+    type: "gym",
+    image: null,
+    primaryMuscles: ["back", "lats"],
+    secondaryMuscles: ["biceps", "shoulders"],
+    instructions:
+      "Sit at a cable row station with a wide-grip bar. Pull the bar to your abdomen while keeping your back straight, then extend your arms fully.",
+    repRanges: [
+      { goal: "strength", sets: 5, minReps: 4, maxReps: 6, restSeconds: 90 },
+      { goal: "hypertrophy", sets: 4, minReps: 8, maxReps: 12, restSeconds: 60 },
+      { goal: "endurance", sets: 3, minReps: 15, maxReps: 20, restSeconds: 30 },
+      { goal: "tone", sets: 3, minReps: 12, maxReps: 15, restSeconds: 45 }
     ],
     weightUnit: "lbs"
   }

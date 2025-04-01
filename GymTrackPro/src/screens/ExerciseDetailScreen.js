@@ -1,5 +1,5 @@
-// context/ExerciseDetailScreen.js
-import React, { useContext, useState, useEffect } from 'react'
+// src/screens/ExerciseDetailScreen.js
+import React, { useContext, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,123 +10,165 @@ import {
   Modal,
   TextInput,
   Alert,
-  Dimensions
-} from 'react-native'
-import { useNavigation, useRoute } from '@react-navigation/native'
-import { Ionicons } from '@expo/vector-icons'
-import { LineChart } from 'react-native-chart-kit'
-import { ExerciseContext } from '../context/ExerciseContext'
-import DatabaseService from '../services/DatabaseService'
+  Dimensions,
+  TouchableWithoutFeedback,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { LineChart } from 'react-native-chart-kit';
+import { ExerciseContext } from '../context/ExerciseContext';
+import DatabaseService from '../services/DatabaseService';
+
+// Helper function to format current date/time as YYYY-MM-DD HH:MM
+const getFormattedDateTime = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = (`0${now.getMonth() + 1}`).slice(-2);
+  const day = (`0${now.getDate()}`).slice(-2);
+  const hours = (`0${now.getHours()}`).slice(-2);
+  const minutes = (`0${now.getMinutes()}`).slice(-2);
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
 
 export default function ExerciseDetailScreen() {
-  const navigation = useNavigation()
-  const route = useRoute()
-  const { exerciseId } = route.params
-  const { getExerciseById, getMuscleInfo, toggleFavorite, isFavorite, userGoal, darkMode } = useContext(ExerciseContext)
-  const exercise = getExerciseById(exerciseId)
-  const [logModalVisible, setLogModalVisible] = useState(false)
-  const [weight, setWeight] = useState('')
-  const [reps, setReps] = useState('')
-  const [sets, setSets] = useState('')
-  const [notes, setNotes] = useState('')
-  const [exerciseHistory, setExerciseHistory] = useState([])
-  const [nextWorkout, setNextWorkout] = useState(null)
-  const [chartData, setChartData] = useState(null)
-  const textColor = darkMode ? '#FFF' : '#333'
-  const backgroundColor = darkMode ? '#1C1C1E' : '#F8F9FA'
-  const cardColor = darkMode ? '#2C2C2E' : '#FFF'
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { exerciseId } = route.params;
+  const { getExerciseById, getMuscleInfo, toggleFavorite, isFavorite, userGoal, darkMode } = useContext(ExerciseContext);
+  const exercise = getExerciseById(exerciseId);
+
+  // States for logging
+  const [logDate, setLogDate] = useState(getFormattedDateTime());
+  const [logModalVisible, setLogModalVisible] = useState(false);
+  const [weight, setWeight] = useState('');
+  const [reps, setReps] = useState('');
+  const [sets, setSets] = useState('');
+  const [notes, setNotes] = useState('');
+  const [exerciseHistory, setExerciseHistory] = useState([]);
+  const [nextWorkout, setNextWorkout] = useState(null);
+  const [chartData, setChartData] = useState(null);
+
+  // Theming
+  const textColor = darkMode ? '#FFF' : '#333';
+  const backgroundColor = darkMode ? '#1C1C1E' : '#F8F9FA';
+  const cardColor = darkMode ? '#2C2C2E' : '#FFF';
+
+  // Dimensions
+  const screenWidth = Dimensions.get('window').width - 32;
 
   useEffect(() => {
     async function loadHistory() {
       try {
-        const history = await DatabaseService.getExerciseHistory(exerciseId)
-        setExerciseHistory(history)
+        const history = await DatabaseService.getExerciseHistory(exerciseId);
+        setExerciseHistory(history);
+
         if (history.length > 0) {
-          const reversed = [...history].reverse()
+          // Build chart data
+          const reversed = [...history].reverse();
           const dates = reversed.map(entry => {
-            const d = new Date(entry.date)
-            return `${d.getMonth() + 1}/${d.getDate()}`
-          })
-          const volumes = reversed.map(entry => entry.sets * entry.reps * entry.weight)
+            const d = new Date(entry.date);
+            return `${d.getMonth() + 1}/${d.getDate()}`;
+          });
+          const volumes = reversed.map(entry => entry.sets * entry.reps * entry.weight);
+
           setChartData({
             labels: dates,
             datasets: [{ data: volumes, strokeWidth: 2 }]
-          })
+          });
         } else {
-          setChartData(null)
+          setChartData(null);
         }
-        const recommendation = await DatabaseService.calculateNextWorkout(exerciseId)
-        setNextWorkout(recommendation)
-      } catch {}
+
+        const recommendation = await DatabaseService.calculateNextWorkout(exerciseId);
+        setNextWorkout(recommendation);
+      } catch (error) {
+        console.warn(error);
+      }
     }
     if (exercise) {
-      loadHistory()
+      loadHistory();
     }
-  }, [exerciseId])
+  }, [exerciseId]);
 
   if (!exercise) {
     return (
       <View style={[styles.container, { backgroundColor }]}>
         <Text style={{ color: textColor }}>Exercise not found</Text>
       </View>
-    )
+    );
   }
 
-  const primaryMuscles = exercise.primaryMuscles.map(id => getMuscleInfo(id))
-  const secondaryMuscles = exercise.secondaryMuscles.map(id => getMuscleInfo(id))
-  const goalRepRange = exercise.repRanges.find(range => range.goal === userGoal) || exercise.repRanges[0]
-  const screenWidth = Dimensions.get('window').width - 32
+  // De-structure data
+  const primaryMuscles = exercise.primaryMuscles.map(id => getMuscleInfo(id));
+  const secondaryMuscles = exercise.secondaryMuscles.map(id => getMuscleInfo(id));
+  const goalRepRange = exercise.repRanges.find(range => range.goal === userGoal) || exercise.repRanges[0];
 
   const handleLogWorkout = async () => {
-    if (!weight || !reps || !sets) {
-      Alert.alert('Missing Information', 'Please fill in all fields')
-      return
+    if (!weight || !reps || !sets || !logDate) {
+      Alert.alert('Missing Information', 'Please fill in all fields');
+      return;
     }
     try {
-      const weightNum = parseFloat(weight)
-      const repsNum = parseInt(reps)
-      const setsNum = parseInt(sets)
+      const weightNum = parseFloat(weight);
+      const repsNum = parseInt(reps);
+      const setsNum = parseInt(sets);
+
       if (isNaN(weightNum) || isNaN(repsNum) || isNaN(setsNum)) {
-        Alert.alert('Invalid Input', 'Please enter valid numbers')
-        return
+        Alert.alert('Invalid Input', 'Please enter valid numbers');
+        return;
       }
+
+      // Save workout
       await DatabaseService.saveWorkoutSet({
-        date: new Date().toISOString(),
+        date: logDate,
         exerciseId: exercise.id,
         sets: setsNum,
         reps: repsNum,
         weight: weightNum,
         notes
-      })
-      const history = await DatabaseService.getExerciseHistory(exerciseId)
-      setExerciseHistory(history)
-      const recommendation = await DatabaseService.calculateNextWorkout(exerciseId)
-      setNextWorkout(recommendation)
+      });
+
+      // Reload history & chart
+      const history = await DatabaseService.getExerciseHistory(exerciseId);
+      setExerciseHistory(history);
+
+      const recommendation = await DatabaseService.calculateNextWorkout(exerciseId);
+      setNextWorkout(recommendation);
+
       if (history.length > 0) {
-        const reversed = [...history].reverse()
+        const reversed = [...history].reverse();
         const dates = reversed.map(entry => {
-          const d = new Date(entry.date)
-          return `${d.getMonth() + 1}/${d.getDate()}`
-        })
-        const volumes = reversed.map(entry => entry.sets * entry.reps * entry.weight)
+          const d = new Date(entry.date);
+          return `${d.getMonth() + 1}/${d.getDate()}`;
+        });
+        const volumes = reversed.map(entry => entry.sets * entry.reps * entry.weight);
+
         setChartData({
           labels: dates,
           datasets: [{ data: volumes, strokeWidth: 2 }]
-        })
+        });
       } else {
-        setChartData(null)
+        setChartData(null);
       }
-      setLogModalVisible(false)
-      setWeight('')
-      setReps('')
-      setSets('')
-      setNotes('')
-      Alert.alert('Success', 'Workout logged successfully!')
-    } catch {
-      Alert.alert('Error', 'Failed to log workout')
-    }
-  }
 
+      // Reset fields
+      setLogModalVisible(false);
+      setWeight('');
+      setReps('');
+      setSets('');
+      setNotes('');
+      setLogDate(getFormattedDateTime());
+
+      Alert.alert('Success', 'Workout logged successfully!');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to log workout');
+    }
+  };
+
+  // Chart config
   const chartConfig = {
     backgroundGradientFrom: cardColor,
     backgroundGradientTo: cardColor,
@@ -134,16 +176,24 @@ export default function ExerciseDetailScreen() {
     strokeWidth: 2,
     decimalPlaces: 1,
     style: { borderRadius: 16 }
-  }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
+        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: cardColor }]} onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: cardColor }]}
+            onPress={() => navigation.goBack()}
+          >
             <Ionicons name="arrow-back" size={24} color={textColor} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.favoriteButton, { backgroundColor: cardColor }]} onPress={() => toggleFavorite(exercise.id)}>
+
+          <TouchableOpacity
+            style={[styles.favoriteButton, { backgroundColor: cardColor }]}
+            onPress={() => toggleFavorite(exercise.id)}
+          >
             <Ionicons
               name={isFavorite(exercise.id) ? 'heart' : 'heart-outline'}
               size={24}
@@ -151,15 +201,25 @@ export default function ExerciseDetailScreen() {
             />
           </TouchableOpacity>
         </View>
+
+        {/* Exercise Image */}
         <Image source={exercise.image} style={styles.exerciseImage} />
+
+        {/* Info */}
         <View style={styles.infoContainer}>
           <Text style={[styles.exerciseName, { color: textColor }]}>{exercise.name}</Text>
-          <Text style={[styles.exerciseCategory, { color: darkMode ? '#ccc' : '#666' }]}>{exercise.category}</Text>
+          <Text style={[styles.exerciseCategory, { color: darkMode ? '#ccc' : '#666' }]}>
+            {exercise.category}
+          </Text>
           <View style={styles.divider} />
+
+          {/* Muscles */}
           <Text style={[styles.sectionTitle, { color: textColor }]}>Target Muscles</Text>
           <View style={styles.muscleContainer}>
             <View style={styles.muscleGroup}>
-              <Text style={[styles.muscleGroupTitle, { color: darkMode ? '#ccc' : '#666' }]}>Primary</Text>
+              <Text style={[styles.muscleGroupTitle, { color: darkMode ? '#ccc' : '#666' }]}>
+                Primary
+              </Text>
               {primaryMuscles.map(muscle => (
                 <View key={muscle?.id} style={styles.muscleItem}>
                   <View style={[styles.muscleDot, { backgroundColor: muscle?.color || '#000' }]} />
@@ -168,7 +228,9 @@ export default function ExerciseDetailScreen() {
               ))}
             </View>
             <View style={styles.muscleGroup}>
-              <Text style={[styles.muscleGroupTitle, { color: darkMode ? '#ccc' : '#666' }]}>Secondary</Text>
+              <Text style={[styles.muscleGroupTitle, { color: darkMode ? '#ccc' : '#666' }]}>
+                Secondary
+              </Text>
               {secondaryMuscles.map(muscle => (
                 <View key={muscle?.id} style={styles.muscleItem}>
                   <View style={[styles.muscleDot, { backgroundColor: muscle?.color || '#000' }]} />
@@ -178,13 +240,28 @@ export default function ExerciseDetailScreen() {
             </View>
           </View>
           <View style={styles.divider} />
+
+          {/* Instructions */}
           <Text style={[styles.sectionTitle, { color: textColor }]}>How to Perform</Text>
-          <Text style={[styles.instructionsText, { color: textColor }]}>{exercise.instructions}</Text>
+          <Text style={[styles.instructionsText, { color: textColor }]}>
+            {exercise.instructions}
+          </Text>
           <View style={styles.divider} />
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Recommended for {userGoal || 'general'}</Text>
+
+          {/* Recommended Rep Range */}
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            Recommended for {userGoal || 'general'}
+          </Text>
           {goalRepRange ? (
-            <View style={[styles.recommendationCard, { backgroundColor: darkMode ? '#3A3A3C' : '#F0F7FF' }]}>
-              <Text style={[styles.recommendationText, { color: darkMode ? '#FFF' : '#333' }]}>Sets: {goalRepRange.sets}</Text>
+            <View
+              style={[
+                styles.recommendationCard,
+                { backgroundColor: darkMode ? '#3A3A3C' : '#F0F7FF' }
+              ]}
+            >
+              <Text style={[styles.recommendationText, { color: darkMode ? '#FFF' : '#333' }]}>
+                Sets: {goalRepRange.sets}
+              </Text>
               <Text style={[styles.recommendationText, { color: darkMode ? '#FFF' : '#333' }]}>
                 Reps: {goalRepRange.minReps}-{goalRepRange.maxReps}
               </Text>
@@ -195,17 +272,27 @@ export default function ExerciseDetailScreen() {
           ) : (
             <Text style={{ color: textColor }}>No rep range data available</Text>
           )}
+
+          {/* Next Workout Recommendation */}
           {nextWorkout && (
             <View style={styles.nextWorkoutContainer}>
               <Text style={[styles.sectionTitle, { color: textColor }]}>Your Next Workout</Text>
               <View style={[styles.nextWorkoutCard, { backgroundColor: '#007AFF' }]}>
-                {nextWorkout.weight && <Text style={styles.nextWorkoutText}>Weight: {nextWorkout.weight}</Text>}
-                {nextWorkout.sets && <Text style={styles.nextWorkoutText}>Sets: {nextWorkout.sets}</Text>}
-                {nextWorkout.reps && <Text style={styles.nextWorkoutText}>Reps: {nextWorkout.reps}</Text>}
+                {nextWorkout.weight && (
+                  <Text style={styles.nextWorkoutText}>Weight: {nextWorkout.weight}</Text>
+                )}
+                {nextWorkout.sets && (
+                  <Text style={styles.nextWorkoutText}>Sets: {nextWorkout.sets}</Text>
+                )}
+                {nextWorkout.reps && (
+                  <Text style={styles.nextWorkoutText}>Reps: {nextWorkout.reps}</Text>
+                )}
                 <Text style={styles.nextWorkoutMessage}>{nextWorkout.message}</Text>
               </View>
             </View>
           )}
+
+          {/* Progress Chart */}
           {chartData && (
             <View style={[styles.chartContainer, { backgroundColor: cardColor }]}>
               <Text style={[styles.sectionTitle, { color: textColor }]}>Progress Over Time (Volume)</Text>
@@ -219,103 +306,200 @@ export default function ExerciseDetailScreen() {
               />
             </View>
           )}
+
+          {/* History */}
           <View style={styles.historyContainer}>
             <Text style={[styles.sectionTitle, { color: textColor }]}>History</Text>
             {exerciseHistory.length > 0 ? (
               exerciseHistory.slice(0, 5).map((entry, index) => {
-                const date = new Date(entry.date)
+                const date = new Date(entry.date);
                 return (
                   <View key={index} style={styles.historyItem}>
-                    <Text style={[styles.historyDate, { color: darkMode ? '#ccc' : '#666' }]}>{date.toLocaleDateString()}</Text>
+                    <Text style={[styles.historyDate, { color: darkMode ? '#ccc' : '#666' }]}>
+                      {date.toLocaleDateString()}
+                    </Text>
                     <Text style={[styles.historyDetails, { color: textColor }]}>
                       {entry.sets} × {entry.reps} @ {entry.weight}
                     </Text>
                   </View>
-                )
+                );
               })
             ) : (
-              <Text style={[styles.emptyText, { color: darkMode ? '#999' : '#999' }]}>No workout history yet</Text>
+              <Text style={[styles.emptyText, { color: darkMode ? '#999' : '#999' }]}>
+                No workout history yet
+              </Text>
             )}
           </View>
-          <TouchableOpacity style={[styles.logButton, { backgroundColor: '#007AFF' }]} onPress={() => setLogModalVisible(true)}>
+
+          {/* Log Button */}
+          <TouchableOpacity
+            style={[styles.logButton, { backgroundColor: '#007AFF' }]}
+            onPress={() => setLogModalVisible(true)}
+          >
             <Text style={styles.logButtonText}>Log Workout</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-      <Modal animationType="slide" transparent visible={logModalVisible} onRequestClose={() => setLogModalVisible(false)}>
-        <View style={styles.modalContainer}>
-          <View style={[styles.modalContent, { backgroundColor: cardColor }]}>
-            <Text style={[styles.modalTitle, { color: textColor }]}>Log {exercise.name}</Text>
-            <View style={styles.inputRow}>
-              <View style={styles.inputContainer}>
-                <Text style={[styles.inputLabel, { color: darkMode ? '#ccc' : '#666' }]}>Weight</Text>
-                <TextInput
-                  style={[styles.input, { color: textColor, borderColor: darkMode ? '#555' : '#E0E0E0', backgroundColor: cardColor }]}
-                  value={weight}
-                  onChangeText={setWeight}
-                  placeholder="0.0"
-                  placeholderTextColor={darkMode ? '#888' : '#999'}
-                  keyboardType="decimal-pad"
-                />
-              </View>
-              <View style={styles.inputContainer}>
-                <Text style={[styles.inputLabel, { color: darkMode ? '#ccc' : '#666' }]}>Reps</Text>
-                <TextInput
-                  style={[styles.input, { color: textColor, borderColor: darkMode ? '#555' : '#E0E0E0', backgroundColor: cardColor }]}
-                  value={reps}
-                  onChangeText={setReps}
-                  placeholder="0"
-                  placeholderTextColor={darkMode ? '#888' : '#999'}
-                  keyboardType="number-pad"
-                />
-              </View>
-              <View style={styles.inputContainer}>
-                <Text style={[styles.inputLabel, { color: darkMode ? '#ccc' : '#666' }]}>Sets</Text>
-                <TextInput
-                  style={[styles.input, { color: textColor, borderColor: darkMode ? '#555' : '#E0E0E0', backgroundColor: cardColor }]}
-                  value={sets}
-                  onChangeText={setSets}
-                  placeholder="0"
-                  placeholderTextColor={darkMode ? '#888' : '#999'}
-                  keyboardType="number-pad"
-                />
-              </View>
-            </View>
-            <Text style={[styles.inputLabel, { color: darkMode ? '#ccc' : '#666', marginTop: 16 }]}>Notes</Text>
-            <TextInput
-              style={[
-                styles.input,
-                styles.notesInput,
-                { color: textColor, borderColor: darkMode ? '#555' : '#E0E0E0', backgroundColor: cardColor }
-              ]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Add notes..."
-              placeholderTextColor={darkMode ? '#888' : '#999'}
-              multiline
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.modalButton, { backgroundColor: darkMode ? '#444' : '#F0F0F0' }]} onPress={() => setLogModalVisible(false)}>
-                <Text style={[styles.cancelButtonText, { color: darkMode ? '#FFF' : '#333' }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#007AFF' }]} onPress={handleLogWorkout}>
-                <Text style={styles.saveButtonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
+
+      {/* Log Modal */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={logModalVisible}
+        onRequestClose={() => setLogModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setLogModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.modalContainer}
+            >
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <View style={[styles.modalContent, { backgroundColor: cardColor }]}>
+                  <Text style={[styles.modalTitle, { color: textColor }]}>Log {exercise.name}</Text>
+
+                  {/* Date/Time Field */}
+                  <View style={styles.formGroup}>
+                    <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>
+                      Date & Time (YYYY-MM-DD HH:MM)
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        {
+                          color: textColor,
+                          borderColor: darkMode ? '#555' : '#E0E0E0',
+                          backgroundColor: cardColor
+                        }
+                      ]}
+                      value={logDate}
+                      onChangeText={setLogDate}
+                      placeholder="YYYY-MM-DD HH:MM"
+                      placeholderTextColor={darkMode ? '#888' : '#999'}
+                    />
+                  </View>
+
+                  {/* Sets, Reps, Weight */}
+                  <View style={styles.setRepsWeightRow}>
+                    <View style={styles.smallFormGroup}>
+                      <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>Sets</Text>
+                      <TextInput
+                        style={[
+                          styles.textInput,
+                          {
+                            color: textColor,
+                            borderColor: darkMode ? '#555' : '#E0E0E0',
+                            backgroundColor: cardColor
+                          }
+                        ]}
+                        value={sets}
+                        onChangeText={setSets}
+                        placeholder="0"
+                        placeholderTextColor={darkMode ? '#888' : '#999'}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+
+                    <View style={styles.smallFormGroup}>
+                      <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>Reps</Text>
+                      <TextInput
+                        style={[
+                          styles.textInput,
+                          {
+                            color: textColor,
+                            borderColor: darkMode ? '#555' : '#E0E0E0',
+                            backgroundColor: cardColor
+                          }
+                        ]}
+                        value={reps}
+                        onChangeText={setReps}
+                        placeholder="0"
+                        placeholderTextColor={darkMode ? '#888' : '#999'}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+
+                    <View style={styles.smallFormGroupNoMargin}>
+                      <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>Weight</Text>
+                      <TextInput
+                        style={[
+                          styles.textInput,
+                          {
+                            color: textColor,
+                            borderColor: darkMode ? '#555' : '#E0E0E0',
+                            backgroundColor: cardColor
+                          }
+                        ]}
+                        value={weight}
+                        onChangeText={setWeight}
+                        placeholder="0.0"
+                        placeholderTextColor={darkMode ? '#888' : '#999'}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Notes */}
+                  <View style={styles.formGroup}>
+                    <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>Notes</Text>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        styles.notesInput,
+                        {
+                          color: textColor,
+                          borderColor: darkMode ? '#555' : '#E0E0E0',
+                          backgroundColor: cardColor
+                        }
+                      ]}
+                      value={notes}
+                      onChangeText={setNotes}
+                      placeholder="Add notes..."
+                      placeholderTextColor={darkMode ? '#888' : '#999'}
+                      multiline
+                    />
+                  </View>
+
+                  {/* Buttons */}
+                  <View style={styles.buttonRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.modalButton,
+                        { backgroundColor: darkMode ? '#444' : '#F0F0F0' }
+                      ]}
+                      onPress={() => setLogModalVisible(false)}
+                    >
+                      <Text style={[styles.cancelButtonText, { color: darkMode ? '#FFF' : '#333' }]}>
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalButton, { backgroundColor: '#007AFF' }]}
+                      onPress={handleLogWorkout}
+                    >
+                      <Text style={styles.saveButtonText}>Save</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
+  /* Container & Layout */
   container: {
     flex: 1
   },
   scrollContainer: {
     paddingBottom: 30
   },
+
+  /* Header */
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -336,6 +520,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center'
   },
+
+  /* Exercise Image & Info */
   exerciseImage: {
     width: '100%',
     height: 250,
@@ -363,6 +549,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12
   },
+
+  /* Muscle Groups */
   muscleContainer: {
     flexDirection: 'row'
   },
@@ -388,6 +576,8 @@ const styles = StyleSheet.create({
   muscleName: {
     fontSize: 14
   },
+
+  /* Instructions & Recommendation */
   instructionsText: {
     fontSize: 14,
     lineHeight: 22
@@ -401,6 +591,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 8
   },
+
+  /* Next Workout */
   nextWorkoutContainer: {
     marginTop: 8
   },
@@ -420,6 +612,8 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 4
   },
+
+  /* Chart & History */
   chartContainer: {
     marginTop: 24,
     borderRadius: 12,
@@ -449,6 +643,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 16
   },
+
+  /* Log Button */
   logButton: {
     borderRadius: 8,
     paddingVertical: 14,
@@ -460,36 +656,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600'
   },
-  modalContainer: {
+
+  /* Modal */
+  modalOverlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)'
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modalContainer: {
+    width: '90%',
+    padding: 16
   },
   modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 30
+    borderRadius: 20,
+    padding: 24
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 20
   },
-  inputRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    justifyContent: 'space-between'
+
+  /* Form Groups */
+  formGroup: {
+    marginBottom: 16
   },
-  inputContainer: {
-    flex: 1,
-    marginRight: 8
-  },
-  inputLabel: {
+  label: {
     fontSize: 14,
-    marginBottom: 8
+    marginBottom: 6
   },
-  input: {
+  textInput: {
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
@@ -500,7 +697,23 @@ const styles = StyleSheet.create({
     height: 80,
     textAlignVertical: 'top'
   },
-  modalButtons: {
+
+  /* Sets/Reps/Weight Row */
+  setRepsWeightRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16
+  },
+  smallFormGroup: {
+    flex: 1,
+    marginRight: 8
+  },
+  smallFormGroupNoMargin: {
+    flex: 1
+  },
+
+  /* Modal Buttons */
+  buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between'
   },
@@ -508,7 +721,8 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 8,
     paddingVertical: 14,
-    alignItems: 'center'
+    alignItems: 'center',
+    marginHorizontal: 4
   },
   cancelButtonText: {
     fontSize: 16,
@@ -519,4 +733,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600'
   }
-})
+});

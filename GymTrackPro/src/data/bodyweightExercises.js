@@ -5,7 +5,7 @@ const bodyweightExercises = [
     name: "Push-Up",
     category: "Chest",
     type: "bodyweight",
-    image: require("../images/push_up.png"),
+    image: null,
     primaryMuscles: ["chest"],
     secondaryMuscles: ["triceps", "shoulders", "core"],
     instructions:
@@ -23,7 +23,7 @@ const bodyweightExercises = [
     name: "Pull-Up",
     category: "Back",
     type: "bodyweight",
-    image: require("../images/pull_up.png"),
+    image: null,
     primaryMuscles: ["lats"],
     secondaryMuscles: ["biceps", "shoulders", "core"],
     instructions:
@@ -41,7 +41,7 @@ const bodyweightExercises = [
     name: "Bodyweight Squat",
     category: "Legs",
     type: "bodyweight",
-    image: require("../images/bodyweight_squat.png"),
+    image: null,
     primaryMuscles: ["legs"],
     secondaryMuscles: ["glutes", "core"],
     instructions:
@@ -59,7 +59,7 @@ const bodyweightExercises = [
     name: "Plank",
     category: "Core",
     type: "bodyweight",
-    image: require("../images/plank.png"),
+    image: null,
     primaryMuscles: ["core"],
     secondaryMuscles: ["shoulders", "lowerBack"],
     instructions:
@@ -77,7 +77,7 @@ const bodyweightExercises = [
     name: "Bodyweight Lunge",
     category: "Legs",
     type: "bodyweight",
-    image: require("../images/bodyweight_lunge.png"),
+    image: null,
     primaryMuscles: ["legs"],
     secondaryMuscles: ["glutes", "core"],
     instructions:
@@ -95,7 +95,7 @@ const bodyweightExercises = [
     name: "Chin-Up",
     category: "Back",
     type: "bodyweight",
-    image: require("../images/chin_up.png"),
+    image: null,
     primaryMuscles: ["lats", "biceps"],
     secondaryMuscles: ["shoulders", "core"],
     instructions:
@@ -113,7 +113,7 @@ const bodyweightExercises = [
     name: "Dips",
     category: "Chest",
     type: "bodyweight",
-    image: require("../images/dips.png"),
+    image: null,
     primaryMuscles: ["chest", "triceps"],
     secondaryMuscles: ["shoulders"],
     instructions:
@@ -131,7 +131,7 @@ const bodyweightExercises = [
     name: "Inverted Row",
     category: "Back",
     type: "bodyweight",
-    image: require("../images/inverted_row.png"),
+    image: null,
     primaryMuscles: ["back", "lats"],
     secondaryMuscles: ["biceps", "shoulders", "core"],
     instructions:
@@ -149,7 +149,7 @@ const bodyweightExercises = [
     name: "Burpee",
     category: "Full Body",
     type: "bodyweight",
-    image: require("../images/burpee.png"),
+    image: null,
     primaryMuscles: ["chest", "legs", "core"],
     secondaryMuscles: ["shoulders", "triceps"],
     instructions:
@@ -167,7 +167,7 @@ const bodyweightExercises = [
     name: "Mountain Climbers",
     category: "Core",
     type: "bodyweight",
-    image: require("../images/mountain_climbers.png"),
+    image: null,
     primaryMuscles: ["core", "hipFlexors"],
     secondaryMuscles: ["shoulders", "legs"],
     instructions:
@@ -185,7 +185,7 @@ const bodyweightExercises = [
     name: "Side Plank",
     category: "Core",
     type: "bodyweight",
-    image: require("../images/side_plank.png"),
+    image: null,
     primaryMuscles: ["core", "obliques"],
     secondaryMuscles: ["shoulders", "lowerBack"],
     instructions:
@@ -203,7 +203,7 @@ const bodyweightExercises = [
     name: "Pike Push-Up",
     category: "Shoulders",
     type: "bodyweight",
-    image: require("../images/pike_push_up.png"),
+    image: null,
     primaryMuscles: ["shoulders"],
     secondaryMuscles: ["triceps", "upperBack"],
     instructions:
@@ -221,7 +221,7 @@ const bodyweightExercises = [
     name: "Glute Bridge",
     category: "Glutes",
     type: "bodyweight",
-    image: require("../images/glute_bridge.png"),
+    image: null,
     primaryMuscles: ["glutes", "hamstrings"],
     secondaryMuscles: ["core"],
     instructions:
@@ -239,7 +239,7 @@ const bodyweightExercises = [
     name: "Bulgarian Split Squat",
     category: "Legs",
     type: "bodyweight",
-    image: require("../images/bulgarian_split_squat.png"),
+    image: null,
     primaryMuscles: ["legs", "glutes"],
     secondaryMuscles: ["core"],
     instructions:
@@ -257,7 +257,7 @@ const bodyweightExercises = [
     name: "Handstand Push-Up",
     category: "Shoulders",
     type: "bodyweight",
-    image: require("../images/handstand_push_up.png"),
+    image: null,
     primaryMuscles: ["shoulders", "triceps"],
     secondaryMuscles: ["upperBack", "core"],
     instructions:
@@ -275,7 +275,7 @@ const bodyweightExercises = [
     name: "Single-Leg Hip Thrust",
     category: "Glutes",
     type: "bodyweight",
-    image: require("../images/single_leg_hip_thrust.png"),
+    image: null,
     primaryMuscles: ["glutes", "hamstrings"],
     secondaryMuscles: ["core"],
     instructions:
@@ -293,7 +293,7 @@ const bodyweightExercises = [
     name: "Superman",
     category: "Back",
     type: "bodyweight",
-    image: require("../images/superman.png"),
+    image: null,
     primaryMuscles: ["lowerBack"],
     secondaryMuscles: ["glutes", "core"],
     instructions:
@@ -311,7 +311,7 @@ const bodyweightExercises = [
     name: "Bear Crawl",
     category: "Full Body",
     type: "bodyweight",
-    image: require("../images/bear_crawl.png"),
+    image: null,
     primaryMuscles: ["shoulders", "core", "legs"],
     secondaryMuscles: ["back", "hipFlexors"],
     instructions:
@@ -329,7 +329,7 @@ const bodyweightExercises = [
     name: "Hollow Body Hold",
     category: "Core",
     type: "bodyweight",
-    image: require("../images/hollow_body_hold.png"),
+    image: null,
     primaryMuscles: ["core"],
     secondaryMuscles: ["hipFlexors"],
     instructions:
@@ -347,7 +347,7 @@ const bodyweightExercises = [
     name: "Jumping Jack",
     category: "Full Body",
     type: "bodyweight",
-    image: require("../images/jumping_jack.png"),
+    image: null,
     primaryMuscles: ["legs", "shoulders"],
     secondaryMuscles: ["cardio"],
     instructions:
@@ -365,7 +365,7 @@ const bodyweightExercises = [
     name: "Skater",
     category: "Full Body",
     type: "bodyweight",
-    image: require("../images/skater.png"),
+    image: null,
     primaryMuscles: ["legs", "core"],
     secondaryMuscles: ["glutes"],
     instructions:
