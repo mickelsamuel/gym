@@ -1,3 +1,4 @@
+// context/ExerciseDetailScreen.js
 import React, { useContext, useState, useEffect } from 'react'
 import {
   View,
@@ -150,7 +151,7 @@ export default function ExerciseDetailScreen() {
             />
           </TouchableOpacity>
         </View>
-        <Image source={exercise.image || require('../images/barbell-bench-press.png')} style={styles.exerciseImage} />
+        <Image source={exercise.image} style={styles.exerciseImage} />
         <View style={styles.infoContainer}>
           <Text style={[styles.exerciseName, { color: textColor }]}>{exercise.name}</Text>
           <Text style={[styles.exerciseCategory, { color: darkMode ? '#ccc' : '#666' }]}>{exercise.category}</Text>

@@ -2,10 +2,10 @@
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import gymExercises from "../data/gymExercises";
-import dumbbellExercises from '../data/dumbbellExercises.json';
-import bodyweightExercises from '../data/bodyweightExercises.json';
-import muscleGroups from '../data/muscleGroups.json';
-import goals from '../data/goals.json';
+import dumbbellExercises from '../data/dumbbellExercises';
+import bodyweightExercises from '../data/bodyweightExercises';
+import muscleGroups from '../data/muscleGroups';
+import goals from '../data/goals';
 
 export const ExerciseContext = createContext();
 
