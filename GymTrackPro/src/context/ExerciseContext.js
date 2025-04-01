@@ -1,34 +1,31 @@
 // context/ExerciseContext.js
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import gymExercises from "../data/gymExercises";
-import dumbbellExercises from '../data/dumbbellExercises';
-import bodyweightExercises from '../data/bodyweightExercises';
+
+// 1) Now we import from a single "exercises.js" file:
+import exercisesData from '../data/exercises';
 import muscleGroups from '../data/muscleGroups';
 import goals from '../data/goals';
 
 export const ExerciseContext = createContext();
 
 export const ExerciseProvider = ({ children }) => {
-  // Store all exercise data in memory
-  const [exercises, setExercises] = useState({
-    gym: gymExercises,
-    dumbbell: dumbbellExercises,
-    bodyweight: bodyweightExercises,
-  });
+  // Instead of an object with gym/dumbbell/bodyweight,
+  // we just store one array of all exercises:
+  const [exercises, setExercises] = useState(exercisesData);
 
-  // Favorite (bookmarked) exercise IDs
+  // Keep favorites the same
   const [favorites, setFavorites] = useState([]);
 
-  // The user's chosen fitness goal, e.g. "strength", "hypertrophy", etc.
+  // The user's chosen fitness goal
   const [userGoal, setUserGoal] = useState('');
 
   // Dark mode toggle
   const [darkMode, setDarkMode] = useState(false);
 
-  /* =================================
-   * LOAD (on mount)
-   * ================================= */
+  // ---------------------------------------------------------------------------
+  // LOAD FROM ASYNCSTORAGE ON MOUNT
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const loadFavorites = async () => {
       try {
@@ -56,9 +53,9 @@ export const ExerciseProvider = ({ children }) => {
     loadUserGoal();
   }, []);
 
-  /* =================================
-   * SAVE Favorites & Goal
-   * ================================= */
+  // ---------------------------------------------------------------------------
+  // SAVE Favorites & Goal whenever they change
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const saveFavorites = async () => {
       try {
@@ -81,44 +78,45 @@ export const ExerciseProvider = ({ children }) => {
     saveUserGoal();
   }, [userGoal]);
 
-  /* =================================
-   * HELPER METHODS
-   * ================================= */
-  // Return array of all exercise objects
+  // ---------------------------------------------------------------------------
+  // HELPER METHODS
+  // ---------------------------------------------------------------------------
+  // Return array of ALL exercise objects
   const getAllExercises = () => {
-    return [
-      ...exercises.gym,
-      ...exercises.dumbbell,
-      ...exercises.bodyweight
-    ];
+    return exercises; // No need to merge from multiple files anymore
   };
 
-  // Return all exercises for a specific category: 'gym', 'dumbbell', 'bodyweight'
+  // If you want to filter by 'gym' / 'bodyweight' / 'dumbbell'
+  const getExercisesByType = (type) => {
+    return exercises.filter((ex) => ex.type === type);
+  };
+
+  // Or if you want to filter by the "category" property
   const getExercisesByCategory = (category) => {
-    return exercises[category] || [];
+    return exercises.filter((ex) => ex.category === category);
   };
 
   // Return exercises that match a primary or secondary muscle
   const getExercisesByMuscle = (muscleGroup) => {
-    return getAllExercises().filter(
+    return exercises.filter(
       (exercise) =>
         exercise.primaryMuscles.includes(muscleGroup) ||
         exercise.secondaryMuscles.includes(muscleGroup)
     );
   };
 
-  // Return exercises recommended for a given goal (based on type or rep range)
-  const getExercisesByGoal = (goal) => {
-    const goalData = goals.find((g) => g.id === goal);
-    if (!goalData) return getAllExercises();
+  // Return exercises recommended for a given goal 
+  // (based on the 'goal' property in exercise.repRanges, or any logic you want)
+  const getExercisesByGoal = (goalId) => {
+    // Example: if your 'goals' array has recommended types, you can do that
+    const goalData = goals.find((g) => g.id === goalId);
+    if (!goalData) return exercises;
 
-    return getAllExercises().filter((exercise) => {
+    // Filter logic: matches recommended type OR has a repRange with that goal
+    return exercises.filter((exercise) => {
       const matchesType = goalData.recommendedExerciseTypes.includes(exercise.type);
-      const matchesRepRange = exercise.repRanges.some(
-        (range) => range.goal === goal
-      );
-      // If an exercise matches at least the recommended type OR has a rep range for that goal
-      return matchesType || matchesRepRange;
+      const hasGoalRange = exercise.repRanges.some((range) => range.goal === goalId);
+      return matchesType || hasGoalRange;
     });
   };
 
@@ -138,34 +136,34 @@ export const ExerciseProvider = ({ children }) => {
     return favorites.includes(exerciseId);
   };
 
-  // Update the user's goal and persist it in AsyncStorage
+  // Update userGoal
   const setGoal = (goal) => {
     setUserGoal(goal);
   };
 
-  // Return info object for a given goal ID (e.g. {id, name, description, ...})
+  // Return info object for a given goal ID
   const getGoalInfo = (goalId) => {
     return goals.find((g) => g.id === goalId) || null;
   };
 
-  // Return a single exercise object by its ID
+  // Return a single exercise object by ID
   const getExerciseById = (id) => {
-    return getAllExercises().find((ex) => ex.id === id) || null;
+    return exercises.find((ex) => ex.id === id) || null;
   };
 
-  // Return muscle group info for a given muscle ID
+  // Return muscle group info by ID
   const getMuscleInfo = (muscleId) => {
     return muscleGroups.find((m) => m.id === muscleId) || null;
   };
 
-  // Toggle light/dark mode
+  // Toggle dark mode
   const toggleDarkMode = () => {
     setDarkMode((prev) => !prev);
   };
 
-  /* =================================
-   * PROVIDER
-   * ================================= */
+  // ---------------------------------------------------------------------------
+  // PROVIDER
+  // ---------------------------------------------------------------------------
   return (
     <ExerciseContext.Provider
       value={{
@@ -173,12 +171,13 @@ export const ExerciseProvider = ({ children }) => {
         favorites,
         userGoal,
         getAllExercises,
+        getExercisesByType,
         getExercisesByCategory,
         getExercisesByMuscle,
         getExercisesByGoal,
         toggleFavorite,
         isFavorite,
-        setGoal, // used by HomeScreen's modal
+        setGoal,
         getGoalInfo,
         getExerciseById,
         getMuscleInfo,
