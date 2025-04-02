@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react'
+import React, { useContext, useState } from 'react';
 import {
   View,
   Text,
@@ -11,52 +11,103 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   ScrollView
-} from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import { useNavigation } from '@react-navigation/native'
-import { ExerciseContext } from '../context/ExerciseContext'
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { ExerciseContext } from '../context/ExerciseContext';
 
+// -----------------------------------------------------------------------------
+// Use only the following broader muscle groups
+// -----------------------------------------------------------------------------
 const muscleGroupOptions = [
-  { label: 'All', value: '' },
+  { label: 'All', value: 'all' },
   { label: 'Chest', value: 'chest' },
   { label: 'Back', value: 'back' },
+  { label: 'Arms', value: 'arms' },
   { label: 'Legs', value: 'legs' },
-  { label: 'Shoulders', value: 'shoulders' },
-  { label: 'Arms', value: 'arms' }
-]
+  { label: 'Shoulders', value: 'shoulders' }
+];
+
+// -----------------------------------------------------------------------------
+// Mapping individual muscle IDs to one of the above categories.
+// Adjust these mappings as needed:
+const muscleToCategory = {
+  // Chest remains chest
+  chest: 'chest',
+  // Back includes various back muscles and core-related groups
+  back: 'back',
+  lats: 'back',
+  lowerBack: 'back',
+  erectorSpinae: 'back',
+  traps: 'back',
+  core: 'back',
+  obliques: 'back',
+  neck: 'back',
+  // Arms covers biceps, triceps, and forearms
+  biceps: 'arms',
+  triceps: 'arms',
+  forearms: 'arms',
+  // Shoulders: main delts and rear delts
+  shoulders: 'shoulders',
+  rearDelts: 'shoulders',
+  // Legs includes general legs plus specific groups
+  legs: 'legs',
+  quads: 'legs',
+  hamstrings: 'legs',
+  glutes: 'legs',
+  calves: 'legs',
+  adductors: 'legs',
+  abductors: 'legs',
+  hipFlexors: 'legs'
+};
 
 const exerciseTypeOptions = [
   { label: 'All', value: '' },
   { label: 'Gym', value: 'gym' },
   { label: 'Dumbbell', value: 'dumbbell' },
   { label: 'Bodyweight', value: 'bodyweight' }
-]
+];
 
 export default function ExercisesScreen() {
-  const navigation = useNavigation()
-  const { getAllExercises, darkMode } = useContext(ExerciseContext)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedMuscle, setSelectedMuscle] = useState('')
-  const [selectedType, setSelectedType] = useState('')
-  const allExercises = getAllExercises()
+  const navigation = useNavigation();
+  const { getAllExercises, darkMode } = useContext(ExerciseContext);
 
-  const filteredExercises = allExercises.filter(ex => {
-    const matchName = ex.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchType = selectedType ? ex.type === selectedType : true
-    const matchMuscle = selectedMuscle
-      ? ex.primaryMuscles.includes(selectedMuscle) || ex.secondaryMuscles.includes(selectedMuscle)
-      : true
-    return matchName && matchType && matchMuscle
-  })
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMuscle, setSelectedMuscle] = useState('all'); // default to all
+  const [selectedType, setSelectedType] = useState('');
 
-  const backgroundColor = darkMode ? '#1C1C1E' : '#F8F9FA'
-  const textColor = darkMode ? '#FFFFFF' : '#333333'
-  const cardColor = darkMode ? '#2C2C2E' : '#FFFFFF'
-  const borderColor = darkMode ? '#555555' : '#E0E0E0'
-  const placeholderColor = darkMode ? '#888888' : '#666666'
+  const allExercises = getAllExercises();
+
+  // ---------------------------------------------------------------------------
+  // Filtering: search by name, exercise type, and muscle group.
+  // For muscle filtering, if not 'all', we check if any of the exercise's
+  // primary or secondary muscles maps to the chosen broader category.
+  // ---------------------------------------------------------------------------
+  const filteredExercises = allExercises.filter((ex) => {
+    const matchName = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchType = selectedType ? ex.type === selectedType : true;
+
+    let matchMuscle = true;
+    if (selectedMuscle !== 'all') {
+      const primaryMatch = ex.primaryMuscles.some(
+        (muscle) => muscleToCategory[muscle] === selectedMuscle
+      );
+      const secondaryMatch = ex.secondaryMuscles.some(
+        (muscle) => muscleToCategory[muscle] === selectedMuscle
+      );
+      matchMuscle = primaryMatch || secondaryMatch;
+    }
+    return matchName && matchType && matchMuscle;
+  });
+
+  const backgroundColor = darkMode ? '#1C1C1E' : '#F8F9FA';
+  const textColor = darkMode ? '#FFFFFF' : '#333333';
+  const cardColor = darkMode ? '#2C2C2E' : '#FFFFFF';
+  const borderColor = darkMode ? '#555555' : '#E0E0E0';
+  const placeholderColor = darkMode ? '#888888' : '#666666';
 
   function dismissKeyboard() {
-    Keyboard.dismiss()
+    Keyboard.dismiss();
   }
 
   function renderItem({ item }) {
@@ -68,7 +119,7 @@ export default function ExercisesScreen() {
         <Text style={[styles.itemName, { color: textColor }]}>{item.name}</Text>
         <Ionicons name="chevron-forward" size={20} color={darkMode ? '#ccc' : '#666'} />
       </TouchableOpacity>
-    )
+    );
   }
 
   return (
@@ -77,7 +128,10 @@ export default function ExercisesScreen() {
         style={[styles.container, { backgroundColor }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={[styles.title, { color: textColor }]}>All Exercises</Text>
           <View style={[styles.searchContainer, { borderColor, backgroundColor: cardColor }]}>
             <Ionicons name="search" size={20} color={placeholderColor} style={styles.searchIcon} />
@@ -89,9 +143,10 @@ export default function ExercisesScreen() {
               onChangeText={setSearchQuery}
             />
           </View>
+
           <Text style={[styles.filterLabel, { color: textColor }]}>Filter by Muscle</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {muscleGroupOptions.map(opt => (
+            {muscleGroupOptions.map((opt) => (
               <TouchableOpacity
                 key={opt.value}
                 style={[
@@ -103,11 +158,7 @@ export default function ExercisesScreen() {
                 ]}
                 onPress={() => setSelectedMuscle(opt.value)}
               >
-                <Text
-                  style={{
-                    color: selectedMuscle === opt.value ? '#FFF' : textColor
-                  }}
-                >
+                <Text style={{ color: selectedMuscle === opt.value ? '#FFF' : textColor }}>
                   {opt.label}
                 </Text>
               </TouchableOpacity>
@@ -116,7 +167,7 @@ export default function ExercisesScreen() {
 
           <Text style={[styles.filterLabel, { color: textColor }]}>Filter by Type</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {exerciseTypeOptions.map(opt => (
+            {exerciseTypeOptions.map((opt) => (
               <TouchableOpacity
                 key={opt.value}
                 style={[
@@ -128,11 +179,7 @@ export default function ExercisesScreen() {
                 ]}
                 onPress={() => setSelectedType(opt.value)}
               >
-                <Text
-                  style={{
-                    color: selectedType === opt.value ? '#FFF' : textColor
-                  }}
-                >
+                <Text style={{ color: selectedType === opt.value ? '#FFF' : textColor }}>
                   {opt.label}
                 </Text>
               </TouchableOpacity>
@@ -141,7 +188,7 @@ export default function ExercisesScreen() {
 
           <FlatList
             data={filteredExercises}
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             renderItem={renderItem}
             style={{ marginTop: 16 }}
             contentContainerStyle={{ paddingBottom: 50 }}
@@ -149,7 +196,7 @@ export default function ExercisesScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -201,4 +248,4 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 16
   }
-})
+});
