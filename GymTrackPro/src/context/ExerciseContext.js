@@ -2,7 +2,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// 1) Now we import from a single "exercises.js" file:
+// Import exercises and related data
 import exercisesData from '../data/exercises';
 import muscleGroups from '../data/muscleGroups';
 import goals from '../data/goals';
@@ -10,22 +10,19 @@ import goals from '../data/goals';
 export const ExerciseContext = createContext();
 
 export const ExerciseProvider = ({ children }) => {
-  // Instead of an object with gym/dumbbell/bodyweight,
-  // we just store one array of all exercises:
+  // All exercises data
   const [exercises, setExercises] = useState(exercisesData);
 
-  // Keep favorites the same
+  // Favorites
   const [favorites, setFavorites] = useState([]);
 
-  // The user's chosen fitness goal
+  // User's chosen goal
   const [userGoal, setUserGoal] = useState('');
 
-  // Dark mode toggle
+  // Dark mode setting
   const [darkMode, setDarkMode] = useState(false);
 
-  // ---------------------------------------------------------------------------
-  // LOAD FROM ASYNCSTORAGE ON MOUNT
-  // ---------------------------------------------------------------------------
+  // Load favorites and userGoal from AsyncStorage on mount
   useEffect(() => {
     const loadFavorites = async () => {
       try {
@@ -53,9 +50,7 @@ export const ExerciseProvider = ({ children }) => {
     loadUserGoal();
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // SAVE Favorites & Goal whenever they change
-  // ---------------------------------------------------------------------------
+  // Save favorites when they change
   useEffect(() => {
     const saveFavorites = async () => {
       try {
@@ -67,6 +62,7 @@ export const ExerciseProvider = ({ children }) => {
     saveFavorites();
   }, [favorites]);
 
+  // Save userGoal when it changes
   useEffect(() => {
     const saveUserGoal = async () => {
       try {
@@ -78,41 +74,30 @@ export const ExerciseProvider = ({ children }) => {
     saveUserGoal();
   }, [userGoal]);
 
-  // ---------------------------------------------------------------------------
-  // HELPER METHODS
-  // ---------------------------------------------------------------------------
+  // Helper methods
+
   // Return array of ALL exercise objects
-  const getAllExercises = () => {
-    return exercises; // No need to merge from multiple files anymore
-  };
+  const getAllExercises = () => exercises;
 
-  // If you want to filter by 'gym' / 'bodyweight' / 'dumbbell'
-  const getExercisesByType = (type) => {
-    return exercises.filter((ex) => ex.type === type);
-  };
+  // Filter exercises by type
+  const getExercisesByType = (type) => exercises.filter((ex) => ex.type === type);
 
-  // Or if you want to filter by the "category" property
-  const getExercisesByCategory = (category) => {
-    return exercises.filter((ex) => ex.category === category);
-  };
+  // Filter exercises by category
+  const getExercisesByCategory = (category) =>
+    exercises.filter((ex) => ex.category === category);
 
-  // Return exercises that match a primary or secondary muscle
-  const getExercisesByMuscle = (muscleGroup) => {
-    return exercises.filter(
+  // Filter exercises by muscle (primary or secondary)
+  const getExercisesByMuscle = (muscleGroup) =>
+    exercises.filter(
       (exercise) =>
         exercise.primaryMuscles.includes(muscleGroup) ||
         exercise.secondaryMuscles.includes(muscleGroup)
     );
-  };
 
-  // Return exercises recommended for a given goal 
-  // (based on the 'goal' property in exercise.repRanges, or any logic you want)
+  // Return exercises recommended for a given goal
   const getExercisesByGoal = (goalId) => {
-    // Example: if your 'goals' array has recommended types, you can do that
     const goalData = goals.find((g) => g.id === goalId);
     if (!goalData) return exercises;
-
-    // Filter logic: matches recommended type OR has a repRange with that goal
     return exercises.filter((exercise) => {
       const matchesType = goalData.recommendedExerciseTypes.includes(exercise.type);
       const hasGoalRange = exercise.repRanges.some((range) => range.goal === goalId);
@@ -132,38 +117,33 @@ export const ExerciseProvider = ({ children }) => {
   };
 
   // Check if an exercise is favorited
-  const isFavorite = (exerciseId) => {
-    return favorites.includes(exerciseId);
+  const isFavorite = (exerciseId) => favorites.includes(exerciseId);
+
+  // NEW: Add an exercise to favorites if it's not already there
+  const addFavorite = (exerciseId) => {
+    setFavorites((prev) => {
+      if (!prev.includes(exerciseId)) {
+        return [...prev, exerciseId];
+      }
+      return prev;
+    });
   };
 
   // Update userGoal
-  const setGoal = (goal) => {
-    setUserGoal(goal);
-  };
+  const setGoal = (goal) => setUserGoal(goal);
 
   // Return info object for a given goal ID
-  const getGoalInfo = (goalId) => {
-    return goals.find((g) => g.id === goalId) || null;
-  };
+  const getGoalInfo = (goalId) => goals.find((g) => g.id === goalId) || null;
 
   // Return a single exercise object by ID
-  const getExerciseById = (id) => {
-    return exercises.find((ex) => ex.id === id) || null;
-  };
+  const getExerciseById = (id) => exercises.find((ex) => ex.id === id) || null;
 
   // Return muscle group info by ID
-  const getMuscleInfo = (muscleId) => {
-    return muscleGroups.find((m) => m.id === muscleId) || null;
-  };
+  const getMuscleInfo = (muscleId) => muscleGroups.find((m) => m.id === muscleId) || null;
 
   // Toggle dark mode
-  const toggleDarkMode = () => {
-    setDarkMode((prev) => !prev);
-  };
+  const toggleDarkMode = () => setDarkMode((prev) => !prev);
 
-  // ---------------------------------------------------------------------------
-  // PROVIDER
-  // ---------------------------------------------------------------------------
   return (
     <ExerciseContext.Provider
       value={{
@@ -177,12 +157,13 @@ export const ExerciseProvider = ({ children }) => {
         getExercisesByGoal,
         toggleFavorite,
         isFavorite,
+        addFavorite, // Added function for adding favorites
         setGoal,
         getGoalInfo,
         getExerciseById,
         getMuscleInfo,
         darkMode,
-        toggleDarkMode
+        toggleDarkMode,
       }}
     >
       {children}

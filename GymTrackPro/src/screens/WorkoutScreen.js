@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,30 +8,43 @@ import {
   TextInput,
   Alert
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { ExerciseContext } from '../context/ExerciseContext';
 import DatabaseService from '../services/DatabaseService';
 import { Ionicons } from '@expo/vector-icons';
 
 const WorkoutScreen = () => {
   const navigation = useNavigation();
-  const { userGoal, getExercisesByGoal, getExerciseById, favorites, getAllExercises, darkMode } = useContext(ExerciseContext);
+  const {
+    userGoal,
+    getExerciseById,
+    favorites,
+    getAllExercises,
+    darkMode
+  } = useContext(ExerciseContext);
   const [workoutLists, setWorkoutLists] = useState([]);
   const [newListName, setNewListName] = useState('');
-  const [showRecommended, setShowRecommended] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
-  const recommendedExercises = getExercisesByGoal(userGoal);
 
   const loadAllWorkouts = async () => {
     try {
       const lists = await DatabaseService.getAllWorkoutLists();
       setWorkoutLists(lists);
-    } catch (error) {}
+    } catch (error) {
+      // Handle error as needed
+    }
   };
 
   useEffect(() => {
     loadAllWorkouts();
   }, []);
+
+  // Refresh workout lists when screen regains focus.
+  useFocusEffect(
+    useCallback(() => {
+      loadAllWorkouts();
+    }, [])
+  );
 
   const handleCreateList = async () => {
     if (!newListName) {
@@ -49,7 +62,7 @@ const WorkoutScreen = () => {
   };
 
   const handleOpenList = (list) => {
-    navigation.navigate('CustomWorkoutDetail', { listId: list.id });
+    navigation.navigate('CustomWorkoutDetailScreen', { listId: list.id });
   };
 
   const favoriteExercises = favorites
@@ -133,45 +146,6 @@ const WorkoutScreen = () => {
           No favorite exercises yet
         </Text>
       )}
-      <TouchableOpacity
-        style={[
-          styles.toggleBar,
-          { backgroundColor: darkMode ? '#3A3A3C' : '#EEE', marginTop: 24 }
-        ]}
-        onPress={() => setShowRecommended(!showRecommended)}
-      >
-        <Text style={[styles.toggleBarText, { color: textColor }]}>
-          Recommended (Goal: {userGoal || 'None'})
-        </Text>
-        <Ionicons
-          name={showRecommended ? 'chevron-up' : 'chevron-down'}
-          size={20}
-          color={textColor}
-        />
-      </TouchableOpacity>
-      {showRecommended && (
-        <View style={styles.section}>
-          {recommendedExercises.map((exercise) => (
-            <TouchableOpacity
-              key={exercise.id}
-              style={[styles.exerciseCard, { backgroundColor: cardColor }]}
-              onPress={() =>
-                navigation.navigate('ExerciseDetail', { exerciseId: exercise.id })
-              }
-            >
-              <Text style={[styles.exerciseName, { color: textColor }]}>{exercise.name}</Text>
-              <Text style={[styles.exerciseCategory, { color: darkMode ? '#bbb' : '#666' }]}>
-                {exercise.category}
-              </Text>
-            </TouchableOpacity>
-          ))}
-          {recommendedExercises.length === 0 && (
-            <Text style={[styles.emptyText, { color: darkMode ? '#999' : '#999' }]}>
-              No recommended exercises
-            </Text>
-          )}
-        </View>
-      )}
     </ScrollView>
   );
 };
@@ -246,10 +220,6 @@ const styles = StyleSheet.create({
   },
   favoritesContainer: {
     marginTop: 8
-  },
-  section: {
-    marginTop: 8,
-    marginBottom: 24
   },
   exerciseCard: {
     borderRadius: 12,

@@ -17,6 +17,8 @@ import MainTabNavigator from './MainTabNavigator';
 import FriendRequestsScreen from '../screens/FriendRequestsScreen';
 import FriendProfileScreen from '../screens/FriendProfileScreen';
 import ExerciseDetailScreen from '../screens/ExerciseDetailScreen';
+import CustomWorkoutDetailScreen from '../screens/CustomWorkoutDetailScreen';
+import AddExerciseScreen from '../screens/AddExerciseScreen';
 
 const Stack = createStackNavigator();
 
@@ -34,6 +36,8 @@ export default function AppNavigator() {
           // If logged in, show main app and additional screens
           <>
             <Stack.Screen name="Main" component={MainTabNavigator} />
+            <Stack.Screen name="CustomWorkoutDetailScreen" component={CustomWorkoutDetailScreen} />
+            <Stack.Screen name="AddExerciseScreen" component={AddExerciseScreen} />
             <Stack.Screen name="FriendRequests" component={FriendRequestsScreen} />
             <Stack.Screen name="FriendProfile" component={FriendProfileScreen} />
             <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
