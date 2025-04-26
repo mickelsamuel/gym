@@ -1,50 +1,139 @@
-# Welcome to your Expo app 👋
+# GymTrackPro
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+<img src="./assets/images/icon.png" width="100" alt="GymTrackPro Logo">
 
-## Get started
+GymTrackPro is a comprehensive fitness tracking application built with **React Native** and **Expo**, helping users track workouts, monitor progress, and connect with fitness friends.
 
-1. Install dependencies
+## Features
 
+- **Workout Tracking**: Log sets, reps, and weights for each exercise
+- **Progress Visualization**: View your progress over time with charts
+- **Custom Workout Plans**: Create and save personalized workout routines
+- **Goal Setting**: Set fitness goals and track your progress
+- **Social Features**: Connect with friends, share progress, and motivate each other
+- **Dark Mode Support**: Choose between light and dark themes
+- **Offline Support**: Full functionality even without an internet connection
+- **Cross-Platform**: Works on both iOS and Android
+
+## Screenshots
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+  <img src="./screenshots/login.PNG" width="200" alt="Login Screen">
+  <img src="./screenshots/hometab.PNG" width="200" alt="Home Tab">
+  <img src="./screenshots/exercisestab.PNG" width="200" alt="Exercises Tab">
+  <img src="./screenshots/workouttab.PNG" width="200" alt="Workout Tab">
+  <img src="./screenshots/profiletab.PNG" width="200" alt="Profile Tab">
+  <img src="./screenshots/socialtab.PNG" width="200" alt="Social Tab">
+</div>
+
+## Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v16 or later)
+- [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/)
+- [Expo CLI](https://docs.expo.dev/get-started/installation/)
+- [Firebase](https://firebase.google.com/) account (for authentication and cloud storage)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/gymtrackpro.git
+   cd gymtrackpro
+   ```
+
+2. Install dependencies:
    ```bash
    npm install
+   # or
+   yarn install
    ```
 
-2. Start the app
+3. Set up Firebase:
+   - Create a new Firebase project at [https://console.firebase.google.com/](https://console.firebase.google.com/)
+   - Set up Authentication with Email/Password
+   - Create a Firestore database
+   - Update `src/services/firebase.js` with your Firebase configuration
 
+4. Start the Expo development server:
    ```bash
-    npx expo start
+   npm start
+   # or
+   expo start
    ```
 
-In the output, you'll find options to open the app in a
+5. Launch the app:
+   - Scan the QR code with the Expo Go app on your mobile device
+   - Press 'i' to open in iOS simulator (Mac only)
+   - Press 'a' to open in Android emulator
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Building for Production
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+1. Install EAS CLI:
+   ```bash
+   npm install -g eas-cli
+   ```
 
-## Get a fresh project
+2. Build the app:
+   ```bash
+   # For development testing
+   eas build --profile development --platform all
 
-When you're ready, run:
+   # For production
+   eas build --profile production --platform all
+   ```
 
-```bash
-npm run reset-project
+3. Submit to app stores:
+   ```bash
+   eas submit --platform ios
+   eas submit --platform android
+   ```
+
+## Project Structure
+
+```
+GymTrackPro/
+├── assets/                # Images, fonts and other static assets
+├── components/            # Reusable UI components
+│   └── ui/                # Base UI components like Button, Card, etc.
+├── constants/             # App constants including Colors
+├── hooks/                 # Custom React hooks
+├── src/
+│   ├── context/           # React Context providers
+│   ├── data/              # Static data (exercises, muscle groups)
+│   ├── navigation/        # Navigation configuration
+│   ├── screens/           # App screens
+│   └── services/          # Services (Firebase, DatabaseService)
+├── App.js                 # Main app component
+├── app.json               # Expo configuration
+└── package.json           # Dependencies and scripts
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Technologies Used
 
-## Learn more
+- **React Native**: Cross-platform mobile framework
+- **Expo**: Development platform for React Native
+- **Firebase**: Authentication and cloud storage
+- **AsyncStorage**: Local data persistence
+- **React Navigation**: Navigation between screens
+- **React Native Charts**: Data visualization
+- **Expo SQLite**: Local database
 
-To learn more about developing your project with Expo, look at the following resources:
+## Contributing
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+1. Fork the repository
+2. Create your feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add some amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
 
-## Join the community
+## License
 
-Join our community of developers creating universal apps.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Contact
+
+Your Name - [your.email@example.com](mailto:your.email@example.com)
+
+Project Link: [https://github.com/your-username/gymtrackpro](https://github.com/your-username/gymtrackpro)

@@ -1,5 +1,5 @@
 // src/screens/WorkoutLogModal.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   TouchableOpacity,
@@ -11,9 +11,16 @@ import {
   Platform,
   Keyboard,
   StyleSheet,
-  TextInput
+  TextInput,
+  Animated,
+  Vibration,
+  Dimensions
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { FontAwesome } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+
+const { width } = Dimensions.get('window');
 
 const formatDateTime = (date) => {
   const year = date.getFullYear();
@@ -39,6 +46,12 @@ const WorkoutLogModal = ({
   const [reps, setReps] = useState(initialData ? String(initialData.reps) : '');
   const [notes, setNotes] = useState(initialData ? initialData.notes : '');
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  // Animation values
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
   useEffect(() => {
     if (initialData) {
@@ -52,46 +65,165 @@ const WorkoutLogModal = ({
       setReps('');
       setNotes('');
     }
+    setErrors({});
   }, [initialData, visible]);
 
+  useEffect(() => {
+    if (visible) {
+      // Animate in
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: true,
+        })
+      ]).start();
+    } else {
+      // Reset animations when closed
+      fadeAnim.setValue(0);
+      slideAnim.setValue(0);
+      scaleAnim.setValue(0.95);
+    }
+  }, [visible]);
+
+  const validateInput = (field, value) => {
+    if (field === 'weight') {
+      if (!value.trim()) {
+        return 'Weight is required';
+      }
+      if (isNaN(parseFloat(value))) {
+        return 'Enter a valid number';
+      }
+    }
+    if (field === 'reps') {
+      if (!value.trim()) {
+        return 'Reps are required';
+      }
+      if (isNaN(parseInt(value)) || parseInt(value) <= 0) {
+        return 'Enter a valid number';
+      }
+    }
+    return null;
+  };
+
+  const handleInputChange = (field, value) => {
+    // Clear error when user starts typing
+    setErrors(prev => ({...prev, [field]: null}));
+    
+    if (field === 'weight') {
+      setWeight(value);
+    } else if (field === 'reps') {
+      setReps(value);
+    } else if (field === 'notes') {
+      setNotes(value);
+    }
+  };
+
   const handleSave = () => {
-    if (!weight || !reps) {
-      Alert.alert('Missing Information', 'Please fill in all fields');
+    // Validate all fields
+    const weightError = validateInput('weight', weight);
+    const repsError = validateInput('reps', reps);
+    
+    if (weightError || repsError) {
+      setErrors({
+        weight: weightError,
+        reps: repsError
+      });
+      
+      // Provide haptic feedback for error
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } else {
+        Vibration.vibrate(100);
+      }
+      
       return;
     }
-    const weightNum = parseFloat(weight);
-    const repsNum = parseInt(reps);
-    if (isNaN(weightNum) || isNaN(repsNum)) {
-      Alert.alert('Invalid Input', 'Please enter valid numbers');
-      return;
-    }
+    
     const setData = {
       date: formatDateTime(selectedDate),
-      weight: weightNum,
-      reps: repsNum,
+      weight: parseFloat(weight),
+      reps: parseInt(reps),
       notes
     };
+    
+    // Success haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    
     onSave(setData);
+  };
+
+  const handleCancel = () => {
+    // Animate out before closing
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      onClose();
+    });
   };
 
   return (
     <Modal
-      animationType="slide"
+      animationType="none" // We're handling our own animations
       transparent
       visible={visible}
-      onRequestClose={onClose}
+      onRequestClose={handleCancel}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
+      <TouchableWithoutFeedback onPress={handleCancel}>
+        <Animated.View 
+          style={[
+            styles.modalOverlay,
+            { opacity: fadeAnim }
+          ]}
+        >
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.modalContainer}
           >
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-              <View style={[styles.modalContent, { backgroundColor: cardColor }]}>
-                <Text style={[styles.modalTitle, { color: textColor }]}>
-                  {initialData ? `Edit ${exerciseName} Set` : `Log ${exerciseName}`}
-                </Text>
+              <Animated.View 
+                style={[
+                  styles.modalContent, 
+                  { 
+                    backgroundColor: cardColor,
+                    transform: [
+                      { translateY: slideAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [50, 0]
+                        })
+                      },
+                      { scale: scaleAnim }
+                    ]
+                  }
+                ]}
+              >
+                <View style={styles.headerContainer}>
+                  <Text style={[styles.modalTitle, { color: textColor }]}>
+                    {initialData ? `Edit ${exerciseName} Set` : `Log ${exerciseName}`}
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.closeButton} 
+                    onPress={handleCancel}
+                    hitSlop={{top: 20, right: 20, bottom: 20, left: 20}}
+                  >
+                    <FontAwesome name="times" size={20} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+                
                 {/* Date & Time Picker */}
                 <View style={styles.formGroup}>
                   <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>
@@ -100,15 +232,24 @@ const WorkoutLogModal = ({
                   <TouchableOpacity
                     style={[
                       styles.datePickerButton,
-                      { borderColor: darkMode ? '#555' : '#E0E0E0', backgroundColor: cardColor }
+                      { borderColor: darkMode ? '#555' : '#E0E0E0', backgroundColor: darkMode ? 'rgba(70,70,70,0.2)' : 'rgba(240,240,240,0.5)' }
                     ]}
-                    onPress={() => setDatePickerVisibility(true)}
+                    onPress={() => {
+                      setDatePickerVisibility(true);
+                      if (Platform.OS === 'ios') {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                    }}
                   >
-                    <Text style={{ color: textColor }}>
-                      {formatDateTime(selectedDate)}
-                    </Text>
+                    <View style={styles.datePickerButtonContent}>
+                      <FontAwesome name="calendar" size={16} color={darkMode ? '#ccc' : '#666'} />
+                      <Text style={[styles.dateText, { color: textColor }]}>
+                        {formatDateTime(selectedDate)}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
+                
                 {/* Reps & Weight */}
                 <View style={styles.setRepsWeightRow}>
                   <View style={styles.smallFormGroup}>
@@ -120,16 +261,19 @@ const WorkoutLogModal = ({
                         styles.textInput,
                         {
                           color: textColor,
-                          borderColor: darkMode ? '#555' : '#E0E0E0',
-                          backgroundColor: cardColor
+                          borderColor: errors.reps ? '#FF6B6B' : darkMode ? '#555' : '#E0E0E0',
+                          backgroundColor: darkMode ? 'rgba(70,70,70,0.2)' : 'rgba(240,240,240,0.5)'
                         }
                       ]}
                       value={reps}
-                      onChangeText={setReps}
+                      onChangeText={(value) => handleInputChange('reps', value)}
                       placeholder="0"
                       placeholderTextColor={darkMode ? '#888' : '#999'}
                       keyboardType="number-pad"
                     />
+                    {errors.reps && (
+                      <Text style={styles.errorText}>{errors.reps}</Text>
+                    )}
                   </View>
                   <View style={styles.smallFormGroupNoMargin}>
                     <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>
@@ -140,18 +284,22 @@ const WorkoutLogModal = ({
                         styles.textInput,
                         {
                           color: textColor,
-                          borderColor: darkMode ? '#555' : '#E0E0E0',
-                          backgroundColor: cardColor
+                          borderColor: errors.weight ? '#FF6B6B' : darkMode ? '#555' : '#E0E0E0',
+                          backgroundColor: darkMode ? 'rgba(70,70,70,0.2)' : 'rgba(240,240,240,0.5)'
                         }
                       ]}
                       value={weight}
-                      onChangeText={setWeight}
+                      onChangeText={(value) => handleInputChange('weight', value)}
                       placeholder="0.0"
                       placeholderTextColor={darkMode ? '#888' : '#999'}
                       keyboardType="decimal-pad"
                     />
+                    {errors.weight && (
+                      <Text style={styles.errorText}>{errors.weight}</Text>
+                    )}
                   </View>
                 </View>
+                
                 {/* Notes */}
                 <View style={styles.formGroup}>
                   <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>
@@ -164,16 +312,17 @@ const WorkoutLogModal = ({
                       {
                         color: textColor,
                         borderColor: darkMode ? '#555' : '#E0E0E0',
-                        backgroundColor: cardColor
+                        backgroundColor: darkMode ? 'rgba(70,70,70,0.2)' : 'rgba(240,240,240,0.5)'
                       }
                     ]}
                     value={notes}
-                    onChangeText={setNotes}
-                    placeholder="Add notes..."
+                    onChangeText={(value) => handleInputChange('notes', value)}
+                    placeholder="Add notes about this set..."
                     placeholderTextColor={darkMode ? '#888' : '#999'}
                     multiline
                   />
                 </View>
+                
                 {/* Buttons */}
                 <View style={styles.buttonRow}>
                   <TouchableOpacity
@@ -181,21 +330,30 @@ const WorkoutLogModal = ({
                       styles.modalButton,
                       { backgroundColor: darkMode ? '#444' : '#F0F0F0' }
                     ]}
-                    onPress={onClose}
+                    onPress={handleCancel}
                   >
                     <Text style={[styles.cancelButtonText, { color: darkMode ? '#FFF' : '#333' }]}>
                       Cancel
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.modalButton, { backgroundColor: '#007AFF' }]}
+                    style={[styles.modalButton, { 
+                      backgroundColor: '#007AFF',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 3,
+                      elevation: 2,
+                    }]}
                     onPress={handleSave}
+                    activeOpacity={0.8}
                   >
                     <Text style={styles.saveButtonText}>
                       {initialData ? 'Update' : 'Save'}
                     </Text>
                   </TouchableOpacity>
                 </View>
+                
                 <DateTimePickerModal
                   isVisible={isDatePickerVisible}
                   mode="datetime"
@@ -203,13 +361,16 @@ const WorkoutLogModal = ({
                   onConfirm={(date) => {
                     setSelectedDate(date);
                     setDatePickerVisibility(false);
+                    if (Platform.OS === 'ios') {
+                      Haptics.selectionAsync();
+                    }
                   }}
                   onCancel={() => setDatePickerVisibility(false)}
                 />
-              </View>
+              </Animated.View>
             </TouchableWithoutFeedback>
           </KeyboardAvoidingView>
-        </View>
+        </Animated.View>
       </TouchableWithoutFeedback>
     </Modal>
   );
@@ -218,45 +379,69 @@ const WorkoutLogModal = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center'
   },
   modalContainer: {
     width: '90%',
+    maxWidth: 400,
     padding: 16
   },
   modalContent: {
-    borderRadius: 20,
-    padding: 24
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 20
+    flex: 1
+  },
+  closeButton: {
+    padding: 5
   },
   formGroup: {
     marginBottom: 16
   },
   label: {
-    fontSize: 14,
-    marginBottom: 6
+    fontSize: 15,
+    marginBottom: 8,
+    fontWeight: '500'
   },
   datePickerButton: {
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12
+  },
+  datePickerButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  dateText: {
+    marginLeft: 10,
+    fontSize: 16
   },
   textInput: {
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     fontSize: 16
   },
   notesInput: {
-    height: 80,
+    height: 100,
     textAlignVertical: 'top'
   },
   setRepsWeightRow: {
@@ -266,21 +451,22 @@ const styles = StyleSheet.create({
   },
   smallFormGroup: {
     flex: 1,
-    marginRight: 8
+    marginRight: 12
   },
   smallFormGroupNoMargin: {
     flex: 1
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
+    marginTop: 8
   },
   modalButton: {
     flex: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    marginHorizontal: 4
+    marginHorizontal: 6
   },
   cancelButtonText: {
     fontSize: 16,
@@ -290,6 +476,12 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600'
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4
   }
 });
 

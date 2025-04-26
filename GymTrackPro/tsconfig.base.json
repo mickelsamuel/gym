@@ -1,11 +1,5 @@
 {
   "compilerOptions": {
-    "strict": true,
-    "paths": {
-      "@/*": [
-        "./*"
-      ]
-    },
     "target": "esnext",
     "module": "commonjs",
     "lib": ["esnext"],
@@ -16,11 +10,7 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "esModuleInterop": true
-  },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "extends": "./tsconfig.base.json"
-}
+    "esModuleInterop": true,
+    "strict": true
+  }
+} 

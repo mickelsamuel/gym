@@ -1,24 +1,54 @@
 {
   "cli": {
-    "version": ">= 16.0.0",
+    "version": ">= 7.0.0",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "ENV": "development",
+        "FIREBASE_CONFIG_DEV": true
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview"
+      "channel": "preview",
+      "env": {
+        "ENV": "staging",
+        "FIREBASE_CONFIG_STAGING": true
+      },
+      "android": {
+        "buildType": "apk"
+      }
     },
     "production": {
+      "channel": "production",
       "autoIncrement": true,
-      "channel": "production"
+      "env": {
+        "ENV": "production"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "YOUR_APPLE_ID",
+        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "YOUR_APPLE_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./path/to/service-account.json",
+        "track": "production"
+      }
+    }
   }
 }

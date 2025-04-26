@@ -5,19 +5,43 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "gymtrackpro",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff",
+      "dark": {
+        "backgroundColor": "#1C1C1E"
+      }
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.GymTrackPro"
+      "bundleIdentifier": "com.gymtrackpro.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to let you scan barcodes and take profile pictures.",
+        "NSPhotoLibraryUsageDescription": "This app uses the photo library to let you select profile pictures.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to save workout screenshots to your photo library.",
+        "UIViewControllerBasedStatusBarAppearance": true
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.GymTrackPro"
+      "package": "com.gymtrackpro.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "bundler": "metro",
@@ -25,15 +49,29 @@
     },
     "plugins": [
       [
-        "expo-splash-screen",
+        "expo-image-picker",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "photosPermission": "The app accesses your photos to let you share them with your friends and set profile pictures.",
+          "cameraPermission": "The app accesses your camera to let you take profile pictures."
         }
       ],
-      "expo-sqlite"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow GymTrackPro to access your camera."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow GymTrackPro to access your photos.",
+          "savePhotosPermission": "Allow GymTrackPro to save photos.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      "expo-sqlite",
+      "expo-font",
+      "expo-router"
     ],
     "extra": {
       "eas": {
@@ -44,7 +82,14 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/f465d210-b177-4b20-b344-a38e59b79de7"
-    }
+      "url": "https://u.expo.dev/f465d210-b177-4b20-b344-a38e59b79de7",
+      "fallbackToCacheTimeout": 0,
+      "enabled": true
+    },
+    "jsEngine": "hermes",
+    "owner": "gymtrackpro",
+    "description": "A comprehensive fitness tracking application for tracking workouts, weight, and connecting with friends.",
+    "githubUrl": "https://github.com/gymtrackpro/app",
+    "newArchEnabled": true
   }
 }
