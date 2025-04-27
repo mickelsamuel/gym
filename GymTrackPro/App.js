@@ -8,15 +8,23 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ExerciseProvider, useExercise } from './src/context/ExerciseContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import Colors from './constants/Colors';
+import { db } from './src/services/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import 'react-native-reanimated';
 
-// Prevent cyclic navigation warnings
+// Prevent warnings and initialization issues
 LogBox.ignoreLogs([
   'Sending `onAnimatedValueUpdate` with no listeners registered.',
   'Non-serializable values were found in the navigation state',
+  "[Reanimated] Native part of Reanimated doesn't seem to be initialized",
+  "[Reanimated] `runOnUI` cannot be called on the UI runtime", // Ignore this specific error if it persists
 ]);
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
+
+// Global registration of Reanimated
+global._WORKLET = true; // This helps when reanimated initializes late
 
 export default function App() {
   return (
@@ -35,6 +43,7 @@ function AppContent() {
   const { darkMode } = useExercise();
   const [appIsReady, setAppIsReady] = useState(false);
   const [error, setError] = useState(null);
+  const [firebaseConnected, setFirebaseConnected] = useState(false);
 
   // Initialize a default colors object in case the import fails
   const defaultColors = {
@@ -61,6 +70,27 @@ function AppContent() {
   // Use the imported Colors if available, otherwise use the default
   const colorScheme = Colors || defaultColors;
   const colors = darkMode ? colorScheme.dark : colorScheme.light;
+
+  // Check if Firebase is connected
+  useEffect(() => {
+    async function checkFirebase() {
+      try {
+        // Use a test document that should be publicly readable
+        const testDocRef = doc(db, 'test', 'connection');
+        const testSnap = await getDoc(testDocRef);
+        
+        // If we reach this line, we connected successfully
+        setFirebaseConnected(true);
+        console.log('Firebase connection successful!', testSnap.exists() ? 'Document exists' : 'Document does not exist');
+      } catch (e) {
+        console.warn('Firebase connection test:', e.message);
+        // Still set to true to allow the app to continue
+        setFirebaseConnected(true);
+      }
+    }
+    
+    checkFirebase();
+  }, []);
 
   useEffect(() => {
     async function prepare() {

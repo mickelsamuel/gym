@@ -10,10 +10,13 @@ import {
   updatePassword,
   updateEmail,
   EmailAuthProvider,
-  reauthenticateWithCredential
+  reauthenticateWithCredential,
+  sendEmailVerification,
+  getAuth
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NetworkState } from '../services/NetworkState';
 
 export const AuthContext = createContext();
 
@@ -30,6 +33,126 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
+  const [isOnline, setIsOnline] = useState(true);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [storageInitialized, setStorageInitialized] = useState(false);
+  
+  // Initialize network state monitoring
+  useEffect(() => {
+    const networkStateListener = NetworkState.addListener(state => {
+      setIsOnline(state.isConnected);
+    });
+    
+    NetworkState.init();
+    
+    return () => {
+      networkStateListener.remove();
+    };
+  }, []);
+
+  // Initialize and migrate AsyncStorage on mount
+  useEffect(() => {
+    const initializeStorage = async () => {
+      try {
+        // Check for app version/storage version
+        const storageVersion = await AsyncStorage.getItem('storage_version');
+        
+        if (storageVersion !== '1.0') {
+          // For first installs or upgrades, clean up old data format
+          console.log('Initializing storage or upgrading from version:', storageVersion || 'none');
+          await migrateStorage();
+          
+          // Set new storage version
+          await AsyncStorage.setItem('storage_version', '1.0');
+        }
+        
+        setStorageInitialized(true);
+      } catch (error) {
+        console.error('Storage initialization error:', error);
+      }
+    };
+    
+    initializeStorage();
+  }, []);
+  
+  // Migrate AsyncStorage from old format to new format
+  const migrateStorage = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      
+      // List of keys to inspect
+      const keysToCheck = keys.filter(key => 
+        !key.startsWith('storage_version') && 
+        !key.startsWith('RN_')
+      );
+      
+      for (const key of keysToCheck) {
+        try {
+          // Read the stored value
+          const value = await AsyncStorage.getItem(key);
+          
+          // Check if it's a JSON object
+          try {
+            const parsed = JSON.parse(value);
+            
+            // Handle specific migrations for known key formats
+            if (key === 'profile') {
+              // For profile data, ensure it has the new format with lastUpdated
+              if (!parsed.lastUpdated) {
+                console.log('Migrating profile data to new format');
+                
+                // Convert to new minimal format
+                const newProfile = {
+                  firebaseUid: parsed.firebaseUid || parsed.uid,
+                  email: parsed.email || '',
+                  username: parsed.username || '',
+                  lastUpdated: new Date().toISOString()
+                };
+                
+                await AsyncStorage.setItem('profile', JSON.stringify(newProfile));
+              }
+            } else if (key.startsWith('workout_')) {
+              // Workouts are now stored only on Firestore, remove local copies
+              await AsyncStorage.removeItem(key);
+            } else if (key.startsWith('weight_')) {
+              // Weight logs are now stored only on Firestore, remove local copies
+              await AsyncStorage.removeItem(key);
+            }
+          } catch (parseError) {
+            // Not a JSON object, skip
+          }
+        } catch (itemError) {
+          console.warn(`Error processing storage key ${key}:`, itemError);
+        }
+      }
+      
+      console.log('Storage migration completed');
+    } catch (error) {
+      console.error('Storage migration error:', error);
+    }
+  };
+  
+  // Clear all AsyncStorage data related to a user
+  const clearUserDataFromStorage = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const userDataKeys = keys.filter(key => 
+        key === 'profile' || 
+        key === 'loggedInUser' || 
+        key === 'rememberMe' || 
+        key.startsWith('user_') || 
+        key.startsWith('weight_') ||
+        key.startsWith('workout_')
+      );
+      
+      if (userDataKeys.length > 0) {
+        await AsyncStorage.multiRemove(userDataKeys);
+        console.log('Cleared user data from AsyncStorage');
+      }
+    } catch (error) {
+      console.error('Error clearing user data from storage:', error);
+    }
+  };
   
   useEffect(() => {
     // Listen for auth state changes
@@ -37,15 +160,43 @@ export const AuthProvider = ({ children }) => {
       try {
         if (firebaseUser) {
           setUser(firebaseUser);
+          setEmailVerified(firebaseUser.emailVerified);
+          
+          // Ensure we're not using stale cached data by refreshing Firebase user
+          try {
+            await firebaseUser.reload();
+            // Re-check email verification status after reload
+            setEmailVerified(firebaseUser.emailVerified);
+          } catch (reloadError) {
+            console.warn('Error refreshing user data:', reloadError);
+          }
           
           // Get the user's profile data from Firestore
-          await fetchUserProfile(firebaseUser.uid);
+          const userData = await fetchUserProfile(firebaseUser.uid);
           
           // Store user UID for "Remember Me"
           await AsyncStorage.setItem('loggedInUser', firebaseUser.uid);
+          
+          // Update Firestore with last login timestamp if we're online
+          if (isOnline && userData && !userData.isOfflineData) {
+            try {
+              const userDocRef = doc(db, 'users', firebaseUser.uid);
+              await updateDoc(userDocRef, {
+                lastLogin: serverTimestamp()
+              });
+            } catch (updateError) {
+              console.warn('Error updating last login time:', updateError);
+            }
+          }
+          
+          // If email is not verified, let the user know
+          if (!firebaseUser.emailVerified) {
+            console.log('Email not verified. Please check your email and verify your account.');
+          }
         } else {
           setUser(null);
           setUserProfile(null);
+          setEmailVerified(false);
           await AsyncStorage.removeItem('loggedInUser');
         }
       } catch (err) {
@@ -57,106 +208,48 @@ export const AuthProvider = ({ children }) => {
     });
     
     return () => unsubscribe();
-  }, []);
+  }, [isOnline]);
   
   // Fetch user profile data from Firestore
   const fetchUserProfile = async (userId) => {
     try {
-      // First, try to get cached profile from AsyncStorage
-      const cachedProfile = await AsyncStorage.getItem('profile');
-      let profileData = cachedProfile ? JSON.parse(cachedProfile) : null;
-      
-      // Set basic user profile from cache while we attempt to fetch fresh data
-      if (profileData) {
-        setUserProfile({
-          uid: userId,
-          email: profileData.email,
-          username: profileData.username,
-          age: profileData.age || null,
-          profilePic: profileData.profilePic || null,
-          // Add default values for other fields
-          friends: [],
-          friendRequests: [],
-          firestoreSets: [],
-          firestoreWeightLog: [],
-          settings: {
-            unitSystem: 'metric',
-            notifications: true,
-            darkMode: false,
-            privacyLevel: 'friends-only',
-          }
-        });
-      }
-
-      // Try to get fresh data from Firestore
-      const userDocRef = doc(db, 'users', userId);
-      const userDocSnap = await getDoc(userDocRef);
-      
-      if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        setUserProfile(userData);
+      // Only try to fetch from Firestore if we're online
+      if (isOnline) {
+        // Try to get fresh data from Firestore
+        const userDocRef = doc(db, 'users', userId);
+        const userDocSnap = await getDoc(userDocRef);
         
-        // Store basic profile info in AsyncStorage for offline access
-        await AsyncStorage.setItem(
-          'profile',
-          JSON.stringify({
-            firebaseUid: userId,
-            email: userData.email,
-            username: userData.username,
-            age: userData.age,
-            profilePic: userData.profilePic || null
-          })
-        );
-      } else if (!profileData) {
-        // If no Firestore data and no cached data, create a new user document
-        const newUserData = {
-          uid: userId,
-          email: user?.email || '',
-          username: '',
-          age: null,
-          height: null,
-          weight: null,
-          joinedDate: new Date().toISOString(),
-          friends: [],
-          friendRequests: [],
-          profilePic: '',
-          firestoreSets: [],
-          firestoreWeightLog: [],
-          settings: {
-            unitSystem: 'metric',
-            notifications: true,
-            darkMode: false,
-            privacyLevel: 'friends-only',
-          }
-        };
-        
-        try {
-          await setDoc(doc(db, 'users', userId), newUserData);
-          setUserProfile(newUserData);
-        } catch (docError) {
-          console.error('Error creating user document:', docError);
-          // Still set the profile in state even if we can't save to Firestore
-          setUserProfile(newUserData);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching user profile:', err);
-      
-      // Handle offline mode - try to load from AsyncStorage as fallback
-      try {
-        const offlineProfile = await AsyncStorage.getItem('profile');
-        if (offlineProfile) {
-          const parsedProfile = JSON.parse(offlineProfile);
-          // Create a minimal profile with the cached data
-          setUserProfile({
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          setUserProfile(userData);
+          
+          // Store minimal profile info in AsyncStorage for offline access only
+          await AsyncStorage.setItem(
+            'profile',
+            JSON.stringify({
+              firebaseUid: userId,
+              email: userData.email,
+              username: userData.username,
+              lastUpdated: new Date().toISOString()
+            })
+          );
+          
+          return userData;
+        } else {
+          // If no Firestore data, create a new user document
+          const newUserData = {
             uid: userId,
-            email: parsedProfile.email || '',
-            username: parsedProfile.username || '',
-            age: parsedProfile.age || null,
-            profilePic: parsedProfile.profilePic || null,
-            // Add default values for other fields
+            email: auth.currentUser?.email || '',
+            username: '',
+            age: null,
+            height: null,
+            weight: null,
+            joinedDate: new Date().toISOString(),
+            createdAt: serverTimestamp(),
+            lastLogin: serverTimestamp(),
             friends: [],
             friendRequests: [],
+            profilePic: '',
             firestoreSets: [],
             firestoreWeightLog: [],
             settings: {
@@ -165,11 +258,72 @@ export const AuthProvider = ({ children }) => {
               darkMode: false,
               privacyLevel: 'friends-only',
             }
-          });
+          };
+          
+          try {
+            await setDoc(doc(db, 'users', userId), newUserData);
+            setUserProfile(newUserData);
+            
+            // Store minimal profile info in AsyncStorage for offline access only
+            await AsyncStorage.setItem(
+              'profile',
+              JSON.stringify({
+                firebaseUid: userId,
+                email: newUserData.email,
+                username: newUserData.username,
+                lastUpdated: new Date().toISOString()
+              })
+            );
+            
+            return newUserData;
+          } catch (docError) {
+            console.error('Error creating user document:', docError);
+            setUserProfile(newUserData);
+            return newUserData;
+          }
         }
-      } catch (storageErr) {
-        console.error('Error loading offline profile:', storageErr);
+      } else {
+        // Offline mode - try to load from AsyncStorage as fallback only
+        const offlineProfile = await AsyncStorage.getItem('profile');
+        if (offlineProfile) {
+          const parsedProfile = JSON.parse(offlineProfile);
+          // Only use cached data if it's for the current user
+          if (parsedProfile.firebaseUid === userId) {
+            const minimalProfile = {
+              uid: userId,
+              email: parsedProfile.email || '',
+              username: parsedProfile.username || '',
+              lastUpdated: parsedProfile.lastUpdated,
+              isOfflineData: true
+            };
+            setUserProfile(minimalProfile);
+            return minimalProfile;
+          }
+        }
+        
+        // If we're offline and don't have cached data for this user, return minimal data
+        const minimalOfflineProfile = {
+          uid: userId,
+          email: auth.currentUser?.email || '',
+          username: '',
+          isOfflineData: true
+        };
+        setUserProfile(minimalOfflineProfile);
+        return minimalOfflineProfile;
       }
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      
+      // Last resort - minimal offline profile if everything else fails
+      const emergencyProfile = {
+        uid: userId,
+        email: auth.currentUser?.email || '',
+        username: '',
+        isOfflineData: true,
+        isEmergencyFallback: true
+      };
+      setUserProfile(emergencyProfile);
+      return emergencyProfile;
     }
   };
 
@@ -179,11 +333,36 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
+      // First, clear any existing data for this account
+      await clearUserDataFromStorage();
+      
       // 1) Create the user in Firebase Auth
       const result = await createUserWithEmailAndPassword(auth, email, password);
       const { uid } = result.user;
+      
+      // Send email verification
+      try {
+        await sendEmailVerification(result.user);
+        console.log('Verification email sent');
+      } catch (verifyError) {
+        console.warn('Error sending verification email:', verifyError);
+      }
 
-      // 2) Create a document in Firestore "users" collection
+      // 2) Ensure any existing document for this user is cleaned up
+      try {
+        const userDocRef = doc(db, 'users', uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        // If a document exists for this user (from a previous account), delete subcollections
+        if (userDocSnap.exists()) {
+          await deleteUserData(uid);
+          console.log('Cleaned up existing user data for new account');
+        }
+      } catch (cleanupError) {
+        console.warn('Error cleaning up existing user data:', cleanupError);
+      }
+
+      // 3) Create a fresh document in Firestore "users" collection
       const userData = {
         uid,
         email,
@@ -192,6 +371,9 @@ export const AuthProvider = ({ children }) => {
         height: height || null,
         weight: weight || null,
         joinedDate: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp(),
+        emailVerified: result.user.emailVerified,
         friends: [],
         friendRequests: [],
         profilePic: '',
@@ -207,24 +389,41 @@ export const AuthProvider = ({ children }) => {
       
       await setDoc(doc(db, 'users', uid), userData);
 
-      // 3) Store the Firebase UID and profile info in AsyncStorage
+      // 4) Store minimal Firebase UID and profile info in AsyncStorage
       await AsyncStorage.setItem(
         'profile',
         JSON.stringify({
           firebaseUid: uid,
           email,
           username,
-          age,
-          weight,
-          height
+          lastUpdated: new Date().toISOString()
         })
       );
       
       setUserProfile(userData);
+      
+      // Alert the user to verify their email
+      Alert.alert(
+        'Registration Successful',
+        'Please check your email to verify your account.',
+        [{ text: 'OK' }]
+      );
+      
       return result.user;
     } catch (err) {
       console.error('Registration error:', err);
       setError(err.message);
+      
+      let errorMessage = 'Registration failed.';
+      if (err.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already in use. Please use a different email.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please use a stronger password.';
+      }
+      
+      Alert.alert('Registration Failed', errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -237,7 +436,20 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
+      // Clear any existing data before login
+      await clearUserDataFromStorage();
+      
       const result = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Check if email is verified
+      if (!result.user.emailVerified) {
+        // We allow login but show a warning about verification
+        console.warn('Email not verified. Functionality may be limited.');
+        
+        // If we wanted to block login entirely, we could uncomment this:
+        // setError('Please verify your email before logging in.');
+        // throw new Error('Please verify your email before logging in.');
+      }
       
       if (rememberMe) {
         await AsyncStorage.setItem('loggedInUser', result.user.uid);
@@ -245,6 +457,9 @@ export const AuthProvider = ({ children }) => {
       } else {
         await AsyncStorage.removeItem('rememberMe');
       }
+      
+      // Fetch fresh profile data from server
+      await fetchUserProfile(result.user.uid);
       
       return result.user;
     } catch (err) {
@@ -273,17 +488,86 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       await signOut(auth);
-      await AsyncStorage.multiRemove([
-        'loggedInUser', 
-        'rememberMe',
-        // Don't remove 'profile' to maintain offline capabilities
-      ]);
+      
+      // Clear all user-related data
+      await clearUserDataFromStorage();
+      
+      setUserProfile(null);
     } catch (err) {
       console.error('Logout error:', err);
       setError(err.message);
       throw err;
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Delete account and all associated data
+  const deleteAccount = async (password) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      if (!user) throw new Error('You must be logged in to delete your account');
+      
+      // Re-authenticate user before deletion
+      const credential = EmailAuthProvider.credential(user.email, password);
+      await reauthenticateWithCredential(user, credential);
+      
+      // Delete user data from Firestore
+      await deleteUserData(user.uid);
+      
+      // Delete user from Firebase Authentication
+      await user.delete();
+      
+      // Clear local storage
+      await clearUserDataFromStorage();
+      
+      Alert.alert('Account Deleted', 'Your account and all associated data have been permanently deleted.');
+      
+      // State will be cleaned up by the auth state change listener
+    } catch (err) {
+      console.error('Account deletion error:', err);
+      setError(err.message);
+      
+      let errorMessage = 'Failed to delete account.';
+      if (err.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password. Please try again.';
+      }
+      
+      Alert.alert('Account Deletion Failed', errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Delete user data from Firestore
+  const deleteUserData = async (userId) => {
+    try {
+      // Delete user document
+      await deleteDoc(doc(db, 'users', userId));
+      
+      // Delete weight logs
+      const weightLogsRef = collection(db, 'users', userId, 'weightLog');
+      const weightLogsSnapshot = await getDocs(weightLogsRef);
+      for (const docSnap of weightLogsSnapshot.docs) {
+        await deleteDoc(docSnap.ref);
+      }
+      
+      // Delete workout history
+      const workoutHistoryRef = collection(db, 'users', userId, 'workoutHistory');
+      const workoutHistorySnapshot = await getDocs(workoutHistoryRef);
+      for (const docSnap of workoutHistorySnapshot.docs) {
+        await deleteDoc(docSnap.ref);
+      }
+      
+      // Delete any other subcollections as needed
+      
+      console.log('All user data deleted from Firestore');
+    } catch (error) {
+      console.error('Error deleting user data from Firestore:', error);
+      throw error;
     }
   };
 
@@ -462,6 +746,57 @@ export const AuthProvider = ({ children }) => {
     tryAutoLogin();
   }, []);
 
+  // Resend verification email
+  const resendVerificationEmail = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      if (!user) throw new Error('No user logged in');
+      
+      await sendEmailVerification(user);
+      Alert.alert(
+        'Verification Email Sent',
+        'Please check your inbox and follow the link to verify your email address.'
+      );
+    } catch (err) {
+      console.error('Email verification error:', err);
+      setError(err.message);
+      
+      let errorMessage = 'Failed to send verification email.';
+      if (err.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many attempts. Please try again later.';
+      }
+      
+      Alert.alert('Verification Failed', errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Check email verification status
+  const checkVerificationStatus = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      if (!user) throw new Error('No user logged in');
+      
+      await user.reload();
+      const updatedUser = auth.currentUser;
+      setEmailVerified(updatedUser.emailVerified);
+      
+      return updatedUser.emailVerified;
+    } catch (err) {
+      console.error('Verification check error:', err);
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -469,15 +804,19 @@ export const AuthProvider = ({ children }) => {
         userProfile,
         loading,
         error,
-        register,
+        setError,
         login,
         logout,
+        register,
         resetPassword,
         updateUserProfile,
         changePassword,
         changeEmail,
         tryAutoLogin,
-        clearError: () => setError(null)
+        emailVerified,
+        resendVerificationEmail,
+        checkVerificationStatus,
+        deleteAccount
       }}
     >
       {children}

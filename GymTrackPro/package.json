@@ -8,7 +8,9 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "setup-firebase": "npm install @react-native-firebase/app @react-native-firebase/auth @react-native-firebase/firestore @react-native-firebase/analytics",
+    "postinstall": "npx pod-install && expo-cli prebuild --clean"
   },
   "jest": {
     "preset": "jest-expo"
@@ -17,8 +19,9 @@
     "@expo/vector-icons": "^14.0.2",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "8.2.0",
+    "@react-native-community/netinfo": "11.4.1",
     "@react-native-community/slider": "4.5.5",
-    "@react-native-picker/picker": "^2.9.0",
+    "@react-native-picker/picker": "2.9.0",
     "@react-navigation/bottom-tabs": "^7.3.1",
     "@react-navigation/native": "^7.0.17",
     "@react-navigation/stack": "^7.2.1",
@@ -50,7 +53,7 @@
     "expo-updates": "~0.27.4",
     "expo-web-browser": "~14.0.2",
     "firebase": "^11.5.0",
-    "lottie-react-native": "^7.1.0",
+    "lottie-react-native": "7.1.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-native": "0.76.9",
@@ -58,7 +61,7 @@
     "react-native-chart-kit": "^6.12.0",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-modal-datetime-picker": "^18.0.0",
-    "react-native-reanimated": "^3.16.1",
+    "react-native-reanimated": "~3.16.1",
     "react-native-safe-area-context": "4.12.0",
     "react-native-screens": "~4.4.0",
     "react-native-share": "^12.0.9",

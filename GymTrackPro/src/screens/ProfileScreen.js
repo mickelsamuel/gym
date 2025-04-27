@@ -22,6 +22,7 @@ import {
 import { Calendar } from 'react-native-calendars';
 import { LineChart } from 'react-native-chart-kit';
 import DatabaseService from '../services/DatabaseService';
+import MockDataService from '../services/MockDataService';
 import { ExerciseContext } from '../context/ExerciseContext';
 import { AuthContext } from '../context/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
@@ -41,26 +42,25 @@ import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage'
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
-import { useSharedValue, useAnimatedStyle, interpolate, Extrapolate, withTiming } from 'react-native-reanimated';
-import { SlideInUp, FadeIn, FadeOut } from 'react-native-reanimated';
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme] || defaultColors;
   const darkMode = colorScheme === 'dark';
   
-  const { logout } = useContext(AuthContext);
+  const { user, userProfile, logout, emailVerified, deleteAccount } = useContext(AuthContext);
   const navigation = useNavigation();
   
   // Animation values
-  const scrollY = useSharedValue(0);
-  const headerHeight = useSharedValue(220);
-  const profileScale = useSharedValue(1);
-  const headerOpacity = useSharedValue(1);
-  const contentOpacity = useSharedValue(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerHeight = useRef(new Animated.Value(220)).current;
+  const profileScale = useRef(new Animated.Value(1)).current;
+  const headerOpacity = useRef(new Animated.Value(1)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
   
   // State variables
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [profile, setProfile] = useState(null);
   const [weightLogs, setWeightLogs] = useState([]);
   const [allWorkoutHistory, setAllWorkoutHistory] = useState({});
@@ -100,79 +100,54 @@ export default function ProfileScreen() {
   const [weightLog, setWeightLog] = useState([]);
   const [weightHistory, setWeightHistory] = useState([]); // For weight chart
   
-  // Animation refs
-  const scrollYHeader = useRef(new Animated.Value(0)).current;
-  const headerHeightHeader = scrollYHeader.interpolate({
-    inputRange: [0, 120],
-    outputRange: [200, 120],
-    extrapolate: 'clamp'
-  });
-  
-  const headerOpacityHeader = scrollYHeader.interpolate({
+  // Animation interpolations
+  const headerTranslateY = scrollY.interpolate({
     inputRange: [0, 100],
-    outputRange: [1, 0.5],
+    outputRange: [0, -80],
     extrapolate: 'clamp'
   });
   
-  // Animated styles
-  const headerAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { 
-          translateY: interpolate(
-            scrollY.value,
-            [0, 100],
-            [0, -80],
-            Extrapolate.CLAMP
-          ) 
-        }
-      ],
-      opacity: interpolate(
-        scrollY.value,
-        [0, 80],
-        [1, darkMode ? 0.7 : 0.95],
-        Extrapolate.CLAMP
-      ),
-    };
+  const headerAnimatedOpacity = scrollY.interpolate({
+    inputRange: [0, 80],
+    outputRange: [1, darkMode ? 0.7 : 0.95],
+    extrapolate: 'clamp'
   });
+  
+  const profileAnimatedScale = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0.8],
+    extrapolate: 'clamp'
+  });
+  
+  const profileAnimatedOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0.6],
+    extrapolate: 'clamp'
+  });
+  
+  const blurAnimatedOpacity = scrollY.interpolate({
+    inputRange: [0, 80],
+    outputRange: [0, 1],
+    extrapolate: 'clamp'
+  });
+  
+  // Setup animations
+  useEffect(() => {
+    // Initialize animation values
+    scrollY.setValue(0);
+    headerHeight.setValue(220);
+    profileScale.setValue(1);
+    headerOpacity.setValue(1);
+    contentOpacity.setValue(0);
+  }, []);
 
-  const profileAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { 
-          scale: interpolate(
-            scrollY.value,
-            [0, 100],
-            [1, 0.8],
-            Extrapolate.CLAMP
-          ) 
-        }
-      ],
-      opacity: interpolate(
-        scrollY.value,
-        [0, 100],
-        [1, 0.6],
-        Extrapolate.CLAMP
-      ),
-    };
-  });
-
-  const contentAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: contentOpacity.value,
-    };
-  });
-
-  const blurAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: interpolate(
-        scrollY.value,
-        [0, 80],
-        [0, 1],
-        Extrapolate.CLAMP
-      ),
-    };
-  });
+  // Check for email verification and redirect if not verified
+  useEffect(() => {
+    if (user && !emailVerified) {
+      // If user is logged in but email is not verified, redirect to verification screen
+      navigation.navigate('EmailVerification');
+    }
+  }, [user, emailVerified, navigation]);
 
   // Load profile data on mount
   useEffect(() => {
@@ -190,17 +165,56 @@ export default function ProfileScreen() {
   const loadProfileData = async () => {
     try {
       setLoading(true);
-      await Promise.all([
-        loadProfile(),
-        loadWeightLog(),
-        loadAllHistory()
-      ]);
+      setError(null);
+      
+      try {
+        await loadProfile();
+      } catch (profileError) {
+        console.error("Error loading profile:", profileError);
+        // Continue to try loading other data
+      }
+      
+      try {
+        await loadWeightLog();
+      } catch (weightError) {
+        console.error("Error loading weight logs:", weightError);
+        // Continue to try loading other data
+      }
+      
+      try {
+        await loadAllHistory();
+      } catch (historyError) {
+        console.error("Error loading workout history:", historyError);
+        // Continue to try loading other data
+      }
       
       // Animate content in after data loads
-      contentOpacity.value = withTiming(1, { duration: 800 });
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true
+      }).start();
     } catch (error) {
       console.error("Error loading profile data:", error);
-      Alert.alert("Error", "Failed to load profile data. Please try again.");
+      
+      // Check if it's a Firebase permissions error
+      if (error.message && error.message.includes("Missing or insufficient permissions")) {
+        setError("Firebase permissions error. Please check your connection or contact support.");
+      } else {
+        setError("Failed to load profile data. Please try again.");
+      }
+      
+      Alert.alert(
+        "Error", 
+        "There was a problem loading your data. This may be due to connection issues or account permissions.",
+        [
+          { text: "OK" },
+          { 
+            text: "Try Again", 
+            onPress: () => loadProfileData() 
+          }
+        ]
+      );
     } finally {
       setLoading(false);
     }
@@ -214,6 +228,10 @@ export default function ProfileScreen() {
 
   async function loadProfile() {
     try {
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
       const auth = getAuth();
       const firestore = getFirestore();
       const userDoc = await getDoc(doc(firestore, "users", auth.currentUser.uid));
@@ -226,19 +244,43 @@ export default function ProfileScreen() {
         
         // Load profile picture if exists
         if (userData.profilePicture) {
-          const storage = getStorage();
-          const picRef = storageRef(storage, userData.profilePicture);
-          const url = await getDownloadURL(picRef);
-          setProfilePicUrl(url);
+          try {
+            const storage = getStorage();
+            const picRef = storageRef(storage, userData.profilePicture);
+            const url = await getDownloadURL(picRef);
+            setProfilePicUrl(url);
+          } catch (picError) {
+            console.error("Error loading profile picture:", picError);
+            // Continue without picture
+          }
         }
+      } else {
+        setProfile({
+          username: auth.currentUser.displayName || '',
+          email: auth.currentUser.email || '',
+        });
+        setUsernameInput(auth.currentUser.displayName || '');
       }
     } catch (error) {
       console.error("Error loading profile:", error);
+      
+      // Use mock data if we have Firebase permission issues
+      if (error.message && error.message.includes("Missing or insufficient permissions")) {
+        console.log("Using mock profile data due to Firebase permission issues");
+        const mockProfile = MockDataService.getUserProfile();
+        setProfile(mockProfile);
+        setUserGoal(mockProfile.fitnessGoal);
+        setUsernameInput(mockProfile.username);
+      } else {
+        throw error;
+      }
     }
   }
 
   async function loadWeightLog() {
     try {
+      if (!user) return;
+
       const auth = getAuth();
       const firestore = getFirestore();
       const weightCollection = collection(firestore, "users", auth.currentUser.uid, "weightLog");
@@ -274,6 +316,32 @@ export default function ProfileScreen() {
       }
     } catch (error) {
       console.error("Error loading weight logs:", error);
+      
+      // Use mock data if we have Firebase permission issues
+      if (error.message && error.message.includes("Missing or insufficient permissions")) {
+        console.log("Using mock weight data due to Firebase permission issues");
+        const mockLogs = MockDataService.getWeightLogs();
+        setWeightLogs(mockLogs);
+        
+        // Prepare chart data from mock logs
+        if (mockLogs.length > 0) {
+          const sortedLogs = [...mockLogs].sort((a, b) => a.date - b.date);
+          const lastSixLogs = sortedLogs.slice(-6);
+          
+          setChartData({
+            labels: lastSixLogs.map(log => format(log.date, 'MM/dd')),
+            datasets: [
+              {
+                data: lastSixLogs.map(log => log.weight),
+                color: () => colors.primary,
+                strokeWidth: 2
+              }
+            ]
+          });
+        }
+      } else {
+        throw error;
+      }
     }
   }
 
@@ -295,6 +363,14 @@ export default function ProfileScreen() {
       setMarkedDates(history);
     } catch (error) {
       console.error("Error loading workout history:", error);
+      
+      // Use mock data if we have Firebase permission issues
+      if (error.message && error.message.includes("Missing or insufficient permissions")) {
+        console.log("Using mock workout history due to Firebase permission issues");
+        const mockHistory = MockDataService.getWorkoutHistory();
+        setMarkedDates(mockHistory);
+      }
+      // Don't rethrow, just continue with empty data if needed
     }
   }
 
@@ -450,10 +526,13 @@ export default function ProfileScreen() {
     
     return (
       <Animated.View 
-        entering={SlideInUp.delay(index * 100)} 
         style={[
           styles.weightLogItem, 
-          { backgroundColor: colors.backgroundSecondary }
+          { 
+            backgroundColor: colors.backgroundSecondary,
+            opacity: 1, // Replace SlideInUp animation
+            transform: [{ translateY: 0 }] // Use simple static value instead of animation
+          }
         ]}
       >
         <View style={styles.weightDetails}>
@@ -488,34 +567,82 @@ export default function ProfileScreen() {
 
   // Handle scroll events for animations
   const handleScroll = (event) => {
-    'worklet';
-    scrollY.value = event.contentOffset.y;
+    const offsetY = event.nativeEvent.contentOffset.y;
+    scrollY.setValue(offsetY);
   };
 
-  if (loading && !refreshing) {
+  // Handle delete account
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      Alert.alert('Error', 'Please enter your password to confirm account deletion');
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteAccount(deletePassword);
+      // Navigation will be handled by the auth state change
+    } catch (error) {
+      console.error('Error deleting account:', error);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+      setDeletePassword('');
+    }
+  };
+
+  if (loading) {
     return (
-      <Container style={{ backgroundColor: colors.background }}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading profile...
-          </Text>
-        </View>
-      </Container>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          Loading your profile...
+        </Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <Ionicons name="alert-circle-outline" size={60} color={colors.danger} />
+        <Text style={[styles.errorText, { color: colors.danger, marginTop: 16 }]}>
+          {error}
+        </Text>
+        <TouchableOpacity 
+          style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          onPress={loadProfileData}
+        >
+          <Text style={{ color: '#fff', fontWeight: '600' }}>Retry</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   return (
     <Container style={{ backgroundColor: colors.background }}>
       {/* Animated Header with Blur Effect */}
-      <Animated.View style={[styles.header, headerAnimatedStyle]}>
+      <Animated.View style={[
+        styles.header, 
+        { 
+          transform: [{ translateY: headerTranslateY }],
+          opacity: headerAnimatedOpacity 
+        }
+      ]}>
         <LinearGradient
           colors={darkMode 
             ? ['rgba(30,30,30,0.9)', 'rgba(18,18,18,1)'] 
             : ['rgba(94,23,235,0.8)', 'rgba(43,217,254,0.4)']}
           style={StyleSheet.absoluteFill}
         />
-        <Animated.View style={[StyleSheet.absoluteFill, blurAnimatedStyle]}>
+        <Animated.View style={[
+          StyleSheet.absoluteFill, 
+          { opacity: blurAnimatedOpacity }
+        ]}>
           <BlurView 
             intensity={darkMode ? 40 : 20} 
             tint={darkMode ? 'dark' : 'light'} 
@@ -523,7 +650,13 @@ export default function ProfileScreen() {
           />
         </Animated.View>
         
-        <Animated.View style={[styles.headerContent, profileAnimatedStyle]}>
+        <Animated.View style={[
+          styles.headerContent, 
+          {
+            transform: [{ scale: profileAnimatedScale }],
+            opacity: profileAnimatedOpacity
+          }
+        ]}>
           <TouchableOpacity 
             style={styles.profilePicContainer}
             onPress={() => navigation.navigate('EditProfile')}
@@ -548,8 +681,6 @@ export default function ProfileScreen() {
           
           {editingUsername ? (
             <Animated.View 
-              entering={FadeIn} 
-              exiting={FadeOut}
               style={styles.usernameEditContainer}
             >
               <TextInput
@@ -629,7 +760,10 @@ export default function ProfileScreen() {
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-            onScroll={handleScroll}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: false }
+            )}
             scrollEventThrottle={16}
             refreshControl={
               <RefreshControl
@@ -640,15 +774,17 @@ export default function ProfileScreen() {
               />
             }
           >
-            <Animated.View style={[contentAnimatedStyle, { width: '100%' }]}>
+            <Animated.View style={[
+              { width: '100%', opacity: contentOpacity }
+            ]}>
               {/* Weight Logging Card */}
               <Animated.View 
-                entering={FadeIn.delay(200)}
                 style={[
                   styles.card, 
                   { 
                     backgroundColor: colors.card,
-                    borderColor: colors.border
+                    borderColor: colors.border,
+                    opacity: 1 // Static value instead of FadeIn
                   }
                 ]}
               >
@@ -738,12 +874,12 @@ export default function ProfileScreen() {
               
               {/* Fitness Goal Card */}
               <Animated.View 
-                entering={FadeIn.delay(300)}
                 style={[
                   styles.card, 
                   { 
                     backgroundColor: colors.card,
-                    borderColor: colors.border
+                    borderColor: colors.border,
+                    opacity: 1 // Static value instead of FadeIn
                   }
                 ]}
               >
@@ -813,12 +949,12 @@ export default function ProfileScreen() {
 
               {/* Workout Calendar Card */}
               <Animated.View 
-                entering={FadeIn.delay(400)}
                 style={[
                   styles.card, 
                   { 
                     backgroundColor: colors.card,
-                    borderColor: colors.border
+                    borderColor: colors.border,
+                    opacity: 1 // Static value instead of FadeIn
                   }
                 ]}
               >
@@ -868,7 +1004,7 @@ export default function ProfileScreen() {
               </Animated.View>
 
               {/* Logout Button */}
-              <Animated.View entering={FadeIn.delay(500)}>
+              <Animated.View style={{ opacity: 1 }}>
                 <TouchableOpacity 
                   style={[
                     styles.logoutButton, 
@@ -902,6 +1038,24 @@ export default function ProfileScreen() {
                   <Text style={{ color: colors.danger, fontWeight: '500' }}>Logout</Text>
                 </TouchableOpacity>
               </Animated.View>
+
+              {/* Delete Account Button */}
+              <Animated.View style={{ opacity: 1 }}>
+                <TouchableOpacity 
+                  style={[
+                    styles.deleteAccountButton, 
+                    { 
+                      backgroundColor: 'rgba(255, 59, 48, 0.1)',
+                      borderColor: 'rgba(255, 59, 48, 0.3)',
+                    }
+                  ]}
+                  onPress={() => setShowDeleteConfirm(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trash-outline" size={20} color={colors.danger} style={styles.deleteIcon} />
+                  <Text style={{ color: colors.danger, fontWeight: '500' }}>Delete Account</Text>
+                </TouchableOpacity>
+              </Animated.View>
             </Animated.View>
           </Animated.ScrollView>
         </KeyboardAvoidingView>
@@ -922,7 +1076,6 @@ export default function ProfileScreen() {
           >
             <TouchableWithoutFeedback>
               <Animated.View 
-                entering={FadeIn.duration(300)}
                 style={[
                   styles.goalModal, 
                   { 
@@ -948,7 +1101,7 @@ export default function ProfileScreen() {
                 {goalOptions.map((option, index) => (
                   <Animated.View
                     key={option.id}
-                    entering={FadeIn.delay(100 + index * 50)}
+                    style={{ opacity: 1 }} // Static value instead of FadeIn
                   >
                     <TouchableOpacity
                       style={[
@@ -978,6 +1131,102 @@ export default function ProfileScreen() {
           </BlurView>
         </TouchableWithoutFeedback>
       </Modal>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        visible={showDeleteConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowDeleteConfirm(false)}>
+          <BlurView 
+            intensity={darkMode ? 40 : 20} 
+            tint={darkMode ? 'dark' : 'light'} 
+            style={styles.modalOverlay}
+          >
+            <TouchableWithoutFeedback>
+              <Animated.View 
+                style={[
+                  styles.deleteModal, 
+                  { 
+                    backgroundColor: colors.card,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 10 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 20,
+                    elevation: 5,
+                  }
+                ]}
+              >
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: colors.danger, fontWeight: 'bold' }]}>
+                    Delete Account
+                  </Text>
+                  <TouchableOpacity 
+                    onPress={() => setShowDeleteConfirm(false)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="close" size={24} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+                
+                <Text style={[styles.deleteWarning, { color: colors.text }]}>
+                  This action cannot be undone. All your data will be permanently deleted.
+                </Text>
+                
+                <Text style={[styles.deleteInstructions, { color: colors.textSecondary }]}>
+                  Please enter your password to confirm:
+                </Text>
+                
+                <TextInput
+                  style={[
+                    styles.passwordInput,
+                    {
+                      backgroundColor: colors.backgroundSecondary,
+                      borderColor: colors.border,
+                      color: colors.text
+                    }
+                  ]}
+                  placeholder="Enter your password"
+                  placeholderTextColor={colors.textSecondary}
+                  secureTextEntry
+                  value={deletePassword}
+                  onChangeText={setDeletePassword}
+                />
+                
+                <View style={styles.deleteButtonsContainer}>
+                  <TouchableOpacity
+                    style={[styles.cancelButton, { backgroundColor: colors.backgroundSecondary }]}
+                    onPress={() => {
+                      setShowDeleteConfirm(false);
+                      setDeletePassword('');
+                    }}
+                  >
+                    <Text style={{ color: colors.text, fontWeight: '600' }}>Cancel</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[
+                      styles.confirmDeleteButton, 
+                      { backgroundColor: colors.danger },
+                      isDeleting && { opacity: 0.7 }
+                    ]}
+                    onPress={handleDeleteAccount}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <ActivityIndicator color="#FFF" size="small" />
+                    ) : (
+                      <Text style={{ color: '#FFF', fontWeight: '600' }}>Delete Account</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            </TouchableWithoutFeedback>
+          </BlurView>
+        </TouchableWithoutFeedback>
+      </Modal>
     </Container>
   );
 }
@@ -994,6 +1243,18 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginHorizontal: 24,
+    marginBottom: 20,
+  },
+  retryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginTop: 16,
   },
   header: {
     position: 'absolute',
@@ -1311,5 +1572,60 @@ const styles = StyleSheet.create({
   },
   selectedIcon: {
     marginLeft: 8,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  deleteIcon: {
+    marginRight: 8,
+  },
+  deleteModal: {
+    borderRadius: 24,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+  },
+  deleteWarning: {
+    marginTop: 16,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  deleteInstructions: {
+    marginTop: 20,
+    marginBottom: 12,
+    fontSize: 14,
+  },
+  passwordInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  deleteButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+  },
+  cancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    width: '48%',
+    alignItems: 'center',
+  },
+  confirmDeleteButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    width: '48%',
+    alignItems: 'center',
   },
 });

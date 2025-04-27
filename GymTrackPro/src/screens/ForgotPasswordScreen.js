@@ -21,7 +21,7 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const ForgotPasswordScreen = ({ navigation }) => {
+function ForgotPasswordScreen({ navigation }) {
   const { resetPassword } = useContext(AuthContext);
   const insets = useSafeAreaInsets();
   
@@ -254,7 +254,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {

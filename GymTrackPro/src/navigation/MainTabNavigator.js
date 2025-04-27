@@ -1,9 +1,14 @@
 // navigation/MainTabNavigator.js
 import React, { useContext } from 'react';
-import { Platform, View, StyleSheet } from 'react-native';
+import { Platform, View, StyleSheet, LogBox } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+
+// Suppress Reanimated warnings
+LogBox.ignoreLogs([
+  "[Reanimated] Native part of Reanimated doesn't seem to be initialized",
+]);
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';

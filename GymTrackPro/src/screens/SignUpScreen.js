@@ -24,8 +24,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SignUpScreen = ({ navigation }) => {
-  const { signup, errorMessage, clearErrors } = useContext(AuthContext);
+function SignUpScreen({ navigation }) {
+  const { register, error, clearError } = useContext(AuthContext);
   const insets = useSafeAreaInsets();
   
   // Form state
@@ -57,16 +57,18 @@ const SignUpScreen = ({ navigation }) => {
       }),
     ]).start();
     
-    return () => clearErrors();
+    return () => {
+      if (clearError) clearError();
+    };
   }, []);
   
   useEffect(() => {
-    if (errorMessage) {
-      setFormErrors({ server: errorMessage });
+    if (error) {
+      setFormErrors({ server: error });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setIsLoading(false);
     }
-  }, [errorMessage]);
+  }, [error]);
   
   const validateForm = () => {
     let errors = {};
@@ -111,10 +113,14 @@ const SignUpScreen = ({ navigation }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     try {
-      await signup(email, password, username);
+      await register({ 
+        email, 
+        password, 
+        username
+      });
       // Navigation handled by AuthContext
     } catch (error) {
-      // Error handled by AuthContext via errorMessage
+      // Error handled by AuthContext via error
       setIsLoading(false);
     }
   };
@@ -194,7 +200,7 @@ const SignUpScreen = ({ navigation }) => {
                       setFormErrors(prev => ({ ...prev, username: null }));
                     }
                     if (formErrors.server) {
-                      clearErrors();
+                      clearError();
                     }
                   }}
                   autoCapitalize="none"
@@ -225,7 +231,7 @@ const SignUpScreen = ({ navigation }) => {
                       setFormErrors(prev => ({ ...prev, email: null }));
                     }
                     if (formErrors.server) {
-                      clearErrors();
+                      clearError();
                     }
                   }}
                   keyboardType="email-address"
@@ -258,7 +264,7 @@ const SignUpScreen = ({ navigation }) => {
                       setFormErrors(prev => ({ ...prev, password: null }));
                     }
                     if (formErrors.server) {
-                      clearErrors();
+                      clearError();
                     }
                   }}
                   secureTextEntry={!showPassword}
@@ -301,7 +307,7 @@ const SignUpScreen = ({ navigation }) => {
                       setFormErrors(prev => ({ ...prev, confirmPassword: null }));
                     }
                     if (formErrors.server) {
-                      clearErrors();
+                      clearError();
                     }
                   }}
                   secureTextEntry={!showConfirmPassword}
@@ -367,7 +373,7 @@ const SignUpScreen = ({ navigation }) => {
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
