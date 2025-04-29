@@ -52,7 +52,10 @@ const WorkoutScreen = () => {
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  const favoritesHeight = useRef(new Animated.Value(0)).current;
+  
+  // Replace height animation with opacity and scale 
+  const favoritesOpacity = useRef(new Animated.Value(0)).current;
+  const favoritesScale = useRef(new Animated.Value(0)).current;
   
   // Initialize a default colors object in case the import fails
   const defaultColors = {
@@ -129,21 +132,36 @@ const WorkoutScreen = () => {
     }, [])
   );
   
-  // Animate showing/hiding favorites section
+  // Update this function to use opacity and scale instead of height
   const toggleFavoritesAnimation = () => {
     if (showFavorites) {
-      favoritesHeight.setValue(0);
-      Animated.timing(favoritesHeight, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: false
-      }).start();
+      // Show favorites
+      Animated.parallel([
+        Animated.timing(favoritesOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }),
+        Animated.timing(favoritesScale, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        })
+      ]).start();
     } else {
-      Animated.timing(favoritesHeight, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: false
-      }).start();
+      // Hide favorites
+      Animated.parallel([
+        Animated.timing(favoritesOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true
+        }),
+        Animated.timing(favoritesScale, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true
+        })
+      ]).start();
     }
   };
   
@@ -616,77 +634,42 @@ const WorkoutScreen = () => {
         )}
         
         {/* Favorites Section */}
-        <TouchableOpacity
-          style={[
-            styles.toggleBar, 
-            { backgroundColor: colors.backgroundSecondary }
-          ]}
-          onPress={() => {
-            setShowFavorites(!showFavorites);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }}
-          activeOpacity={0.7}
-        >
-          <View style={styles.toggleBarContent}>
-            <View style={[styles.toggleBarIcon, { backgroundColor: colors.warning + '20' }]}>
-              <Ionicons name="star" size={18} color={colors.warning} />
-            </View>
-            <Text style={[styles.toggleBarText, { color: colors.text }]}>
-              Favorite Exercises {favoriteExercises.length > 0 && `(${favoriteExercises.length})`}
-            </Text>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Heading style={{ color: colors.text }}>Favorite Exercises</Heading>
+            <TouchableOpacity onPress={() => setShowFavorites(!showFavorites)}>
+              <Ionicons
+                name={showFavorites ? 'chevron-up' : 'chevron-down'}
+                size={22}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
           </View>
           
-          <Ionicons
-            name={showFavorites ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={colors.text}
-          />
-        </TouchableOpacity>
-        
-        <Animated.View
-          style={{
-            maxHeight: favoritesHeight.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 1000]
-            }),
-            overflow: 'hidden',
-            opacity: favoritesHeight
-          }}
-        >
-          {loading || globalLoading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-          ) : favoriteExercises.length > 0 ? (
-            <View style={styles.favoritesContainer}>
-              {favoriteExercises.map((item, index) => (
-                <View key={item.id} style={{ marginBottom: 12 }}>
-                  {renderFavoriteExercise({ item, index })}
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={[styles.emptyStateCard, { backgroundColor: colors.backgroundSecondary }]}>
-              <Ionicons 
-                name="star-outline" 
-                size={48} 
-                color={colors.textTertiary} 
-                style={styles.emptyIcon}
+          {/* Animated favorites content */}
+          <Animated.View style={{
+            opacity: favoritesOpacity,
+            transform: [{ scaleY: favoritesScale }],
+            overflow: 'hidden'
+          }}>
+            {favoriteExercises.length > 0 ? (
+              <FlatList
+                data={favoriteExercises}
+                renderItem={renderFavoriteExercise}
+                keyExtractor={(item) => item.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.favoritesContainer}
               />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No favorite exercises yet
-              </Text>
-              
-              <TouchableOpacity
-                style={[styles.emptyActionButton, { backgroundColor: colors.primary + '20' }]}
-                onPress={() => navigation.navigate('Exercises')}
-              >
-                <Text style={[styles.emptyActionText, { color: colors.primary }]}>
-                  Explore Exercises
+            ) : (
+              <View style={styles.emptyFavorites}>
+                <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                  No favorite exercises yet. Add some from the Exercises tab.
                 </Text>
-                <Ionicons name="arrow-forward" size={16} color={colors.primary} style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
-            </View>
-          )}
-        </Animated.View>
+              </View>
+            )}
+          </Animated.View>
+        </View>
       </ScrollView>
     </Container>
   );
@@ -866,40 +849,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14
   },
-  toggleBar: {
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2.22,
-    elevation: 2
-  },
-  toggleBarContent: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  toggleBarIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12
-  },
-  toggleBarText: {
-    fontSize: 16,
-    fontWeight: '600'
-  },
   favoritesContainer: {
     paddingHorizontal: 16
   },
@@ -996,16 +945,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16
   },
-  emptyActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 12
-  },
-  emptyActionText: {
-    fontWeight: '600'
+  emptyFavorites: {
+    padding: 16,
+    alignItems: 'center'
   },
   recentWorkoutsContainer: {
     paddingLeft: 16,

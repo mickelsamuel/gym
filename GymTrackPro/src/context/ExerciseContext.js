@@ -57,18 +57,26 @@ export const ExerciseProvider = ({ children }) => {
         const [
           storedFavorites, 
           goal, 
-          theme,
-          workoutHistory
+          theme
         ] = await Promise.all([
           AsyncStorage.getItem('favorites'),
           AsyncStorage.getItem('userGoal'),
-          AsyncStorage.getItem('darkMode'),
-          DatabaseService.getExerciseHistory()
+          AsyncStorage.getItem('darkMode')
         ]);
         
         // Set favorites if they exist
         if (storedFavorites) {
-          setFavorites(JSON.parse(storedFavorites));
+          try {
+            const parsedFavorites = JSON.parse(storedFavorites);
+            if (Array.isArray(parsedFavorites)) {
+              setFavorites(parsedFavorites);
+            }
+          } catch (parseError) {
+            console.warn('Error parsing favorites:', parseError);
+            // Reset favorites if corrupt
+            await AsyncStorage.setItem('favorites', JSON.stringify([]));
+            setFavorites([]);
+          }
         }
         
         // Set goal if it exists
@@ -81,15 +89,23 @@ export const ExerciseProvider = ({ children }) => {
           setDarkMode(theme === 'true');
         }
         
-        // Process workouts to get recent ones
-        if (workoutHistory && workoutHistory.length > 0) {
-          const sortedWorkouts = [...workoutHistory].sort(
-            (a, b) => new Date(b.date) - new Date(a.date)
-          );
-          setRecentWorkouts(sortedWorkouts.slice(0, 10));
+        try {
+          // Get exercise history from database service
+          const workoutHistory = await DatabaseService.getExerciseHistory();
           
-          // Generate exercise stats
-          processExerciseStats(workoutHistory);
+          if (workoutHistory && Array.isArray(workoutHistory) && workoutHistory.length > 0) {
+            const sortedWorkouts = [...workoutHistory].sort(
+              (a, b) => new Date(b.date) - new Date(a.date)
+            );
+            setRecentWorkouts(sortedWorkouts.slice(0, 10));
+            
+            // Generate exercise stats
+            processExerciseStats(workoutHistory);
+          }
+        } catch (historyError) {
+          console.warn('Error loading workout history:', historyError);
+          // Continue with empty workouts
+          setRecentWorkouts([]);
         }
       } catch (error) {
         console.warn('Error loading initial data:', error);
@@ -139,16 +155,23 @@ export const ExerciseProvider = ({ children }) => {
   
   // Generate exercise stats from workout history
   const processExerciseStats = useCallback((workoutHistory) => {
+    if (!Array.isArray(workoutHistory)) {
+      console.warn('Workout history is not an array:', workoutHistory);
+      return;
+    }
+    
     const stats = {};
     
     workoutHistory.forEach(workout => {
+      if (!workout) return;
+      
       const { exerciseId, exerciseName, weight, reps, sets, date } = workout;
       
       if (!exerciseId) return;
       
       if (!stats[exerciseId]) {
         stats[exerciseId] = {
-          name: exerciseName,
+          name: exerciseName || 'Unknown Exercise',
           totalSets: 0,
           totalReps: 0,
           maxWeight: 0,
@@ -160,27 +183,46 @@ export const ExerciseProvider = ({ children }) => {
       
       // Sum totals
       stats[exerciseId].totalSets += sets || 0;
-      stats[exerciseId].totalReps += reps * sets || 0;
+      stats[exerciseId].totalReps += (reps || 0) * (sets || 0);
       
       // Track max weight
-      if (weight > stats[exerciseId].maxWeight) {
-        stats[exerciseId].maxWeight = weight;
+      if ((weight || 0) > stats[exerciseId].maxWeight) {
+        stats[exerciseId].maxWeight = weight || 0;
       }
       
-      // Add to history
-      stats[exerciseId].history.push({
-        date,
-        weight,
-        reps,
-        sets,
-        volume: weight * reps * sets,
-      });
+      // Add to history if all required data is present
+      if (date) {
+        stats[exerciseId].history.push({
+          date,
+          weight: weight || 0,
+          reps: reps || 0,
+          sets: sets || 0,
+          volume: (weight || 0) * (reps || 0) * (sets || 0),
+        });
+      }
       
       // Sort history by date (newest first)
-      stats[exerciseId].history.sort((a, b) => new Date(b.date) - new Date(a.date));
+      if (stats[exerciseId].history.length > 0) {
+        stats[exerciseId].history.sort((a, b) => {
+          // Safely parse dates with fallbacks if parsing fails
+          let dateA = new Date(0); // start of epoch as fallback
+          let dateB = new Date(0);
+          
+          try {
+            dateA = new Date(a.date);
+          } catch (e) {}
+          
+          try {
+            dateB = new Date(b.date);
+          } catch (e) {}
+          
+          return dateB - dateA;
+        });
+      }
       
       // Set last performed date
-      if (!stats[exerciseId].lastPerformed || new Date(date) > new Date(stats[exerciseId].lastPerformed)) {
+      if (!stats[exerciseId].lastPerformed || 
+          (date && new Date(date) > new Date(stats[exerciseId].lastPerformed))) {
         stats[exerciseId].lastPerformed = date;
       }
     });
@@ -189,19 +231,36 @@ export const ExerciseProvider = ({ children }) => {
     Object.keys(stats).forEach(id => {
       const { history } = stats[id];
       
-      if (history.length >= 2) {
-        // Sort by date (oldest first)
-        const sortedHistory = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
-        
-        // Take first and last entry
-        const firstEntry = sortedHistory[0];
-        const lastEntry = sortedHistory[sortedHistory.length - 1];
-        
-        // Calculate improvement in volume
-        const volumeImprovement = lastEntry.volume - firstEntry.volume;
-        const percentImprovement = (volumeImprovement / firstEntry.volume) * 100;
-        
-        stats[id].improvementRate = Math.round(percentImprovement);
+      if (history && history.length >= 2) {
+        try {
+          // Sort by date (oldest first)
+          const sortedHistory = [...history].sort((a, b) => {
+            let dateA = new Date(0);
+            let dateB = new Date(0);
+            
+            try {
+              dateA = new Date(a.date);
+              dateB = new Date(b.date);
+            } catch (e) {}
+            
+            return dateA - dateB;
+          });
+          
+          // Take first and last entry
+          const firstEntry = sortedHistory[0];
+          const lastEntry = sortedHistory[sortedHistory.length - 1];
+          
+          if (firstEntry && lastEntry && firstEntry.volume > 0) {
+            // Calculate improvement in volume
+            const volumeImprovement = lastEntry.volume - firstEntry.volume;
+            const percentImprovement = (volumeImprovement / firstEntry.volume) * 100;
+            
+            stats[id].improvementRate = Math.round(percentImprovement);
+          }
+        } catch (error) {
+          console.warn(`Error calculating improvement rate for exercise ${id}:`, error);
+          stats[id].improvementRate = 0;
+        }
       }
     });
     

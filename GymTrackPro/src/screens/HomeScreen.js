@@ -187,13 +187,15 @@ export default function HomeScreen() {
     }
   };
 
-  // Generate demo health data for the health summary section
+  // Update this function to use real data
   const generateDemoHealthData = () => {
+    // Instead of generating random health data, initialize with zeros
+    // In a real app, this would come from HealthKit/Google Fit integration
     setHealthSummary({
-      steps: Math.floor(Math.random() * 5000) + 3000,
-      calories: Math.floor(Math.random() * 300) + 200,
-      water: Math.floor(Math.random() * 5) + 1,
-      sleep: Math.floor(Math.random() * 3) + 5
+      steps: 0,
+      calories: 0,
+      water: 0,
+      sleep: 0
     });
   };
 
@@ -307,51 +309,25 @@ export default function HomeScreen() {
     }
   }
 
-  // Identify the latest achievement (PR or consistent workout)
+  // Replace this function with one that uses real achievements
   const identifyLatestAchievement = () => {
-    if (!recentWorkouts || recentWorkouts.length === 0) return;
+    // Only set achievement if we have real workout data
+    setLatestAchievement(null);
     
-    // Check for a new personal record
-    let bestImprovement = 0;
-    let achievement = null;
-    
-    recentWorkouts.forEach(workout => {
-      const stats = getExerciseStats(workout.exerciseId);
-      if (stats && stats.improvementRate > bestImprovement) {
-        bestImprovement = stats.improvementRate;
-        if (bestImprovement > 0) {
-          achievement = {
-            type: 'PR',
-            exercise: workout.exerciseName,
-            improvement: bestImprovement,
-            date: workout.date
-          };
-        }
-      }
-    });
-    
-    // If no PR found, check for consistent workouts
-    if (!achievement) {
-      const now = new Date();
-      const oneWeekAgo = new Date(now);
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    // Check workout streak for a potential achievement
+    if (workoutStreak >= 3) {
+      setLatestAchievement({
+        title: `${workoutStreak} Day Streak!`,
+        description: `You've been consistent with your workouts for ${workoutStreak} days.`,
+        icon: 'flame',
+        color: colors.warning
+      });
       
-      // Count workouts in the past week
-      const recentCount = recentWorkouts.filter(w => {
-        const workoutDate = new Date(w.date);
-        return workoutDate >= oneWeekAgo;
-      }).length;
-      
-      if (recentCount >= 3) {
-        achievement = {
-          type: 'consistency',
-          count: recentCount,
-          period: 'week'
-        };
-      }
+      // Show celebration animation when the achievement is set
+      setTimeout(() => {
+        celebrateAchievement();
+      }, 500);
     }
-    
-    setLatestAchievement(achievement);
   };
 
   // Format relative time for timestamps
@@ -505,15 +481,12 @@ export default function HomeScreen() {
                 </Subheading>
               </View>
               
-              {latestAchievement.type === 'PR' ? (
-                <Body dark={darkMode}>
-                  You set a new personal record on {latestAchievement.exercise} with {latestAchievement.improvement}% improvement!
-                </Body>
-              ) : (
-                <Body dark={darkMode}>
-                  Consistency win! You completed {latestAchievement.count} workouts this {latestAchievement.period}.
-                </Body>
-              )}
+              <Body dark={darkMode}>
+                {latestAchievement.title}
+              </Body>
+              <Body dark={darkMode}>
+                {latestAchievement.description}
+              </Body>
             </View>
           )}
 

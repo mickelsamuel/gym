@@ -169,27 +169,41 @@ export const AuthProvider = ({ children }) => {
             setEmailVerified(firebaseUser.emailVerified);
           } catch (reloadError) {
             console.warn('Error refreshing user data:', reloadError);
+            // Continue with the existing user data
           }
           
           // Get the user's profile data from Firestore
-          const userData = await fetchUserProfile(firebaseUser.uid);
-          
-          // Store user UID for "Remember Me"
-          await AsyncStorage.setItem('loggedInUser', firebaseUser.uid);
-          
-          // Update Firestore with last login timestamp if we're online
-          if (isOnline && userData && !userData.isOfflineData) {
-            try {
-              const userDocRef = doc(db, 'users', firebaseUser.uid);
-              await updateDoc(userDocRef, {
-                lastLogin: serverTimestamp()
-              });
-            } catch (updateError) {
-              console.warn('Error updating last login time:', updateError);
+          try {
+            const userData = await fetchUserProfile(firebaseUser.uid);
+            
+            // Store user UID for "Remember Me"
+            await AsyncStorage.setItem('loggedInUser', firebaseUser.uid);
+            
+            // Update Firestore with last login timestamp if we're online
+            if (isOnline && userData && !userData.isOfflineData) {
+              try {
+                const userDocRef = doc(db, 'users', firebaseUser.uid);
+                await updateDoc(userDocRef, {
+                  lastLogin: serverTimestamp()
+                });
+              } catch (updateError) {
+                console.warn('Error updating last login time:', updateError);
+                // Continue without updating last login
+              }
             }
+          } catch (profileError) {
+            console.error('Error fetching user profile:', profileError);
+            // Create minimal profile from auth data
+            setUserProfile({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              emailVerified: firebaseUser.emailVerified,
+              displayName: firebaseUser.displayName,
+              isOfflineData: true
+            });
           }
           
-          // If email is not verified, let the user know
+          // If email is not verified, log a message
           if (!firebaseUser.emailVerified) {
             console.log('Email not verified. Please check your email and verify your account.');
           }
@@ -202,6 +216,9 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         console.error('Auth state change error:', err);
         setError(err.message);
+        setUser(null);
+        setUserProfile(null);
+        setEmailVerified(false);
       } finally {
         setLoading(false);
       }
@@ -228,8 +245,8 @@ export const AuthProvider = ({ children }) => {
             'profile',
             JSON.stringify({
               firebaseUid: userId,
-              email: userData.email,
-              username: userData.username,
+              email: userData.email || auth.currentUser?.email || '',
+              username: userData.username || auth.currentUser?.displayName || '',
               lastUpdated: new Date().toISOString()
             })
           );
@@ -240,7 +257,7 @@ export const AuthProvider = ({ children }) => {
           const newUserData = {
             uid: userId,
             email: auth.currentUser?.email || '',
-            username: '',
+            username: auth.currentUser?.displayName || '',
             age: null,
             height: null,
             weight: null,
@@ -248,82 +265,75 @@ export const AuthProvider = ({ children }) => {
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
             friends: [],
-            friendRequests: [],
-            profilePic: '',
-            firestoreSets: [],
             firestoreWeightLog: [],
-            settings: {
-              unitSystem: 'metric',
-              notifications: true,
-              darkMode: false,
-              privacyLevel: 'friends-only',
-            }
+            firestoreSets: [],
+            fitnessGoal: null
           };
           
-          try {
-            await setDoc(doc(db, 'users', userId), newUserData);
-            setUserProfile(newUserData);
-            
-            // Store minimal profile info in AsyncStorage for offline access only
-            await AsyncStorage.setItem(
-              'profile',
-              JSON.stringify({
-                firebaseUid: userId,
-                email: newUserData.email,
-                username: newUserData.username,
-                lastUpdated: new Date().toISOString()
-              })
-            );
-            
-            return newUserData;
-          } catch (docError) {
-            console.error('Error creating user document:', docError);
-            setUserProfile(newUserData);
-            return newUserData;
-          }
+          // Create the document
+          await setDoc(userDocRef, newUserData);
+          
+          setUserProfile(newUserData);
+          
+          // Store minimal profile info in AsyncStorage for offline access
+          await AsyncStorage.setItem(
+            'profile',
+            JSON.stringify({
+              firebaseUid: userId,
+              email: newUserData.email,
+              username: newUserData.username,
+              lastUpdated: new Date().toISOString()
+            })
+          );
+          
+          return newUserData;
         }
       } else {
-        // Offline mode - try to load from AsyncStorage as fallback only
-        const offlineProfile = await AsyncStorage.getItem('profile');
-        if (offlineProfile) {
-          const parsedProfile = JSON.parse(offlineProfile);
-          // Only use cached data if it's for the current user
-          if (parsedProfile.firebaseUid === userId) {
-            const minimalProfile = {
-              uid: userId,
-              email: parsedProfile.email || '',
-              username: parsedProfile.username || '',
-              lastUpdated: parsedProfile.lastUpdated,
-              isOfflineData: true
-            };
-            setUserProfile(minimalProfile);
-            return minimalProfile;
+        // Offline mode - try to get cached profile
+        const profileJSON = await AsyncStorage.getItem('profile');
+        if (profileJSON) {
+          try {
+            const profile = JSON.parse(profileJSON);
+            if (profile.firebaseUid === userId) {
+              // Add a flag to indicate this is offline data
+              const offlineProfile = {
+                ...profile,
+                isOfflineData: true
+              };
+              
+              setUserProfile(offlineProfile);
+              return offlineProfile;
+            }
+          } catch (parseError) {
+            console.warn('Error parsing cached profile:', parseError);
           }
         }
         
-        // If we're offline and don't have cached data for this user, return minimal data
-        const minimalOfflineProfile = {
+        // Create a minimal offline profile
+        const offlineProfile = {
           uid: userId,
           email: auth.currentUser?.email || '',
-          username: '',
+          username: auth.currentUser?.displayName || '',
           isOfflineData: true
         };
-        setUserProfile(minimalOfflineProfile);
-        return minimalOfflineProfile;
+        
+        setUserProfile(offlineProfile);
+        return offlineProfile;
       }
-    } catch (err) {
-      console.error('Error fetching user profile:', err);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
       
-      // Last resort - minimal offline profile if everything else fails
-      const emergencyProfile = {
+      // Create a minimal profile with auth data
+      const fallbackProfile = {
         uid: userId,
         email: auth.currentUser?.email || '',
-        username: '',
+        username: auth.currentUser?.displayName || '',
         isOfflineData: true,
-        isEmergencyFallback: true
+        error: error.message
       };
-      setUserProfile(emergencyProfile);
-      return emergencyProfile;
+      
+      setUserProfile(fallbackProfile);
+      return fallbackProfile;
     }
   };
 

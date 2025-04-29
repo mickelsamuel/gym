@@ -6,56 +6,74 @@ import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firest
 
 class DatabaseService {
   constructor() {
+    this.isFirebaseAvailable = false
     this.initDatabase()
   }
 
   async initDatabase() {
     try {
-      const profile = await AsyncStorage.getItem('profile')
-      if (!profile) {
-        await AsyncStorage.setItem('profile', JSON.stringify({}))
-      }
-      const history = await AsyncStorage.getItem('workout_history')
-      if (!history) {
-        await AsyncStorage.setItem('workout_history', JSON.stringify([]))
-      }
-      const plans = await AsyncStorage.getItem('workout_plans')
-      if (!plans) {
-        await AsyncStorage.setItem('workout_plans', JSON.stringify([]))
-      }
-      const weightLog = await AsyncStorage.getItem('daily_weight_log')
-      if (!weightLog) {
-        await AsyncStorage.setItem('daily_weight_log', JSON.stringify([]))
-      }
-      
-      // Test Firebase connection
-      this.isFirebaseAvailable = true
-      try {
-        // Create a test document if it doesn't exist
-        const testRef = doc(db, 'test', 'connection')
-        const testDoc = await getDoc(testRef)
-        
-        if (!testDoc.exists()) {
-          await setDoc(testRef, {
-            created: serverTimestamp(),
-            message: 'Connection test successful',
-            app: 'GymTrackPro',
-            isPublic: true  // This will help with permissions
-          })
-          console.log('Created Firebase test document')
-        } else {
-          console.log('Firebase test document exists')
-          
-          // Update the test document to ensure write permissions
-          await updateDoc(testRef, {
-            lastChecked: serverTimestamp(),
-            isPublic: true
-          })
-          console.log('Updated Firebase test document')
+      // Initialize local storage
+      const keys = ['profile', 'workout_history', 'workout_plans', 'daily_weight_log']
+      const initPromises = keys.map(async (key) => {
+        try {
+          const value = await AsyncStorage.getItem(key)
+          if (!value) {
+            await AsyncStorage.setItem(key, JSON.stringify(key === 'profile' ? {} : []))
+          }
+        } catch (error) {
+          console.warn(`Error initializing ${key}:`, error)
         }
+      })
+      
+      await Promise.all(initPromises)
+      
+      // Test Firebase connection with timeout for better reliability
+      try {
+        this.isFirebaseAvailable = false
+        
+        const testPromise = new Promise(async (resolve, reject) => {
+          try {
+            // Create a test document if it doesn't exist
+            const testRef = doc(db, 'test', 'connection')
+            const testDoc = await getDoc(testRef)
+            
+            if (!testDoc.exists()) {
+              await setDoc(testRef, {
+                created: serverTimestamp(),
+                message: 'Connection test successful',
+                app: 'GymTrackPro',
+                isPublic: true
+              })
+              console.log('Created Firebase test document')
+            } else {
+              console.log('Firebase test document exists')
+              
+              // Update the test document to ensure write permissions
+              await updateDoc(testRef, {
+                lastChecked: serverTimestamp(),
+                isPublic: true
+              })
+              console.log('Updated Firebase test document')
+            }
+            
+            resolve(true)
+          } catch (error) {
+            reject(error)
+          }
+        })
+        
+        // Add a timeout to the test
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Firebase connection timeout')), 5000)
+        })
+        
+        // Wait for either the test to complete or timeout
+        this.isFirebaseAvailable = await Promise.race([testPromise, timeoutPromise])
         
         // Create a public collection for testing
-        await this.createPublicTestCollection()
+        if (this.isFirebaseAvailable) {
+          await this.createPublicTestCollection()
+        }
       } catch (firebaseError) {
         console.warn('Firebase connection test failed:', firebaseError)
         this.isFirebaseAvailable = false
@@ -70,6 +88,11 @@ class DatabaseService {
   // =====================================
   async saveProfile(profile) {
     try {
+      if (!profile) {
+        throw new Error('Invalid profile data')
+      }
+      
+      // Save locally first for offline access
       await AsyncStorage.setItem('profile', JSON.stringify(profile))
       
       // Sync with Firestore if available
@@ -120,10 +143,10 @@ class DatabaseService {
         }
       }
       
-      return localProfile
+      return localProfile || {}
     } catch (error) {
       console.error('Error getting profile from AsyncStorage:', error)
-      throw error
+      return {} // Return empty object in case of error
     }
   }
 
@@ -132,33 +155,58 @@ class DatabaseService {
   // =====================================
   async logDailyWeight({ date, weight }) {
     try {
-      // 1) Store in local AsyncStorage
-      const weightString = await AsyncStorage.getItem('daily_weight_log')
-      let logs = weightString ? JSON.parse(weightString) : []
-      const existingIndex = logs.findIndex(entry => entry.date === date)
-      if (existingIndex >= 0) {
-        logs[existingIndex].weight = weight
-      } else {
-        logs.push({ date, weight })
+      if (!date || !weight) {
+        throw new Error('Invalid weight log data')
       }
-      logs.sort((a, b) => new Date(a.date) - new Date(b.date))
-      await AsyncStorage.setItem('daily_weight_log', JSON.stringify(logs))
+      
+      // Validate weight
+      const weightNum = parseFloat(weight)
+      if (isNaN(weightNum) || weightNum <= 0 || weightNum > 700) {
+        throw new Error('Invalid weight value')
+      }
+      
+      // 1) Store in local AsyncStorage
+      try {
+        const weightString = await AsyncStorage.getItem('daily_weight_log')
+        let logs = weightString ? JSON.parse(weightString) : []
+        
+        // Ensure logs is an array
+        if (!Array.isArray(logs)) {
+          logs = []
+        }
+        
+        const existingIndex = logs.findIndex(entry => entry.date === date)
+        if (existingIndex >= 0) {
+          logs[existingIndex].weight = weightNum
+        } else {
+          logs.push({ date, weight: weightNum })
+        }
+        
+        logs.sort((a, b) => new Date(a.date) - new Date(b.date))
+        await AsyncStorage.setItem('daily_weight_log', JSON.stringify(logs))
+      } catch (storageError) {
+        console.error('Error saving weight to AsyncStorage:', storageError)
+      }
 
       // 2) Push to Firestore for friend viewing (if we have a firebaseUid)
       if (this.isFirebaseAvailable) {
         try {
           const userProfileString = await AsyncStorage.getItem('profile')
           const userProfile = userProfileString ? JSON.parse(userProfileString) : null
+          
           if (userProfile && userProfile.firebaseUid) {
             const userRef = doc(db, 'users', userProfile.firebaseUid)
             const snap = await getDoc(userRef)
+            
             if (snap.exists()) {
               const data = snap.data()
               const newEntry = { 
                 date, 
-                weight,
+                weight: weightNum,
                 timestamp: serverTimestamp()
               }
+              
+              // Ensure firestoreWeightLog is an array
               const firestoreWeightLog = Array.isArray(data.firestoreWeightLog)
                 ? [...data.firestoreWeightLog]
                 : []
@@ -188,7 +236,14 @@ class DatabaseService {
         }
       }
 
-      return logs
+      // Retrieve updated logs to return
+      try {
+        const weightString = await AsyncStorage.getItem('daily_weight_log')
+        return weightString ? JSON.parse(weightString) : []
+      } catch (retrieveError) {
+        console.error('Error retrieving updated weight logs:', retrieveError)
+        return [] // Return empty array if retrieval fails
+      }
     } catch (error) {
       console.error('Error logging daily weight:', error)
       throw error
@@ -200,7 +255,8 @@ class DatabaseService {
       const weightString = await AsyncStorage.getItem('daily_weight_log')
       return weightString ? JSON.parse(weightString) : []
     } catch (error) {
-      throw error
+      console.error('Error getting daily weight log:', error)
+      return [] // Return empty array in case of error
     }
   }
 
@@ -392,6 +448,30 @@ class DatabaseService {
     } catch (error) {
       console.error('Error creating public test document:', error)
       return false
+    }
+  }
+
+  // =====================================
+  // RECENT WORKOUTS
+  // =====================================
+  async getRecentWorkouts() {
+    try {
+      // Get the exercise history first
+      const history = await this.getExerciseHistory();
+      
+      // If no history, return empty array
+      if (!history || !Array.isArray(history) || history.length === 0) {
+        return [];
+      }
+      
+      // Sort by date (newest first)
+      history.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      // Return the most recent entries
+      return history.slice(0, 10);
+    } catch (error) {
+      console.error('Error getting recent workouts:', error);
+      return []; // Return empty array in case of error
     }
   }
 }

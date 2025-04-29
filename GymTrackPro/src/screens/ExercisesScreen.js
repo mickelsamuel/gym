@@ -120,16 +120,27 @@ export default function ExercisesScreen() {
   
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
-  const headerHeight = scrollY.interpolate({
+  
+  // Instead of directly animating height (which is not supported by native driver),
+  // use scale and translateY which are supported
+  const headerScale = scrollY.interpolate({
     inputRange: [0, 120],
-    outputRange: [100, 60],
+    outputRange: [1, 0.8],
     extrapolate: 'clamp'
   });
+  
+  const headerTranslateY = scrollY.interpolate({
+    inputRange: [0, 120],
+    outputRange: [0, -20],
+    extrapolate: 'clamp'
+  });
+  
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 60, 120],
     outputRange: [1, 0.3, 0],
     extrapolate: 'clamp'
   });
+  
   const filterBarTranslate = scrollY.interpolate({
     inputRange: [0, 120],
     outputRange: [0, -60],
@@ -471,36 +482,34 @@ export default function ExercisesScreen() {
         style={[
           styles.header, 
           { 
-            backgroundColor: colors.backgroundSecondary,
-            height: headerHeight,
-            opacity: headerOpacity
+            backgroundColor: colors.background,
+            opacity: headerOpacity,
+            transform: [
+              { translateY: headerTranslateY },
+              { scale: headerScale }
+            ]
           }
         ]}
       >
-        <Title dark={darkMode} style={styles.headerTitle}>Exercises</Title>
-        <Caption dark={darkMode}>
-          Find and favorite exercises to build your workouts
-        </Caption>
-      </Animated.View>
-
-      {/* Search Bar */}
-      <View style={[styles.searchBarContainer, { backgroundColor: colors.backgroundSecondary }]}>
-        <View style={[styles.searchContainer, { borderColor: colors.border, backgroundColor: darkMode ? '#000000' + '20' : '#FFFFFF' }]}>
+        <Title style={{ color: colors.text }}>Exercise Library</Title>
+        <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
+            style={[styles.searchInput, { color: colors.text, borderColor: colors.border }]}
             placeholder="Search exercises..."
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            returnKeyType="search"
+            onSubmitEditing={dismissKeyboard}
           />
-          {searchQuery.length > 0 && (
+          {searchQuery ? (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
               <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
-      </View>
+      </Animated.View>
 
       {/* Filter Bar */}
       {renderFilterBar()}

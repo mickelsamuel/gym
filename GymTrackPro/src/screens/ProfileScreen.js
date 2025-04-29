@@ -171,24 +171,24 @@ export default function ProfileScreen() {
         await loadProfile();
       } catch (profileError) {
         console.error("Error loading profile:", profileError);
-        // Continue to try loading other data
+        // Don't throw here, continue with other data loading
       }
       
       try {
         await loadWeightLog();
       } catch (weightError) {
         console.error("Error loading weight logs:", weightError);
-        // Continue to try loading other data
+        // Don't throw here, continue with other data loading
       }
       
       try {
         await loadAllHistory();
       } catch (historyError) {
         console.error("Error loading workout history:", historyError);
-        // Continue to try loading other data
+        // Don't throw here, continue with other data loading
       }
       
-      // Animate content in after data loads
+      // Animate content in after data loads, even if some data failed to load
       Animated.timing(contentOpacity, {
         toValue: 1,
         duration: 800,
@@ -197,24 +197,23 @@ export default function ProfileScreen() {
     } catch (error) {
       console.error("Error loading profile data:", error);
       
-      // Check if it's a Firebase permissions error
-      if (error.message && error.message.includes("Missing or insufficient permissions")) {
-        setError("Firebase permissions error. Please check your connection or contact support.");
-      } else {
-        setError("Failed to load profile data. Please try again.");
-      }
+      setError("Failed to load profile data. Please try again.");
       
-      Alert.alert(
-        "Error", 
-        "There was a problem loading your data. This may be due to connection issues or account permissions.",
-        [
-          { text: "OK" },
-          { 
-            text: "Try Again", 
-            onPress: () => loadProfileData() 
-          }
-        ]
-      );
+      // Don't show alert unless user action is required
+      if (error.message && error.message.includes("authentication") || 
+          error.message && error.message.includes("permission")) {
+        Alert.alert(
+          "Authentication Issue", 
+          "Please sign out and sign back in to refresh your session.",
+          [
+            { text: "OK" },
+            { 
+              text: "Sign Out", 
+              onPress: () => logout() 
+            }
+          ]
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -234,204 +233,341 @@ export default function ProfileScreen() {
 
       const auth = getAuth();
       const firestore = getFirestore();
-      const userDoc = await getDoc(doc(firestore, "users", auth.currentUser.uid));
       
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setProfile(userData);
-        setUserGoal(userData.fitnessGoal || null);
-        setUsernameInput(userData.username || auth.currentUser.displayName || '');
+      // Add defensive code to check if auth.currentUser exists
+      if (!auth.currentUser) {
+        console.warn("No current user found in auth");
+        throw new Error("Authentication error - no current user");
+      }
+      
+      try {
+        const userDoc = await getDoc(doc(firestore, "users", auth.currentUser.uid));
         
-        // Load profile picture if exists
-        if (userData.profilePicture) {
-          try {
-            const storage = getStorage();
-            const picRef = storageRef(storage, userData.profilePicture);
-            const url = await getDownloadURL(picRef);
-            setProfilePicUrl(url);
-          } catch (picError) {
-            console.error("Error loading profile picture:", picError);
-            // Continue without picture
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setProfile(userData);
+          setUserGoal(userData.fitnessGoal || null);
+          setUsernameInput(userData.username || auth.currentUser.displayName || '');
+          
+          // Load profile picture if exists
+          if (userData.profilePicture) {
+            try {
+              const storage = getStorage();
+              const picRef = storageRef(storage, userData.profilePicture);
+              const url = await getDownloadURL(picRef);
+              setProfilePicUrl(url);
+            } catch (storageError) {
+              console.error("Error loading profile picture:", storageError);
+              // Don't throw, just continue without profile picture
+              setProfilePicUrl(null);
+            }
           }
+        } else {
+          // No user document exists
+          console.warn("No user document found");
+          // Create a basic profile with default values
+          setProfile({
+            username: auth.currentUser.displayName || '',
+            email: auth.currentUser.email || '',
+            createdAt: new Date().toISOString()
+          });
         }
-      } else {
-        setProfile({
-          username: auth.currentUser.displayName || '',
-          email: auth.currentUser.email || '',
-        });
-        setUsernameInput(auth.currentUser.displayName || '');
+      } catch (firestoreError) {
+        console.error("Firestore error:", firestoreError);
+        throw new Error("Error accessing user data: " + firestoreError.message);
       }
     } catch (error) {
-      console.error("Error loading profile:", error);
-      
-      // Use mock data if we have Firebase permission issues
-      if (error.message && error.message.includes("Missing or insufficient permissions")) {
-        console.log("Using mock profile data due to Firebase permission issues");
-        const mockProfile = MockDataService.getUserProfile();
-        setProfile(mockProfile);
-        setUserGoal(mockProfile.fitnessGoal);
-        setUsernameInput(mockProfile.username);
-      } else {
-        throw error;
-      }
+      console.error("Load profile error:", error);
+      throw error;
     }
   }
 
   async function loadWeightLog() {
     try {
-      if (!user) return;
+      if (!user) {
+        console.warn("Cannot load weight logs: User not authenticated");
+        setWeightLogs([]);
+        setChartData(null);
+        return;
+      }
 
       const auth = getAuth();
       const firestore = getFirestore();
-      const weightCollection = collection(firestore, "users", auth.currentUser.uid, "weightLog");
-      const q = query(weightCollection, orderBy("date", "desc"));
-      const querySnapshot = await getDocs(q);
       
-      const logs = [];
-      querySnapshot.forEach(doc => {
-        logs.push({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().date?.toDate?.() || new Date(doc.data().date)
-        });
-      });
+      if (!auth.currentUser) {
+        console.warn("No current user found in auth");
+        setWeightLogs([]);
+        setChartData(null);
+        return;
+      }
       
-      setWeightLogs(logs);
+      const userRef = doc(firestore, "users", auth.currentUser.uid);
+      const userDoc = await getDoc(userRef);
       
-      // Prepare chart data
-      if (logs.length > 0) {
-        const sortedLogs = [...logs].sort((a, b) => a.date - b.date);
-        const lastSixLogs = sortedLogs.slice(-6);
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        let logs = [];
         
-        setChartData({
-          labels: lastSixLogs.map(log => format(log.date, 'MM/dd')),
-          datasets: [
-            {
-              data: lastSixLogs.map(log => log.weight),
-              color: () => colors.primary,
-              strokeWidth: 2
+        // Check if userData has the weightLog field and it's an array
+        if (userData.firestoreWeightLog && Array.isArray(userData.firestoreWeightLog)) {
+          logs = userData.firestoreWeightLog;
+          // Sort by date (newest first)
+          logs.sort((a, b) => new Date(b.date) - new Date(a.date));
+          setWeightLogs(logs);
+          
+          // Generate chart data if we have enough logs
+          if (logs.length > 0) {
+            try {
+              // Prepare data for the line chart
+              // Sort by date (oldest first for chart)
+              const sortedLogs = [...logs].sort((a, b) => new Date(a.date) - new Date(b.date));
+              
+              // Take the last 14 entries or fewer if not enough data
+              const recentLogs = sortedLogs.slice(-14);
+              
+              const labels = recentLogs.map(entry => {
+                const date = new Date(entry.date);
+                return `${date.getMonth() + 1}/${date.getDate()}`;
+              });
+              
+              const data = recentLogs.map(entry => entry.weight);
+              
+              setChartData({
+                labels,
+                datasets: [
+                  {
+                    data,
+                    color: (opacity = 1) => colors.primary,
+                    strokeWidth: 2
+                  }
+                ]
+              });
+            } catch (chartError) {
+              console.error("Error creating chart data:", chartError);
+              setChartData(null);
             }
-          ]
-        });
+          } else {
+            setChartData(null);
+          }
+        } else {
+          console.log("No weight logs found in user data");
+          setWeightLogs([]);
+          setChartData(null);
+        }
+      } else {
+        console.log("User document does not exist");
+        setWeightLogs([]);
+        setChartData(null);
       }
     } catch (error) {
       console.error("Error loading weight logs:", error);
-      
-      // Use mock data if we have Firebase permission issues
-      if (error.message && error.message.includes("Missing or insufficient permissions")) {
-        console.log("Using mock weight data due to Firebase permission issues");
-        const mockLogs = MockDataService.getWeightLogs();
-        setWeightLogs(mockLogs);
-        
-        // Prepare chart data from mock logs
-        if (mockLogs.length > 0) {
-          const sortedLogs = [...mockLogs].sort((a, b) => a.date - b.date);
-          const lastSixLogs = sortedLogs.slice(-6);
-          
-          setChartData({
-            labels: lastSixLogs.map(log => format(log.date, 'MM/dd')),
-            datasets: [
-              {
-                data: lastSixLogs.map(log => log.weight),
-                color: () => colors.primary,
-                strokeWidth: 2
-              }
-            ]
-          });
-        }
-      } else {
-        throw error;
-      }
+      // Set empty arrays in case of error to avoid undefined errors in rendering
+      setWeightLogs([]);
+      setChartData(null);
+      throw error;
     }
   }
 
   async function loadAllHistory() {
     try {
+      if (!user) {
+        console.warn("Cannot load workout history: User not authenticated");
+        setAllWorkoutHistory({});
+        setMarkedDates({});
+        return;
+      }
+      
       const auth = getAuth();
       const firestore = getFirestore();
-      const historyCollection = collection(firestore, "users", auth.currentUser.uid, "workoutHistory");
-      const q = query(historyCollection, orderBy("date", "desc"));
-      const querySnapshot = await getDocs(q);
       
-      const history = {};
-      querySnapshot.forEach(doc => {
-        const data = doc.data();
-        const dateStr = format(data.date.toDate(), 'yyyy-MM-dd');
-        history[dateStr] = { marked: true, dotColor: colors.primary };
-      });
+      if (!auth.currentUser) {
+        console.warn("No current user found in auth");
+        setAllWorkoutHistory({});
+        setMarkedDates({});
+        return;
+      }
       
-      setMarkedDates(history);
+      const userRef = doc(firestore, "users", auth.currentUser.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        
+        // Check if userData has the workout history field and it's an array
+        if (userData.firestoreSets && Array.isArray(userData.firestoreSets)) {
+          const workouts = userData.firestoreSets;
+          setAllWorkoutHistory(workouts);
+          
+          // Create marked dates for calendar
+          const dates = {};
+          workouts.forEach(workout => {
+            if (workout.date) {
+              const dateStr = workout.date.split('T')[0]; // format: YYYY-MM-DD
+              dates[dateStr] = { 
+                marked: true, 
+                dotColor: colors.primary 
+              };
+            }
+          });
+          
+          setMarkedDates(dates);
+        } else {
+          console.log("No workout history found in user data");
+          setAllWorkoutHistory({});
+          setMarkedDates({});
+        }
+      } else {
+        console.log("User document does not exist");
+        setAllWorkoutHistory({});
+        setMarkedDates({});
+      }
     } catch (error) {
       console.error("Error loading workout history:", error);
-      
-      // Use mock data if we have Firebase permission issues
-      if (error.message && error.message.includes("Missing or insufficient permissions")) {
-        console.log("Using mock workout history due to Firebase permission issues");
-        const mockHistory = MockDataService.getWorkoutHistory();
-        setMarkedDates(mockHistory);
-      }
-      // Don't rethrow, just continue with empty data if needed
+      // Set empty objects in case of error to avoid undefined errors in rendering
+      setAllWorkoutHistory({});
+      setMarkedDates({});
+      throw error;
     }
   }
 
   async function handleLogWeight() {
     try {
-      if (!weightToLog || isNaN(parseFloat(weightToLog))) {
-        Alert.alert("Error", "Please enter a valid weight");
+      if (!user) {
+        Alert.alert("Error", "You must be signed in to log weight");
         return;
       }
-
+      
+      if (!weightToLog || isNaN(parseFloat(weightToLog))) {
+        Alert.alert("Invalid Weight", "Please enter a valid weight value");
+        return;
+      }
+      
       const weight = parseFloat(weightToLog);
+      if (weight <= 0 || weight > 700) { // Reasonable validation limits
+        Alert.alert("Invalid Weight", "Please enter a realistic weight value");
+        return;
+      }
       
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setLoading(true);
       
+      const today = new Date().toISOString().split('T')[0]; // format: YYYY-MM-DD
+      
+      // Use firestore directly instead of the DatabaseService
       const auth = getAuth();
       const firestore = getFirestore();
-      const weightCollection = collection(firestore, "users", auth.currentUser.uid, "weightLog");
       
-      await addDoc(weightCollection, {
-        weight,
-        date: Timestamp.now()
-      });
+      if (!auth.currentUser) {
+        Alert.alert("Error", "Authentication error. Please sign in again.");
+        return;
+      }
       
-      // Clear input and reload data
-      setWeightToLog('');
-      await loadWeightLog();
+      const userRef = doc(firestore, "users", auth.currentUser.uid);
+      const userDoc = await getDoc(userRef);
       
-      // Provide success feedback
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        
+        // Initialize the weight log array if it doesn't exist
+        const weightLog = userData.firestoreWeightLog || [];
+        
+        // Check if we already have an entry for today
+        const existingEntryIndex = weightLog.findIndex(entry => 
+          entry.date && entry.date.split('T')[0] === today
+        );
+        
+        if (existingEntryIndex >= 0) {
+          // Update existing entry
+          weightLog[existingEntryIndex] = {
+            ...weightLog[existingEntryIndex],
+            weight,
+            date: today
+          };
+        } else {
+          // Add new entry
+          weightLog.push({
+            weight,
+            date: today
+          });
+        }
+        
+        // Sort logs by date (newest first)
+        weightLog.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        // If there are too many entries, trim the oldest ones
+        const MAX_ENTRIES = 100;
+        if (weightLog.length > MAX_ENTRIES) {
+          weightLog.splice(MAX_ENTRIES);
+        }
+        
+        // Update in Firestore
+        await updateDoc(userRef, {
+          firestoreWeightLog: weightLog,
+          lastUpdated: Timestamp.now()
+        });
+        
+        // Clear input and reload data
+        setWeightToLog('');
+        await loadWeightLog();
+        
+        // Show confirmation
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Weight Logged", `Successfully logged weight: ${weight}`);
+      } else {
+        Alert.alert("Error", "User profile not found. Please try again.");
+      }
     } catch (error) {
       console.error("Error logging weight:", error);
       Alert.alert("Error", "Failed to log weight. Please try again.");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setLoading(false);
     }
   }
   
   const saveUsername = async () => {
     try {
-      if (!usernameInput.trim()) {
-        Alert.alert("Error", "Username cannot be empty");
+      if (!user) {
+        Alert.alert("Error", "You must be signed in to update your profile");
+        setEditingUsername(false);
         return;
       }
       
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (!usernameInput.trim()) {
+        Alert.alert("Invalid Username", "Username cannot be empty");
+        return;
+      }
+      
+      setLoading(true);
       
       const auth = getAuth();
       const firestore = getFirestore();
       
-      await updateDoc(doc(firestore, "users", auth.currentUser.uid), {
-        username: usernameInput.trim()
+      if (!auth.currentUser) {
+        Alert.alert("Error", "Authentication error. Please sign in again.");
+        setEditingUsername(false);
+        return;
+      }
+      
+      const userRef = doc(firestore, "users", auth.currentUser.uid);
+      
+      // Update username in Firestore
+      await updateDoc(userRef, {
+        username: usernameInput.trim(),
+        lastUpdated: Timestamp.now()
       });
       
-      setEditingUsername(false);
+      // Refresh profile data
       await loadProfile();
       
-      // Provide success feedback
+      // Exit editing mode
+      setEditingUsername(false);
+      
+      // Show confirmation
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error("Error saving username:", error);
-      Alert.alert("Error", "Failed to save username. Please try again.");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", "Failed to update username. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
