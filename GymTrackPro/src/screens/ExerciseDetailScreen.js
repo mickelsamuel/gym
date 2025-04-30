@@ -12,7 +12,8 @@ import {
   Platform,
   ImageBackground,
   Share,
-  SectionList
+  SectionList,
+  StyleSheet
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -444,16 +445,28 @@ function ExerciseDetailScreen() {
             },
           ]}
         >
-          <ImageBackground 
-            source={exercise.image ? exercise.image : require('../../assets/images/exercise-placeholder.jpg')} 
-            style={styles.backgroundImage}
-            resizeMode="cover"
-          >
-            <LinearGradient
-              colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.7)']}
-              style={styles.gradient}
-            />
-          </ImageBackground>
+          {exercise.image ? (
+            <ImageBackground 
+              source={exercise.image} 
+              style={styles.backgroundImage}
+              resizeMode="cover"
+            >
+              <LinearGradient
+                colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.7)']}
+                style={styles.gradient}
+              />
+            </ImageBackground>
+          ) : (
+            <View style={styles.backgroundImage}>
+              <View style={styles.placeholderImageContainer}>
+                <Ionicons name="barbell-outline" size={80} color="rgba(255,255,255,0.4)" />
+              </View>
+              <LinearGradient
+                colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.7)']}
+                style={styles.gradient}
+              />
+            </View>
+          )}
         </Animated.View>
         
         {/* Header Controls */}
@@ -1349,7 +1362,16 @@ const styles = StyleSheet.create({
     fontWeight: Typography.semibold,
     fontSize: Typography.body,
     marginLeft: Spacing.sm,
-  }
+  },
+  placeholderImageContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 export default ExerciseDetailScreen;

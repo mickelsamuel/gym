@@ -8,7 +8,8 @@ import {
   Platform,
   StatusBar,
   Alert,
-  SafeAreaView
+  SafeAreaView,
+  Animated
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,14 +17,6 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { sendEmailVerification } from 'firebase/auth';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withTiming, 
-  withSequence,
-  FadeIn,
-  FadeOut
-} from 'react-native-reanimated';
 import { Colors as ThemeColors, Typography, Spacing, BorderRadius, createNeumorphism } from '../constants/Theme';
 
 function EmailVerificationScreen({ navigation }) {
@@ -35,23 +28,23 @@ function EmailVerificationScreen({ navigation }) {
   const [resendCooldown, setResendCooldown] = useState(0);
   
   // Animation values
-  const fadeAnim = useSharedValue(0);
-  const translateY = useSharedValue(30);
-  
-  // Create animated styles
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: fadeAnim.value,
-      transform: [{ translateY: translateY.value }],
-    };
-  });
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(30)).current;
   
   useEffect(() => {
-    // Run entrance animations using requestAnimationFrame to ensure it's on JS thread
-    requestAnimationFrame(() => {
-      fadeAnim.value = withTiming(1, { duration: 600 });
-      translateY.value = withTiming(0, { duration: 600 });
-    });
+    // Run entrance animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true
+      })
+    ]).start();
   }, []);
   
   // Handle countdown for resend button
@@ -149,13 +142,13 @@ function EmailVerificationScreen({ navigation }) {
       <Animated.View
         style={[
           styles.contentContainer,
-          animatedStyle,
           {
+            opacity: fadeAnim,
+            transform: [{ translateY: translateY }],
             paddingTop: Math.max(insets.top, 20),
             paddingBottom: Math.max(insets.bottom, 20)
           }
         ]}
-        entering={FadeIn}
       >
         <View style={styles.iconContainer}>
           <Ionicons name="mail" size={80} color="#FFF" />

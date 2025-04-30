@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   FlatList,
   Animated,
+  Easing,
   Dimensions,
   RefreshControl,
   ScrollView,
@@ -35,7 +36,25 @@ import Card from '../components/ui/Card';
 import Container from '../components/ui/Container';
 import Colors from '../constants/Colors';
 import { CircleProgress, FadeIn, SlideIn } from '../components/ui';
-import { Colors as ThemeColors, Typography, Spacing, BorderRadius } from '../constants/Theme';
+import { Theme as ThemeColors, Typography, Spacing, BorderRadius } from '../constants/Theme';
+
+// Default theme colors in case ThemeColors is not properly loaded
+const defaultThemeColors = {
+  dark: {
+    background: '#161A23',
+    card: '#222833',
+    text: '#F0F2F5',
+    textSecondary: '#AAB4CD',
+    border: 'rgba(255, 255, 255, 0.15)'
+  },
+  light: {
+    background: '#F9FAFC',
+    card: '#FFFFFF',
+    text: '#14192D',
+    textSecondary: '#5D6B8A',
+    border: 'rgba(0, 0, 0, 0.1)'
+  }
+};
 
 const { width } = Dimensions.get('window');
 
@@ -86,7 +105,12 @@ const WorkoutScreen = () => {
   });
   
   // Theme based on dark mode
-  const theme = darkMode ? ThemeColors.dark : ThemeColors.light;
+  const theme = (ThemeColors && darkMode) ? 
+    (ThemeColors.dark || defaultThemeColors.dark) : 
+    (ThemeColors && ThemeColors.light || defaultThemeColors.light);
+  
+  // Initialize styles with theme
+  const styles = createStyles(theme);
   
   // Load all workout lists on initial render
   useEffect(() => {
@@ -516,7 +540,7 @@ const WorkoutScreen = () => {
   };
 
   return (
-    <Container dark={darkMode} style={{ backgroundColor: theme.background }}>
+    <Container style={{ backgroundColor: theme.background }}>
       {/* Header with sticky title */}
       <Animated.View 
         style={[
@@ -695,7 +719,8 @@ const WorkoutScreen = () => {
 
 export default WorkoutScreen;
 
-const styles = StyleSheet.create({
+// Create styles with theme context
+const createStyles = (theme) => StyleSheet.create({
   headerContainer: {
     position: 'absolute',
     top: 0,
@@ -790,7 +815,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.semibold,
   },
   workoutSubtitle: {
-    color: (props) => props.theme.textSecondary,
+    color: theme.textSecondary,
     marginTop: 2,
   },
   workoutCardFooter: {
@@ -805,7 +830,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
   },
   detailsText: {
-    color: (props) => props.theme.textSecondary,
+    color: theme.textSecondary,
     marginRight: 2,
   },
   workoutCardsContainer: {
@@ -816,7 +841,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   workoutCard: {
-    backgroundColor: (props) => props.theme.card,
+    backgroundColor: theme.card,
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     padding: Spacing.md,
@@ -846,7 +871,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.semibold,
   },
   cardSubtitle: {
-    color: (props) => props.theme.textSecondary,
+    color: theme.textSecondary,
     marginTop: 2,
   },
   cardFooter: {
@@ -856,13 +881,13 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   cardDuration: {
-    color: (props) => props.theme.textSecondary,
+    color: theme.textSecondary,
   },
   startButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: (props) => `${Colors.primaryBlue}15`,
+    backgroundColor: `${Colors.primaryBlue}15`,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -877,7 +902,7 @@ const styles = StyleSheet.create({
   emptyStateText: {
     textAlign: 'center',
     marginBottom: Spacing.lg,
-    color: (props) => props.theme.textSecondary,
+    color: theme.textSecondary,
   },
   emptyStateButton: {
     marginTop: Spacing.md,
@@ -910,9 +935,7 @@ const styles = StyleSheet.create({
   viewModeToggle: {
     flexDirection: 'row',
     borderRadius: BorderRadius.md,
-    backgroundColor: (props) => props.theme === ThemeColors.dark 
-      ? 'rgba(255,255,255,0.1)' 
-      : 'rgba(0,0,0,0.05)',
+    backgroundColor: theme === defaultThemeColors.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
     padding: 2,
   },
   viewModeButton: {
@@ -920,13 +943,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   viewModeButtonActive: {
-    backgroundColor: (props) => props.theme === ThemeColors.dark 
-      ? 'rgba(255,255,255,0.15)' 
-      : 'rgba(255,255,255,0.9)',
+    backgroundColor: theme === defaultThemeColors.dark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.9)',
   },
   calendarContainer: {
     marginTop: Spacing.md,
-    backgroundColor: (props) => props.theme.card,
+    backgroundColor: theme.card,
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     ...Platform.select({

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useExercise } from '../../context/ExerciseContext';
 import { Colors, Theme, BorderRadius, createNeumorphism, createShadow } from '../../constants/Theme';
 
@@ -19,6 +20,7 @@ interface CardProps {
   compact?: boolean;
   neumorphic?: boolean;
   accentColor?: string;
+  gradientColors?: [string, string];  // Fixed to expect exactly two colors
 }
 
 /**
@@ -34,6 +36,7 @@ export default function Card({
   compact = false,
   neumorphic = true,
   accentColor,
+  gradientColors,
 }: CardProps) {
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
@@ -78,7 +81,7 @@ export default function Card({
   const cardStyles = [
     styles.card,
     {
-      backgroundColor: colors.card,
+      backgroundColor: category === 'achievement' && gradientColors ? 'transparent' : colors.card,
       borderRadius: BorderRadius.lg,
       padding: getPadding(),
     },
@@ -87,6 +90,24 @@ export default function Card({
     style,
   ];
 
+  const renderCardContent = () => {
+    if (category === 'achievement' && gradientColors) {
+      return (
+        <>
+          <LinearGradient
+            colors={gradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+          {children}
+        </>
+      );
+    }
+    
+    return children;
+  };
+
   if (onPress) {
     return (
       <TouchableOpacity
@@ -94,16 +115,16 @@ export default function Card({
         onPress={onPress}
         disabled={disabled}
         testID={testID}
-        style={cardStyles}
+        style={cardStyles as any}
       >
-        {children}
+        {renderCardContent()}
       </TouchableOpacity>
     );
   }
 
   return (
-    <View testID={testID} style={cardStyles}>
-      {children}
+    <View testID={testID} style={cardStyles as any}>
+      {renderCardContent()}
     </View>
   );
 }
@@ -113,5 +134,17 @@ const styles = StyleSheet.create({
     width: '100%',
     marginVertical: 8,
     overflow: 'hidden',
+    // Add more prominent shadow for depth
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
 }); 

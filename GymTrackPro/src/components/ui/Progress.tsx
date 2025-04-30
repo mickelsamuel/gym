@@ -6,6 +6,7 @@ import {
   TextStyle,
   Animated,
   Easing,
+  Platform,
 } from 'react-native';
 import Svg, { Circle, G, LinearGradient as SvgLinearGradient, Stop, Defs } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,10 +34,12 @@ interface LinearProgressProps {
   animationDuration?: number;
   style?: ViewStyle;
   gradientColors?: [string, string];
+  showLabel?: boolean;
 }
 
 /**
  * Circular progress indicator with animation and percentage display
+ * Follows the Neumorphic Fitness design approach
  */
 export const CircleProgress = ({
   progress,
@@ -102,7 +105,7 @@ export const CircleProgress = ({
           </SvgLinearGradient>
         </Defs>
         
-        {/* Track Circle */}
+        {/* Track Circle - subtle background */}
         <Circle
           cx={center}
           cy={center}
@@ -110,9 +113,10 @@ export const CircleProgress = ({
           stroke={darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}
           strokeWidth={strokeWidth}
           fill="transparent"
+          strokeLinecap="round"
         />
         
-        {/* Progress Circle */}
+        {/* Progress Circle with clean rounded line caps */}
         <G rotation="-90" origin={`${center}, ${center}`}>
           <AnimatedCircle
             cx={center}
@@ -135,7 +139,10 @@ export const CircleProgress = ({
             variant="cardTitle"
             weight="semibold"
             centered
-            style={textStyle}
+            style={{
+              color: colors.text,
+              ...textStyle as object
+            }}
           >
             {getPercentageText()}
           </Text>
@@ -150,6 +157,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /**
  * Linear progress bar with animation and gradient
+ * Follows the Neumorphic Fitness design approach
  */
 export const LinearProgress = ({
   progress,
@@ -158,6 +166,7 @@ export const LinearProgress = ({
   animationDuration = 500,
   style,
   gradientColors,
+  showLabel = false,
 }: LinearProgressProps) => {
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
@@ -191,29 +200,63 @@ export const LinearProgress = ({
     }),
   };
   
+  // Calculate the percentage for the label
+  const percentage = Math.round(progress * 100);
+  
   return (
-    <View
-      style={[
-        styles.linearContainer,
-        { height, backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' },
-        style,
-      ]}
-    >
-      <Animated.View
+    <View style={{ width: '100%' }}>
+      <View
         style={[
-          styles.linearProgress,
-          progressStyle,
-          { height },
-          createShadow(1, defaultGradientColors[0]),
+          styles.linearContainer,
+          { 
+            height, 
+            backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+            borderRadius: height / 2  // More rounded corners
+          },
+          style,
         ]}
       >
-        <LinearGradient
-          colors={defaultGradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
+        <Animated.View
+          style={[
+            styles.linearProgress,
+            progressStyle,
+            { 
+              height,
+              borderRadius: height / 2  // Match container radius
+            },
+            Platform.OS === 'ios' ? {
+              shadowColor: defaultGradientColors[0],
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0.5,
+              shadowRadius: 4,
+            } : {
+              elevation: 2,
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={defaultGradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </Animated.View>
+      </View>
+      
+      {/* Optional percentage label */}
+      {showLabel && (
+        <Text
+          variant="caption"
+          style={{
+            textAlign: 'right',
+            marginTop: 4,
+            marginRight: 4,
+            color: colors.textSecondary
+          }}
+        >
+          {`${percentage}%`}
+        </Text>
+      )}
     </View>
   );
 };

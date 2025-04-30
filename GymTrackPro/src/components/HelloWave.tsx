@@ -1,32 +1,43 @@
-import { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-} from 'react-native-reanimated';
-
-import { ThemedText } from '@/components/ThemedText';
+import { useEffect, useRef } from 'react';
+import { StyleSheet, Animated } from 'react-native';
+import { Text } from '../components/ui';
 
 export function HelloWave() {
-  const rotationAnimation = useSharedValue(0);
+  const rotationAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    rotationAnimation.value = withRepeat(
-      withSequence(withTiming(25, { duration: 150 }), withTiming(0, { duration: 150 })),
-      4 // Run the animation 4 times
-    );
+    // Create a sequence of animations for the wave effect
+    const waveSequence = Animated.sequence([
+      Animated.timing(rotationAnim, {
+        toValue: 25,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(rotationAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      })
+    ]);
+
+    // Repeat the sequence 4 times
+    Animated.loop(waveSequence, { iterations: 4 }).start();
+
+    return () => {
+      rotationAnim.stopAnimation();
+    };
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotationAnimation.value}deg` }],
-  }));
+  const animatedStyle = {
+    transform: [{ rotate: rotationAnim.interpolate({
+      inputRange: [0, 25],
+      outputRange: ['0deg', '25deg']
+    }) }]
+  };
 
   return (
     <Animated.View style={animatedStyle}>
-      <ThemedText style={styles.text}>👋</ThemedText>
+      <Text style={styles.text}>👋</Text>
     </Animated.View>
   );
 }

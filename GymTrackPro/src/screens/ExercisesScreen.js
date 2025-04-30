@@ -26,7 +26,7 @@ import { ExerciseContext } from '../context/ExerciseContext';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { 
-  Text, 
+  Text as AppText, 
   Button, 
   Card, 
   Container, 
@@ -367,6 +367,7 @@ export default function ExercisesScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterChipsScroll}
+          scrollEventThrottle={16}
         >
           {muscleGroupOptions.map((option) => (
             <TouchableOpacity
@@ -387,7 +388,7 @@ export default function ExercisesScreen() {
                 color={selectedMuscle === option.value ? Colors.primaryBlue : theme.textSecondary}
                 style={styles.chipIcon}
               />
-              <Text
+              <AppText
                 variant="caption"
                 style={[
                   styles.chipText,
@@ -395,7 +396,7 @@ export default function ExercisesScreen() {
                 ]}
               >
                 {option.label}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           ))}
           
@@ -417,7 +418,7 @@ export default function ExercisesScreen() {
               color={filterCount > 0 || showAdvancedFilters ? Colors.primaryBlue : theme.textSecondary}
               style={styles.chipIcon}
             />
-            <Text
+            <AppText
               variant="caption"
               style={[
                 styles.chipText,
@@ -425,7 +426,7 @@ export default function ExercisesScreen() {
               ]}
             >
               Filters {filterCount > 0 ? `(${filterCount})` : ''}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         </ScrollView>
       </Animated.View>
@@ -439,7 +440,7 @@ export default function ExercisesScreen() {
     return (
       <Card style={styles.advancedFiltersCard}>
         <View style={styles.filtersSection}>
-          <Text variant="cardTitle" style={styles.filterSectionTitle}>Equipment Type</Text>
+          <AppText variant="cardTitle" style={styles.filterSectionTitle}>Equipment Type</AppText>
           <View style={styles.filterOptions}>
             {exerciseTypeOptions.map((option) => (
               <TouchableOpacity
@@ -460,7 +461,7 @@ export default function ExercisesScreen() {
                   color={selectedType === option.value ? Colors.primaryBlue : theme.textSecondary}
                   style={styles.filterOptionIcon}
                 />
-                <Text
+                <AppText
                   variant="body"
                   style={[
                     styles.filterOptionText,
@@ -468,14 +469,14 @@ export default function ExercisesScreen() {
                   ]}
                 >
                   {option.label}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </View>
         </View>
         
         <View style={styles.filtersSection}>
-          <Text variant="cardTitle" style={styles.filterSectionTitle}>Difficulty Level</Text>
+          <AppText variant="cardTitle" style={styles.filterSectionTitle}>Difficulty Level</AppText>
           <View style={styles.filterOptions}>
             {difficultyOptions.map((option) => (
               <TouchableOpacity
@@ -496,7 +497,7 @@ export default function ExercisesScreen() {
                   color={selectedDifficulty === option.value ? Colors.primaryBlue : theme.textSecondary}
                   style={styles.filterOptionIcon}
                 />
-                <Text
+                <AppText
                   variant="body"
                   style={[
                     styles.filterOptionText,
@@ -504,7 +505,7 @@ export default function ExercisesScreen() {
                   ]}
                 >
                   {option.label}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </View>
@@ -516,9 +517,9 @@ export default function ExercisesScreen() {
             onPress={clearFilters}
             activeOpacity={0.7}
           >
-            <Text variant="body" style={styles.clearFilterText}>
+            <AppText variant="body" style={styles.clearFilterText}>
               Clear Filters
-            </Text>
+            </AppText>
           </TouchableOpacity>
           
           <Button
@@ -556,13 +557,13 @@ export default function ExercisesScreen() {
           />
         </View>
         
-        <Text variant="cardTitle" style={styles.popularExerciseName} numberOfLines={2}>
+        <AppText variant="cardTitle" style={styles.popularExerciseName} numberOfLines={2}>
           {item.name}
-        </Text>
+        </AppText>
         
-        <Text variant="caption" style={styles.popularExerciseDetails}>
+        <AppText variant="caption" style={styles.popularExerciseDetails}>
           {item.primaryMuscles?.join(', ')}
-        </Text>
+        </AppText>
         
         <TouchableOpacity
           style={styles.favoriteButton}
@@ -607,32 +608,32 @@ export default function ExercisesScreen() {
           </View>
           
           <View style={styles.exerciseDetails}>
-            <Text variant="cardTitle" style={styles.exerciseName}>
+            <AppText variant="cardTitle" style={styles.exerciseName}>
               {item.name}
-            </Text>
+            </AppText>
             
             <View style={styles.muscleTagsContainer}>
               {item.primaryMuscles?.slice(0, 2).map((muscle, index) => (
                 <View key={index} style={styles.muscleTag}>
-                  <Text variant="caption" style={styles.muscleTagText}>
+                  <AppText variant="caption" style={styles.muscleTagText}>
                     {muscle}
-                  </Text>
+                  </AppText>
                 </View>
               ))}
               
               {item.primaryMuscles?.length > 2 && (
                 <View style={styles.muscleTag}>
-                  <Text variant="caption" style={styles.muscleTagText}>
+                  <AppText variant="caption" style={styles.muscleTagText}>
                     +{item.primaryMuscles.length - 2}
-                  </Text>
+                  </AppText>
                 </View>
               )}
             </View>
             
             <View style={styles.exerciseMetadata}>
-              <Text variant="caption" style={styles.exerciseMetadataText}>
+              <AppText variant="caption" style={styles.exerciseMetadataText}>
                 {item.equipment || item.type || 'No equipment'} • {item.difficulty || 'All levels'}
-              </Text>
+              </AppText>
             </View>
           </View>
           
@@ -669,55 +670,42 @@ export default function ExercisesScreen() {
   
   // Render the popular exercises section
   const renderPopularExercisesSection = () => {
-    if (!popularExercises.length || searchQuery) return null;
+    if (popularExercises.length === 0) return null;
     
     return (
-      <View style={styles.popularSection}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text variant="sectionHeader">Popular Exercises</Text>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.selectionAsync();
-              // Navigate to filtered view with popular exercises
-            }}
-            activeOpacity={0.7}
-          >
-            <Text variant="body" style={styles.seeAllButton}>
-              See All
-            </Text>
-          </TouchableOpacity>
+          <AppText variant="sectionHeader">Popular Exercises</AppText>
         </View>
         
-        <FlatList
-          horizontal
-          data={popularExercises}
-          renderItem={renderPopularExerciseCard}
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.popularExercisesContainer}
-        />
+        <View style={styles.popularExercisesContainer}>
+          {popularExercises.map(item => (
+            <React.Fragment key={item.id}>
+              {renderPopularExerciseCard({ item })}
+            </React.Fragment>
+          ))}
+        </View>
       </View>
     );
   };
   
   // Render favorites section
   const renderFavoritesSection = () => {
-    if (!favoriteExercises.length || searchQuery) return null;
+    if (favoriteExercises.length === 0) return null;
     
     return (
-      <View style={styles.favoritesSection}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text variant="sectionHeader">Favorites</Text>
+          <AppText variant="sectionHeader">Your Favorites</AppText>
         </View>
         
-        <FlatList
-          horizontal
-          data={favoriteExercises}
-          renderItem={renderPopularExerciseCard}
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.popularExercisesContainer}
-        />
+        <View style={styles.exerciseListContainer}>
+          {favoriteExercises.map(item => (
+            <React.Fragment key={item.id}>
+              {renderExerciseItem({ item })}
+            </React.Fragment>
+          ))}
+        </View>
       </View>
     );
   };
@@ -727,24 +715,24 @@ export default function ExercisesScreen() {
     return (
       <View style={styles.allExercisesSection}>
         <View style={styles.sectionHeader}>
-          <Text variant="sectionHeader">
+          <AppText variant="sectionHeader">
             {searchQuery ? 'Search Results' : 'All Exercises'}
-          </Text>
+          </AppText>
           {filteredExercises.length > 0 && (
-            <Text variant="caption" style={styles.resultCount}>
+            <AppText variant="caption" style={styles.resultCount}>
               {filteredExercises.length} exercise{filteredExercises.length !== 1 ? 's' : ''}
-            </Text>
+            </AppText>
           )}
         </View>
         
         {filteredExercises.length > 0 ? (
-          <FlatList
-            data={filteredExercises}
-            renderItem={renderExerciseItem}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.exerciseListContainer}
-          />
+          <View style={styles.exerciseListContainer}>
+            {filteredExercises.map(item => (
+              <React.Fragment key={item.id}>
+                {renderExerciseItem({ item })}
+              </React.Fragment>
+            ))}
+          </View>
         ) : (
           <View style={styles.emptyResults}>
             <Ionicons
@@ -752,9 +740,9 @@ export default function ExercisesScreen() {
               size={60}
               color={theme.textSecondary}
             />
-            <Text variant="body" style={styles.emptyResultsText}>
+            <AppText variant="body" style={styles.emptyResultsText}>
               {searchQuery ? 'No exercises found for your search' : 'No exercises match your filters'}
-            </Text>
+            </AppText>
             {(searchQuery || filterCount > 0) && (
               <Button
                 title="Clear Filters"
@@ -824,7 +812,7 @@ export default function ExercisesScreen() {
           <View style={styles.container}>
             {/* Screen Header */}
             <View style={styles.screenHeader}>
-              <Text variant="pageTitle">Exercise Library</Text>
+              <AppText variant="pageTitle">Exercise Library</AppText>
             </View>
             
             {/* Search Bar */}
@@ -848,10 +836,10 @@ export default function ExercisesScreen() {
               }
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scrollContent}
-              onScroll={Animated.event(
-                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                { useNativeDriver: true }
-              )}
+              onScroll={(event) => {
+                const offsetY = event.nativeEvent.contentOffset.y;
+                scrollY.setValue(offsetY);
+              }}
               scrollEventThrottle={16}
             >
               {/* Popular Exercises Section */}
@@ -1206,7 +1194,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: theme.border,
+    borderColor: Theme.light.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1271,7 +1259,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   clearFilterText: {
-    color: theme.textSecondary,
+    color: Colors.secondaryTextLight,
   },
   popularSection: {
     marginBottom: 20,
@@ -1293,7 +1281,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   resultCount: {
-    color: theme.textSecondary,
+    color: Colors.secondaryTextLight,
   },
   emptyResults: {
     alignItems: 'center',

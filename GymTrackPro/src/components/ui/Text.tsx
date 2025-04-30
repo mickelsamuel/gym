@@ -31,7 +31,7 @@ export interface TextProps extends RNTextProps {
 /**
  * Text component following the GymTrackPro design system
  */
-const Text = ({
+export const Text = ({
   children,
   variant = 'body',
   weight,
@@ -106,6 +106,81 @@ const Text = ({
     >
       {children}
     </RNText>
+  );
+};
+
+/**
+ * Title component - Largest heading
+ */
+export const Title = ({ style, children, ...props }: TextProps) => {
+  return (
+    <Text 
+      variant="title"
+      style={style}
+      {...props}
+    >
+      {children}
+    </Text>
+  );
+};
+
+/**
+ * Heading component - Second level heading
+ */
+export const Heading = ({ style, children, ...props }: TextProps) => {
+  return (
+    <Text 
+      variant="sectionHeader"
+      style={style}
+      {...props}
+    >
+      {children}
+    </Text>
+  );
+};
+
+/**
+ * Body component - Regular paragraph text
+ */
+export const Body = ({ style, children, ...props }: TextProps) => {
+  return (
+    <Text 
+      variant="body"
+      style={style}
+      {...props}
+    >
+      {children}
+    </Text>
+  );
+};
+
+/**
+ * Subheading component - Third level heading
+ */
+export const Subheading = ({ style, children, ...props }: TextProps) => {
+  return (
+    <Text 
+      variant="cardTitle"
+      style={style}
+      {...props}
+    >
+      {children}
+    </Text>
+  );
+};
+
+/**
+ * Caption component - Small supportive text
+ */
+export const Caption = ({ style, children, ...props }: TextProps) => {
+  return (
+    <Text 
+      variant="caption"
+      style={style}
+      {...props}
+    >
+      {children}
+    </Text>
   );
 };
 

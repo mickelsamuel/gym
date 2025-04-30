@@ -2,7 +2,7 @@
 import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
-  Text,
+  Text as RNText,
   TextInput,
   StyleSheet,
   TouchableOpacity,
@@ -16,6 +16,7 @@ import {
   Keyboard,
   Modal,
   Animated,
+  Easing,
   RefreshControl,
   ActivityIndicator
 } from 'react-native';
@@ -30,7 +31,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Colors from '../constants/Colors';
 import Container from '../components/ui/Container';
-import { Title, Heading, Subheading, Body, Caption } from '../components/ui/Text';
+import { Text, Title, Heading, Body, Subheading, Caption } from '../components/ui';
 import { CalendarList } from 'react-native-calendars';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -44,6 +45,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+
+// Get the screen dimensions
+const screenWidth = Dimensions.get('window').width - 40; // 40px padding
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
@@ -59,6 +63,7 @@ export default function ProfileScreen() {
   const profileScale = useRef(new Animated.Value(1)).current;
   const headerOpacity = useRef(new Animated.Value(1)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
+  const spinValue = useRef(new Animated.Value(0)).current;
   
   // State variables
   const [loading, setLoading] = useState(true);
@@ -75,9 +80,32 @@ export default function ProfileScreen() {
   const [profilePicUrl, setProfilePicUrl] = useState(null);
   const [chartData, setChartData] = useState(null);
   const [markedDates, setMarkedDates] = useState({});
+  const [weightLogModalVisible, setWeightLogModalVisible] = useState(false);
   
   // Reference to scroll view for programmatic scrolling
   const scrollViewRef = useRef(null);
+
+  // Create a spinning animation for the loading indicator
+  useEffect(() => {
+    if (loading) {
+      Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinValue.setValue(0);
+    }
+  }, [loading]);
+  
+  // Interpolate the spin value to rotate from 0 to 360 degrees
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   // Configure default colors as fallback
   const defaultColors = {
@@ -95,6 +123,7 @@ export default function ProfileScreen() {
     card: darkMode ? '#1E1E1E' : '#FFFFFF',
     danger: '#FF3B30',
     success: '#4CD964',
+    warning: '#FFCC00',
   };
 
   const { darkMode: exerciseDarkMode, userGoal: exerciseUserGoal, setGoal } = useContext(ExerciseContext);
@@ -641,7 +670,6 @@ export default function ProfileScreen() {
   }).slice(-7); // Last 7 entries
   
   const chartWeights = weightLog.map(entry => entry.weight).slice(-7); // Last 7 entries
-  const screenWidth = Dimensions.get('window').width - 48;
   
   const formatRelativeTime = (dateString) => {
     try {
@@ -936,7 +964,7 @@ export default function ProfileScreen() {
                 {chartData && (
                   <LineChart
                     data={chartData}
-                    width={styles.weightChartContainer.width - 16}
+                    width={screenWidth}
                     height={180}
                     chartConfig={{
                       backgroundColor: colors.card,
@@ -1147,6 +1175,49 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       </Animated.ScrollView>
+      
+      {/* Weight Log Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={weightLogModalVisible}
+        onRequestClose={() => setWeightLogModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setWeightLogModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+              <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+                <View style={styles.modalHeader}>
+                  <Heading style={{ color: colors.text }}>Log Weight</Heading>
+                  <TouchableOpacity onPress={() => setWeightLogModalVisible(false)}>
+                    <Ionicons name="close" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={[styles.weightInput, { color: colors.text, borderColor: colors.border }]}
+                    placeholder="Enter weight (kg)"
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="numeric"
+                    value={weightToLog}
+                    onChangeText={setWeightToLog}
+                  />
+                  <TouchableOpacity
+                    style={[styles.logButton, { backgroundColor: colors.primary }]}
+                    onPress={() => {
+                      handleLogWeight();
+                      setWeightLogModalVisible(false);
+                    }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </Container>
   );
 }
@@ -1258,6 +1329,7 @@ const styles = StyleSheet.create({
   weightChartContainer: {
     width: '100%',
     alignItems: 'center',
+    padding: 8,
   },
   emptyChartContainer: {
     height: 180,
@@ -1304,4 +1376,86 @@ const styles = StyleSheet.create({
     marginTop: 20,
     padding: 12,
   },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '100%',
+    padding: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  weightInput: {
+    flex: 1,
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  logButton: {
+    padding: 12,
+    borderRadius: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    maxWidth: '80%',
+  },
+  retryButton: {
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  weightLogItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  weightDetails: {
+    flexDirection: 'column',
+  },
+  weightValue: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  weightDate: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  changeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  changeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
+  }
 });

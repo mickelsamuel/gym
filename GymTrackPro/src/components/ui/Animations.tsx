@@ -1,18 +1,5 @@
-import React, { ReactNode } from 'react';
-import { ViewStyle } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-  withRepeat,
-  Easing,
-  interpolate,
-  Extrapolate,
-  WithTimingConfig,
-  cancelAnimation,
-  runOnJS,
-} from 'react-native-reanimated';
+import React, { ReactNode, useEffect, useRef } from 'react';
+import { ViewStyle, Animated as RNAnimated, Easing as RNEasing } from 'react-native';
 import { Animation } from '../../constants/Theme';
 
 interface FadeInProps {
@@ -25,6 +12,7 @@ interface FadeInProps {
 
 /**
  * FadeIn animation component for smooth entrance animations
+ * Using React Native's Animated API instead of Reanimated
  */
 export function FadeIn({
   children,
@@ -33,41 +21,32 @@ export function FadeIn({
   style,
   onAnimationComplete,
 }: FadeInProps) {
-  const opacity = useSharedValue(0);
+  const opacity = useRef(new RNAnimated.Value(0)).current;
   
-  React.useEffect(() => {
-    const animationConfig: WithTimingConfig = {
-      duration,
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
-    };
+  useEffect(() => {
+    const animation = RNAnimated.timing(opacity, {
+      toValue: 1,
+      duration: duration,
+      delay: delay,
+      easing: RNEasing.bezier(0.16, 1, 0.3, 1),
+      useNativeDriver: true,
+    });
     
-    // Callback function to be called when animation completes
-    const callback = () => {
-      if (onAnimationComplete) {
-        runOnJS(onAnimationComplete)();
+    animation.start(({ finished }) => {
+      if (finished && onAnimationComplete) {
+        onAnimationComplete();
       }
-    };
-    
-    // Start animation with delay if specified
-    setTimeout(() => {
-      opacity.value = withTiming(1, animationConfig, callback);
-    }, delay);
+    });
     
     return () => {
-      cancelAnimation(opacity);
+      animation.stop();
     };
   }, []);
   
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-    };
-  });
-  
   return (
-    <Animated.View style={[animatedStyle, style]}>
+    <RNAnimated.View style={[{ opacity }, style]}>
       {children}
-    </Animated.View>
+    </RNAnimated.View>
   );
 }
 
@@ -82,6 +61,7 @@ interface SlideInProps {
 
 /**
  * SlideIn animation component for smooth entrance animations
+ * Using React Native's Animated API instead of Reanimated
  */
 export function SlideIn({
   children,
@@ -91,44 +71,52 @@ export function SlideIn({
   delay = 0,
   style,
 }: SlideInProps) {
-  const opacity = useSharedValue(0);
-  const translateValue = useSharedValue(direction === 'up' || direction === 'down' ? 
-    (direction === 'up' ? distance : -distance) : 
-    (direction === 'left' ? distance : -distance));
+  const opacity = useRef(new RNAnimated.Value(0)).current;
+  const translateValue = useRef(new RNAnimated.Value(
+    direction === 'up' ? distance : 
+    direction === 'down' ? -distance : 
+    direction === 'left' ? distance : 
+    -distance
+  )).current;
   
-  React.useEffect(() => {
-    const animationConfig: WithTimingConfig = {
-      duration,
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
-    };
+  useEffect(() => {
+    const animations = RNAnimated.parallel([
+      RNAnimated.timing(opacity, {
+        toValue: 1,
+        duration: duration,
+        delay: delay,
+        easing: RNEasing.bezier(0.16, 1, 0.3, 1),
+        useNativeDriver: true,
+      }),
+      RNAnimated.timing(translateValue, {
+        toValue: 0,
+        duration: duration,
+        delay: delay,
+        easing: RNEasing.bezier(0.16, 1, 0.3, 1),
+        useNativeDriver: true,
+      })
+    ]);
     
-    // Start animation with delay if specified
-    setTimeout(() => {
-      opacity.value = withTiming(1, animationConfig);
-      translateValue.value = withTiming(0, animationConfig);
-    }, delay);
+    animations.start();
     
     return () => {
-      cancelAnimation(opacity);
-      cancelAnimation(translateValue);
+      animations.stop();
     };
   }, []);
   
-  const animatedStyle = useAnimatedStyle(() => {
-    const translate = direction === 'up' || direction === 'down' ? 
-      { translateY: translateValue.value } : 
-      { translateX: translateValue.value };
-      
-    return {
-      opacity: opacity.value,
-      transform: [translate],
-    };
-  });
+  const animatedStyle = {
+    opacity,
+    transform: [
+      direction === 'up' || direction === 'down' 
+        ? { translateY: translateValue } 
+        : { translateX: translateValue }
+    ]
+  };
   
   return (
-    <Animated.View style={[animatedStyle, style]}>
+    <RNAnimated.View style={[animatedStyle, style]}>
       {children}
-    </Animated.View>
+    </RNAnimated.View>
   );
 }
 
@@ -142,6 +130,7 @@ interface PulseProps {
 
 /**
  * Pulse animation component for skeleton loading states
+ * Using React Native's Animated API instead of Reanimated
  */
 export function Pulse({
   children,
@@ -150,34 +139,42 @@ export function Pulse({
   style,
   isActive = true,
 }: PulseProps) {
-  const opacity = useSharedValue(1);
+  const opacity = useRef(new RNAnimated.Value(1)).current;
   
-  React.useEffect(() => {
-    if (isActive) {
-      opacity.value = withRepeat(
-        withTiming(1 - intensity, { duration: duration / 2 }),
-        -1,
-        true
-      );
-    } else {
-      opacity.value = withTiming(1);
+  useEffect(() => {
+    if (!isActive) {
+      opacity.setValue(1);
+      return;
     }
     
+    const animation = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(opacity, {
+          toValue: 1 - intensity,
+          duration: duration / 2,
+          easing: RNEasing.ease,
+          useNativeDriver: true,
+        }),
+        RNAnimated.timing(opacity, {
+          toValue: 1,
+          duration: duration / 2,
+          easing: RNEasing.ease,
+          useNativeDriver: true,
+        })
+      ])
+    );
+    
+    animation.start();
+    
     return () => {
-      cancelAnimation(opacity);
+      animation.stop();
     };
   }, [isActive]);
   
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-    };
-  });
-  
   return (
-    <Animated.View style={[animatedStyle, style]}>
+    <RNAnimated.View style={[{ opacity }, style]}>
       {children}
-    </Animated.View>
+    </RNAnimated.View>
   );
 }
 
@@ -191,6 +188,7 @@ interface ScaleProps {
 
 /**
  * Scale animation component for micro-interactions
+ * Using React Native's Animated API instead of Reanimated
  */
 export function Scale({
   children,
@@ -199,36 +197,21 @@ export function Scale({
   style,
   isActive = false,
 }: ScaleProps) {
-  const scaleValue = useSharedValue(1);
+  const scaleValue = useRef(new RNAnimated.Value(1)).current;
   
-  React.useEffect(() => {
-    if (isActive) {
-      scaleValue.value = withSpring(scale, {
-        stiffness: 500,
-        damping: 30,
-      });
-    } else {
-      scaleValue.value = withSpring(1, {
-        stiffness: 500,
-        damping: 30,
-      });
-    }
-    
-    return () => {
-      cancelAnimation(scaleValue);
-    };
+  useEffect(() => {
+    RNAnimated.spring(scaleValue, {
+      toValue: isActive ? scale : 1,
+      friction: 7,
+      tension: 300,
+      useNativeDriver: true,
+    }).start();
   }, [isActive]);
   
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scaleValue.value }],
-    };
-  });
-  
   return (
-    <Animated.View style={[animatedStyle, style]}>
+    <RNAnimated.View style={[{ transform: [{ scale: scaleValue }] }, style]}>
       {children}
-    </Animated.View>
+    </RNAnimated.View>
   );
 }
 

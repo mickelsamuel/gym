@@ -1,19 +1,15 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   Platform,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, {
-  useAnimatedStyle,
-  withTiming,
-  useDerivedValue,
-} from 'react-native-reanimated';
 import { useExercise } from '../../context/ExerciseContext';
 import { Theme, Typography, BorderRadius, createShadow } from '../../constants/Theme';
 import Text from './Text';
@@ -44,7 +40,7 @@ export default function TabBar({ state, descriptors, navigation }: TabBarProps) 
     
     // Provide haptic feedback
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     
     if (!isFocused && !event.defaultPrevented) {
@@ -107,26 +103,37 @@ export default function TabBar({ state, descriptors, navigation }: TabBarProps) 
               style={styles.tab}
               activeOpacity={0.7}
             >
-              {/* Animated indicator background for selected tab */}
+              {/* Pill-shaped indicator for selected tab */}
               {isFocused && (
                 <View style={[
                   styles.activeIndicator,
-                  { backgroundColor: darkMode ? 'rgba(10, 108, 255, 0.15)' : 'rgba(10, 108, 255, 0.08)' }
+                  { 
+                    backgroundColor: darkMode ? 'rgba(10, 108, 255, 0.15)' : 'rgba(10, 108, 255, 0.08)',
+                    borderRadius: 20,  // Make it more pill-shaped
+                  }
                 ]} />
               )}
               
-              <Ionicons
-                name={iconName as any}
-                size={24}
-                color={isFocused ? colors.primary : colors.tabBarInactive}
-                style={styles.icon}
-              />
+              <View 
+                style={[
+                  styles.iconContainer,
+                  isFocused && { transform: [{ scale: 1.1 }] } // Subtle scale on focus
+                ]}
+              >
+                <Ionicons
+                  name={iconName as any}
+                  size={24}
+                  color={isFocused ? colors.primary : colors.tabBarInactive}
+                  style={styles.icon}
+                />
+              </View>
               
               <Text
                 variant="small"
                 style={{
                   color: isFocused ? colors.primary : colors.tabBarInactive,
                   fontWeight: isFocused ? '600' : '400',
+                  marginTop: 4,
                 }}
               >
                 {label}
@@ -163,11 +170,15 @@ const styles = StyleSheet.create({
   activeIndicator: {
     position: 'absolute',
     top: 6,
-    width: '80%',
+    width: '70%',  // Narrower for more pill-like appearance
     height: '80%',
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl, // More rounded corners
+  },
+  iconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   icon: {
-    marginBottom: 4,
+    marginBottom: 2,
   },
 }); 

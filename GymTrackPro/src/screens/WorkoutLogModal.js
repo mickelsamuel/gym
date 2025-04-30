@@ -14,16 +14,21 @@ import {
   TextInput,
   Animated,
   Vibration,
-  Dimensions
+  Dimensions,
+  StatusBar
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
-import { Colors as ThemeColors, Typography, Spacing, BorderRadius, createNeumorphism } from '../constants/Theme';
+import { Colors as ThemeColors, Typography, Spacing, BorderRadius, createNeumorphism, createShadow } from '../constants/Theme';
 import { LinearGradient } from 'expo-linear-gradient';
+import LottieView from 'lottie-react-native';
 
-const { width } = Dimensions.get('window');
+// Import custom UI components
+import { Button, CircleProgress } from '../components/ui';
+
+const { width, height } = Dimensions.get('window');
 
 const formatDateTime = (date) => {
   const year = date.getFullYear();
@@ -42,7 +47,8 @@ const WorkoutLogModal = ({
   darkMode,
   cardColor,
   textColor,
-  initialData
+  initialData,
+  previousPerformance
 }) => {
   const [selectedDate, setSelectedDate] = useState(initialData ? new Date(initialData.date) : new Date());
   const [weight, setWeight] = useState(initialData ? String(initialData.weight) : '');
@@ -50,15 +56,18 @@ const WorkoutLogModal = ({
   const [notes, setNotes] = useState(initialData ? initialData.notes : '');
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
+  const [isNewRecord, setIsNewRecord] = useState(false);
 
   // Animation values
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const completionAnimation = useRef(null);
 
   // Theme
   const theme = darkMode ? ThemeColors.dark : ThemeColors.light;
-  const neumorphism = createNeumorphism(darkMode);
+  const neumorphism = createNeumorphism(!darkMode, 8);
 
   useEffect(() => {
     if (initialData) {
@@ -100,6 +109,7 @@ const WorkoutLogModal = ({
       fadeAnim.setValue(0);
       slideAnim.setValue(0);
       scaleAnim.setValue(0.95);
+      setShowCompletionAnimation(false);
     }
   }, [visible]);
 
@@ -139,6 +149,21 @@ const WorkoutLogModal = ({
     }
   };
 
+  const checkIfNewRecord = () => {
+    if (!previousPerformance || !previousPerformance.length) return false;
+    
+    const currentWeight = parseFloat(weight);
+    const currentReps = parseInt(reps);
+    const currentVolume = currentWeight * currentReps;
+    
+    const previousMax = previousPerformance.reduce((max, set) => {
+      const setVolume = set.weight * set.reps;
+      return setVolume > max ? setVolume : max;
+    }, 0);
+    
+    return currentVolume > previousMax;
+  };
+
   const handleSave = () => {
     // Validate all fields
     const weightError = validateInput('weight', weight);
@@ -167,23 +192,91 @@ const WorkoutLogModal = ({
       notes
     };
     
+    // Check if this is a new record
+    const isRecord = checkIfNewRecord();
+    setIsNewRecord(isRecord);
+    
+    // Show completion animation
+    setShowCompletionAnimation(true);
+    
     // Success haptic feedback
     if (Platform.OS === 'ios') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Haptics.notificationAsync(
+        isRecord 
+          ? Haptics.NotificationFeedbackType.Success 
+          : Haptics.NotificationFeedbackType.Success
+      );
+      
+      if (isRecord) {
+        // Double haptic for a record
+        setTimeout(() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        }, 300);
+      }
     }
     
-    onSave(setData);
+    // Delay closing to show animation
+    setTimeout(() => {
+      onSave(setData);
+      setShowCompletionAnimation(false);
+    }, isRecord ? 1800 : 1200);
   };
 
   const handleCancel = () => {
     // Animate out before closing
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 200,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
       onClose();
     });
+  };
+
+  const toggleDatePicker = () => {
+    setDatePickerVisibility(!isDatePickerVisible);
+  };
+
+  const handleDateConfirm = (date) => {
+    setSelectedDate(date);
+    toggleDatePicker();
+  };
+
+  // Render completion animation overlay
+  const renderCompletionAnimation = () => {
+    if (!showCompletionAnimation) return null;
+    
+    return (
+      <View style={styles.completionOverlay}>
+        {isNewRecord ? (
+          <>
+            <LottieView
+              ref={completionAnimation}
+              source={require('../../assets/animations/confetti.json')}
+              autoPlay
+              loop={false}
+              style={styles.confettiAnimation}
+            />
+            <Text style={styles.newRecordText}>NEW RECORD!</Text>
+          </>
+        ) : (
+          <LottieView
+            ref={completionAnimation}
+            source={require('../../assets/animations/checkmark.json')}
+            autoPlay
+            loop={false}
+            style={styles.checkmarkAnimation}
+          />
+        )}
+      </View>
+    );
   };
 
   return (
@@ -193,6 +286,7 @@ const WorkoutLogModal = ({
       visible={visible}
       onRequestClose={handleCancel}
     >
+      <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} />
       <TouchableWithoutFeedback onPress={handleCancel}>
         <Animated.View 
           style={[
@@ -201,229 +295,238 @@ const WorkoutLogModal = ({
           ]}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.modalContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoidingView}
           >
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
               <Animated.View 
                 style={[
-                  styles.modalContent, 
+                  styles.modalContent,
                   neumorphism,
                   { 
-                    backgroundColor: darkMode ? ThemeColors.darkCardBackground : ThemeColors.lightCardBackground,
-                    opacity: fadeAnim,
+                    backgroundColor: theme.card,
+                    borderRadius: BorderRadius.lg,
                     transform: [
-                      { scale: scaleAnim },
-                      { 
-                        translateY: slideAnim.interpolate({
+                      { translateY: slideAnim.interpolate({
                           inputRange: [0, 1],
-                          outputRange: [50, 0]
-                        }) 
-                      }
-                    ] 
+                          outputRange: [200, 0]
+                        })
+                      },
+                      { scale: scaleAnim }
+                    ]
                   }
                 ]}
               >
-                {/* Timer Display */}
-                <View style={styles.headerSection}>
-                  <LinearGradient
-                    colors={[ThemeColors.primaryBlue, ThemeColors.primaryDarkBlue]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.headerGradient}
+                {/* Modal Header */}
+                <View style={styles.modalHeader}>
+                  <View style={styles.dragHandle} />
+                  
+                  <Text style={[styles.modalTitle, { color: theme.text }]}>
+                    Log {exerciseName}
+                  </Text>
+                  
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={handleCancel}
+                    hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
                   >
-                    <Text style={styles.modalTitle}>Log Workout</Text>
-                    <Text style={styles.exerciseName}>{exerciseName}</Text>
-                  </LinearGradient>
+                    <Ionicons
+                      name="close-circle"
+                      size={28}
+                      color={theme.textSecondary}
+                    />
+                  </TouchableOpacity>
                 </View>
                 
-                {/* Current Exercise Section */}
-                <View style={styles.formSection}>
-                  <View style={styles.inputGroup}>
-                    <Text style={[styles.inputLabel, { color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight }]}>
-                      Date & Time
+                {/* Previous Performance */}
+                {previousPerformance && previousPerformance.length > 0 && (
+                  <View style={styles.previousPerformance}>
+                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+                      Previous Performance
                     </Text>
-                    <TouchableOpacity 
+                    
+                    <View style={styles.previousStatsContainer}>
+                      <View style={styles.previousStat}>
+                        <Text style={[styles.previousStatValue, { color: theme.primary }]}>
+                          {previousPerformance[0].weight} kg
+                        </Text>
+                        <Text style={[styles.previousStatLabel, { color: theme.textSecondary }]}>
+                          Last Weight
+                        </Text>
+                      </View>
+                      
+                      <View style={styles.previousStat}>
+                        <Text style={[styles.previousStatValue, { color: theme.primary }]}>
+                          {previousPerformance[0].reps}
+                        </Text>
+                        <Text style={[styles.previousStatLabel, { color: theme.textSecondary }]}>
+                          Last Reps
+                        </Text>
+                      </View>
+                      
+                      <View style={styles.previousStat}>
+                        <Text style={[styles.previousStatValue, { color: theme.primary }]}>
+                          {Math.max(...previousPerformance.map(p => p.weight))} kg
+                        </Text>
+                        <Text style={[styles.previousStatLabel, { color: theme.textSecondary }]}>
+                          Best Weight
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+                
+                <View style={styles.inputSection}>
+                  {/* Date Picker */}
+                  <View style={styles.formGroup}>
+                    <Text style={[styles.inputLabel, { color: theme.text }]}>Date & Time</Text>
+                    <TouchableOpacity
                       style={[
                         styles.datePickerButton,
-                        { backgroundColor: darkMode ? ThemeColors.darkCardBackground : ThemeColors.lightCardBackground }
+                        { 
+                          backgroundColor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                          borderColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+                        }
                       ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setDatePickerVisibility(true);
-                      }}
+                      onPress={toggleDatePicker}
                     >
-                      <Ionicons name="calendar-outline" size={20} color={darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight} />
-                      <Text style={[styles.dateText, { color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight }]}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={20}
+                        color={theme.textSecondary}
+                        style={styles.inputIcon}
+                      />
+                      <Text style={[styles.dateText, { color: theme.text }]}>
                         {selectedDate.toLocaleString()}
                       </Text>
-                      <Ionicons name="chevron-down" size={16} color={darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight} />
+                      <Ionicons
+                        name="chevron-down"
+                        size={16}
+                        color={theme.textSecondary}
+                      />
                     </TouchableOpacity>
                   </View>
-
+                  
+                  {/* Weight & Reps Inputs */}
                   <View style={styles.inputRow}>
-                    <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-                      <Text style={[styles.inputLabel, { color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight }]}>
-                        Weight
+                    <View style={[styles.formGroup, styles.halfWidth]}>
+                      <Text style={[styles.inputLabel, { color: theme.text }]}>
+                        Weight (kg)
                       </Text>
-                      <View style={styles.inputWithButtons}>
-                        <TouchableOpacity
-                          style={styles.inputButton}
-                          onPress={() => {
-                            const currentValue = parseFloat(weight) || 0;
-                            if (currentValue > 0) {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                              setWeight((currentValue - 2.5).toString());
-                            }
-                          }}
-                        >
-                          <Ionicons name="remove" size={18} color={ThemeColors.primaryBlue} />
-                        </TouchableOpacity>
-                        
+                      <View style={styles.inputContainer}>
                         <TextInput
                           style={[
                             styles.input,
                             { 
-                              borderColor: errors.weight ? ThemeColors.accentDanger : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                              color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight 
+                              color: theme.text,
+                              backgroundColor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                              borderColor: errors.weight 
+                                ? theme.danger
+                                : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
                             }
                           ]}
-                          placeholder="0"
-                          placeholderTextColor={darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight}
-                          keyboardType="numeric"
                           value={weight}
-                          onChangeText={(value) => handleInputChange('weight', value)}
+                          onChangeText={(text) => handleInputChange('weight', text)}
+                          keyboardType="numeric"
+                          placeholder="Weight"
+                          placeholderTextColor={theme.textSecondary}
                         />
-                        
-                        <TouchableOpacity
-                          style={styles.inputButton}
-                          onPress={() => {
-                            const currentValue = parseFloat(weight) || 0;
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setWeight((currentValue + 2.5).toString());
-                          }}
-                        >
-                          <Ionicons name="add" size={18} color={ThemeColors.primaryBlue} />
-                        </TouchableOpacity>
+                        {errors.weight ? (
+                          <Text style={[styles.errorText, { color: theme.danger }]}>
+                            {errors.weight}
+                          </Text>
+                        ) : null}
                       </View>
-                      {errors.weight && <Text style={styles.errorText}>{errors.weight}</Text>}
                     </View>
-
-                    <View style={[styles.inputGroup, { flex: 1 }]}>
-                      <Text style={[styles.inputLabel, { color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight }]}>
+                    
+                    <View style={[styles.formGroup, styles.halfWidth]}>
+                      <Text style={[styles.inputLabel, { color: theme.text }]}>
                         Reps
                       </Text>
-                      <View style={styles.inputWithButtons}>
-                        <TouchableOpacity
-                          style={styles.inputButton}
-                          onPress={() => {
-                            const currentValue = parseInt(reps) || 0;
-                            if (currentValue > 1) {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                              setReps((currentValue - 1).toString());
-                            }
-                          }}
-                        >
-                          <Ionicons name="remove" size={18} color={ThemeColors.primaryBlue} />
-                        </TouchableOpacity>
-                        
+                      <View style={styles.inputContainer}>
                         <TextInput
                           style={[
                             styles.input,
                             { 
-                              borderColor: errors.reps ? ThemeColors.accentDanger : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                              color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight 
+                              color: theme.text,
+                              backgroundColor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                              borderColor: errors.reps 
+                                ? theme.danger 
+                                : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
                             }
                           ]}
-                          placeholder="0"
-                          placeholderTextColor={darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight}
-                          keyboardType="numeric"
                           value={reps}
-                          onChangeText={(value) => handleInputChange('reps', value)}
+                          onChangeText={(text) => handleInputChange('reps', text)}
+                          keyboardType="numeric"
+                          placeholder="Reps"
+                          placeholderTextColor={theme.textSecondary}
                         />
-                        
-                        <TouchableOpacity
-                          style={styles.inputButton}
-                          onPress={() => {
-                            const currentValue = parseInt(reps) || 0;
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setReps((currentValue + 1).toString());
-                          }}
-                        >
-                          <Ionicons name="add" size={18} color={ThemeColors.primaryBlue} />
-                        </TouchableOpacity>
+                        {errors.reps ? (
+                          <Text style={[styles.errorText, { color: theme.danger }]}>
+                            {errors.reps}
+                          </Text>
+                        ) : null}
                       </View>
-                      {errors.reps && <Text style={styles.errorText}>{errors.reps}</Text>}
                     </View>
                   </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={[styles.inputLabel, { color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight }]}>
-                      Notes (optional)
+                  
+                  {/* Notes Input */}
+                  <View style={styles.formGroup}>
+                    <Text style={[styles.inputLabel, { color: theme.text }]}>
+                      Notes (Optional)
                     </Text>
                     <TextInput
                       style={[
                         styles.textArea,
                         { 
-                          borderColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                          color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight,
-                          backgroundColor: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)'
+                          color: theme.text,
+                          backgroundColor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                          borderColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
                         }
                       ]}
+                      value={notes}
+                      onChangeText={(text) => handleInputChange('notes', text)}
                       placeholder="Add notes about this set..."
-                      placeholderTextColor={darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight}
-                      multiline={true}
+                      placeholderTextColor={theme.textSecondary}
+                      multiline
                       numberOfLines={3}
                       textAlignVertical="top"
-                      value={notes}
-                      onChangeText={(value) => handleInputChange('notes', value)}
                     />
                   </View>
                 </View>
-
-                {/* Log Form Section */}
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity 
-                    style={[styles.button, styles.cancelButton]}
+                
+                {/* Action Buttons */}
+                <View style={styles.actionButtons}>
+                  <Button
+                    title="Cancel"
                     onPress={handleCancel}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
+                    type="secondary"
+                    style={styles.actionButton}
+                  />
                   
-                  <TouchableOpacity 
-                    style={[styles.button, styles.saveButton]}
+                  <Button
+                    title="Save Set"
                     onPress={handleSave}
-                  >
-                    <LinearGradient
-                      colors={[ThemeColors.primaryBlue, ThemeColors.primaryDarkBlue]}
-                      style={styles.saveButtonGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Text style={styles.saveButtonText}>Save Set</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                    type="primary"
+                    style={styles.actionButton}
+                  />
                 </View>
-
-                {/* Date Picker Modal */}
-                <DateTimePickerModal
-                  isVisible={isDatePickerVisible}
-                  mode="datetime"
-                  date={selectedDate}
-                  onConfirm={(date) => {
-                    setDatePickerVisibility(false);
-                    setSelectedDate(date);
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  }}
-                  onCancel={() => {
-                    setDatePickerVisibility(false);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                  themeVariant={darkMode ? 'dark' : 'light'}
-                />
               </Animated.View>
             </TouchableWithoutFeedback>
           </KeyboardAvoidingView>
+          
+          {/* Date Picker */}
+          <DateTimePickerModal
+            isVisible={isDatePickerVisible}
+            mode="datetime"
+            onConfirm={handleDateConfirm}
+            onCancel={toggleDatePicker}
+            date={selectedDate}
+            themeVariant={darkMode ? 'dark' : 'light'}
+          />
+          
+          {/* Completion Animation */}
+          {renderCompletionAnimation()}
         </Animated.View>
       </TouchableWithoutFeedback>
     </Modal>
@@ -436,144 +539,157 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  modalContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 20,
+  keyboardAvoidingView: {
+    width: '100%',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    width: width - 40,
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  headerSection: {
     width: '100%',
-    overflow: 'hidden',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    maxHeight: height * 0.9,
   },
-  headerGradient: {
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
+  modalHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    position: 'relative',
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(150, 150, 150, 0.3)',
+    position: 'absolute',
+    top: 8,
+    alignSelf: 'center',
   },
   modalTitle: {
     fontSize: Typography.sectionHeader,
-    fontWeight: Typography.bold,
-    color: '#FFF',
-    marginBottom: Spacing.xs,
+    fontWeight: '600',
+    textAlign: 'center',
   },
-  exerciseName: {
-    fontSize: Typography.body,
-    fontWeight: Typography.medium,
-    color: 'rgba(255, 255, 255, 0.9)',
+  closeButton: {
+    position: 'absolute',
+    right: 0,
+    top: 12,
+    zIndex: 10,
   },
-  formSection: {
-    padding: Spacing.lg,
+  previousPerformance: {
+    marginBottom: 20,
+    paddingHorizontal: 5,
   },
-  inputGroup: {
-    marginBottom: Spacing.md,
-  },
-  inputLabel: {
+  sectionTitle: {
     fontSize: Typography.caption,
-    fontWeight: Typography.medium,
+    marginBottom: 10,
+  },
+  previousStatsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  previousStat: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  previousStatValue: {
+    fontSize: Typography.cardTitle,
+    fontWeight: '600',
     marginBottom: 4,
+  },
+  previousStatLabel: {
+    fontSize: Typography.small,
+  },
+  inputSection: {
+    marginBottom: 20,
+  },
+  formGroup: {
+    marginBottom: 16,
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
+    justifyContent: 'space-between',
+  },
+  halfWidth: {
+    width: '48%',
+  },
+  inputLabel: {
+    fontSize: Typography.caption,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  inputContainer: {
+    position: 'relative',
   },
   input: {
-    flex: 1,
-    height: 40,
+    height: 50,
     borderWidth: 1,
     borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: 16,
     fontSize: Typography.body,
-    textAlign: 'center',
-  },
-  inputWithButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  inputButton: {
-    width: 36,
-    height: 36,
-    borderRadius: BorderRadius.circle,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(10, 108, 255, 0.1)',
-    marginHorizontal: 4,
   },
   textArea: {
-    height: 80,
     borderWidth: 1,
     borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     fontSize: Typography.body,
+    minHeight: 100,
+  },
+  errorText: {
+    fontSize: Typography.small,
+    marginTop: 4,
+    marginLeft: 4,
   },
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: BorderRadius.md,
+    height: 50,
+    paddingHorizontal: 16,
+  },
+  inputIcon: {
+    marginRight: 8,
   },
   dateText: {
     flex: 1,
     fontSize: Typography.body,
-    marginLeft: Spacing.sm,
   },
-  buttonContainer: {
+  actionButtons: {
     flexDirection: 'row',
-    padding: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'space-between',
   },
-  button: {
+  actionButton: {
     flex: 1,
-    height: 48,
-    borderRadius: BorderRadius.md,
+    marginHorizontal: 5,
+  },
+  completionOverlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    zIndex: 9999,
   },
-  cancelButton: {
-    marginRight: Spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
+  confettiAnimation: {
+    width: width,
+    height: height,
+    position: 'absolute',
   },
-  cancelButtonText: {
-    color: ThemeColors.secondaryTextLight,
-    fontSize: Typography.button,
-    fontWeight: Typography.medium,
+  checkmarkAnimation: {
+    width: 150,
+    height: 150,
   },
-  saveButton: {
-    marginLeft: Spacing.sm,
-  },
-  saveButtonGradient: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: '#FFF',
-    fontSize: Typography.button,
-    fontWeight: Typography.bold,
-  },
-  errorText: {
-    color: ThemeColors.accentDanger,
-    fontSize: Typography.small,
-    marginTop: 4,
+  newRecordText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginTop: 150,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
 });
 

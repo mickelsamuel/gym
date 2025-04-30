@@ -10,21 +10,15 @@ import AppNavigator from '../navigation/AppNavigator';
 import { Theme } from '../constants/Theme';
 import { db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import 'react-native-reanimated';
 
 // Prevent warnings and initialization issues
 LogBox.ignoreLogs([
   'Sending `onAnimatedValueUpdate` with no listeners registered.',
   'Non-serializable values were found in the navigation state',
-  "[Reanimated] Native part of Reanimated doesn't seem to be initialized",
-  "[Reanimated] `runOnUI` cannot be called on the UI runtime", // Ignore this specific error if it persists
 ]);
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
-
-// Global registration of Reanimated
-global._WORKLET = true; // This helps when reanimated initializes late
 
 export default function App() {
   return (

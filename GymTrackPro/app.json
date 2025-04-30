@@ -49,6 +49,7 @@
       "expo-router"
     ],
     "jsEngine": "hermes",
-    "description": "A comprehensive fitness tracking application for tracking workouts, weight, and connecting with friends."
+    "description": "A comprehensive fitness tracking application for tracking workouts, weight, and connecting with friends.",
+    "newArchEnabled": true
   }
 }

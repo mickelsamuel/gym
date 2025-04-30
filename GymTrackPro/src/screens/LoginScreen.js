@@ -155,11 +155,9 @@ function LoginScreen({ navigation }) {
           {/* Logo Section with Animations */}
           <FadeIn delay={100} duration={800}>
             <View style={styles.logoContainer}>
-              <Image
-                source={require('../../assets/images/icon.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
+              <View style={styles.logoCircle}>
+                <Ionicons name="barbell" size={50} color="#FFFFFF" />
+              </View>
               
               <Text style={styles.title} variant="pageTitle">
                 GymTrackPro
@@ -295,9 +293,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xl,
   },
-  logo: {
+  logoCircle: {
     width: 100,
     height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: Spacing.md,
   },
   title: {

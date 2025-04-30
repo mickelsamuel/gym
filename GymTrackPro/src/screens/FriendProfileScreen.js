@@ -482,7 +482,7 @@ export default function FriendProfileScreen() {
           {showCelebration && (
             <View style={styles.celebrationOverlay}>
               <LottieView
-                source={require('../assets/animations/confetti.json')}
+                source={require('../../assets/animations/confetti.json')}
                 autoPlay
                 loop={false}
                 style={styles.celebration}
