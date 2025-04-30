@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Colors as ThemeColors, Typography, Spacing, BorderRadius, createNeumorphism } from '../constants/Theme';
 
 function ForgotPasswordScreen({ navigation }) {
   const { resetPassword } = useContext(AuthContext);
@@ -113,11 +114,13 @@ function ForgotPasswordScreen({ navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#0062CC" />
+      <StatusBar barStyle="light-content" backgroundColor={ThemeColors.primaryDarkBlue} />
       
       <LinearGradient
-        colors={['#0062CC', '#0096FF']}
+        colors={[ThemeColors.primaryDarkBlue, ThemeColors.primaryBlue]}
         style={styles.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       />
       
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -156,61 +159,72 @@ function ForgotPasswordScreen({ navigation }) {
                 }
               ]}
             >
-              {error ? (
-                <View style={styles.errorContainer}>
-                  <Ionicons name="alert-circle" size={18} color="#FF3B30" />
-                  <Text style={styles.errorText}>{error}</Text>
+              <View style={[styles.card, createNeumorphism(false, 8)]}>
+                {error ? (
+                  <View style={styles.errorContainer}>
+                    <Ionicons name="alert-circle" size={18} color={ThemeColors.accentDanger} />
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                ) : null}
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Email Address</Text>
+                  <View style={[
+                    styles.inputContainer,
+                    error && styles.inputError
+                  ]}>
+                    <Ionicons name="mail-outline" size={20} color={ThemeColors.secondaryTextLight} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter your email address"
+                      placeholderTextColor={ThemeColors.secondaryTextLight}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      autoCorrect={false}
+                      value={email}
+                      onChangeText={(text) => {
+                        setEmail(text);
+                        if (error) setError('');
+                      }}
+                      returnKeyType="send"
+                      onSubmitEditing={handleResetPassword}
+                    />
+                  </View>
                 </View>
-              ) : null}
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Email Address</Text>
-                <View style={[
-                  styles.inputContainer,
-                  error && styles.inputError
-                ]}>
-                  <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your email address"
-                    placeholderTextColor="#999"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    autoCorrect={false}
-                    value={email}
-                    onChangeText={(text) => {
-                      setEmail(text);
-                      if (error) setError('');
-                    }}
-                    returnKeyType="send"
-                    onSubmitEditing={handleResetPassword}
-                  />
-                </View>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.resetButton,
+                    isLoading && styles.buttonDisabled
+                  ]}
+                  onPress={handleResetPassword}
+                  disabled={isLoading}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={[ThemeColors.primaryBlue, ThemeColors.primaryDarkBlue]}
+                    style={styles.buttonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <Text style={styles.resetButtonText}>Send Reset Link</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
               </View>
               
               <TouchableOpacity
-                style={[
-                  styles.resetButton,
-                  isLoading && styles.buttonDisabled
-                ]}
-                onPress={handleResetPassword}
-                disabled={isLoading}
-                activeOpacity={0.8}
+                style={styles.loginLink}
+                onPress={handleLogin}
+                activeOpacity={0.7}
               >
-                {isLoading ? (
-                  <ActivityIndicator color="#FFF" size="small" />
-                ) : (
-                  <Text style={styles.resetButtonText}>Send Reset Link</Text>
-                )}
+                <Ionicons name="arrow-back-outline" size={16} color="rgba(255, 255, 255, 0.9)" />
+                <Text style={styles.loginLinkText}>Back to Login</Text>
               </TouchableOpacity>
-              
-              <View style={styles.loginContainer}>
-                <Text style={styles.loginText}>Remembered your password?</Text>
-                <TouchableOpacity onPress={handleLogin}>
-                  <Text style={styles.loginLink}>Log In</Text>
-                </TouchableOpacity>
-              </View>
             </Animated.View>
           ) : (
             <Animated.View
@@ -218,36 +232,59 @@ function ForgotPasswordScreen({ navigation }) {
                 styles.successContainer,
                 {
                   opacity: successAnim,
-                  transform: [{ translateY: successAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0]
-                  })}]
+                  transform: [
+                    { 
+                      translateY: successAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0]
+                      }) 
+                    }
+                  ]
                 }
               ]}
             >
-              <View style={styles.successIconContainer}>
-                <Ionicons name="checkmark-circle" size={80} color="#4CD964" />
+              <View style={[styles.card, createNeumorphism(false, 8)]}>
+                <View style={styles.successIconContainer}>
+                  <View style={styles.successIconCircle}>
+                    <Ionicons name="checkmark" size={36} color={ThemeColors.accentSuccess} />
+                  </View>
+                </View>
+                
+                <Text style={styles.successTitle}>Check Your Email</Text>
+                
+                <Text style={styles.successMessage}>
+                  We've sent a password reset link to:
+                </Text>
+                
+                <Text style={styles.emailSentTo}>{email}</Text>
+                
+                <Text style={styles.successInstructions}>
+                  Follow the instructions in the email to reset your password. If you don't see the email, check your spam folder.
+                </Text>
+                
+                <TouchableOpacity
+                  style={styles.tryAgainButton}
+                  onPress={handleTryAgain}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.tryAgainText}>Need to try again?</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.backToLoginButton}
+                  onPress={handleLogin}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={[ThemeColors.primaryBlue, ThemeColors.primaryDarkBlue]}
+                    style={styles.buttonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.backToLoginText}>Back to Login</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
               </View>
-              
-              <Text style={styles.successTitle}>Check Your Email</Text>
-              
-              <Text style={styles.successMessage}>
-                We've sent a password reset link to {email}
-              </Text>
-              
-              <TouchableOpacity
-                style={styles.backToLoginButton}
-                onPress={handleLogin}
-              >
-                <Text style={styles.backToLoginText}>Back to Login</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.resendButton}
-                onPress={handleTryAgain}
-              >
-                <Text style={styles.resendButtonText}>Didn't receive the email? Try again</Text>
-              </TouchableOpacity>
             </Animated.View>
           )}
         </ScrollView>
@@ -259,204 +296,187 @@ function ForgotPasswordScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: ThemeColors.primaryBlue,
   },
   gradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: '40%',
+    ...StyleSheet.absoluteFill,
   },
   scrollContent: {
     flexGrow: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xxl,
   },
   headerContainer: {
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 30,
+    marginBottom: Spacing.xl,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: Spacing.md,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: Typography.title,
+    fontWeight: Typography.bold,
     color: '#FFF',
-    marginBottom: 12,
+    marginBottom: Spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: Typography.body,
+    color: 'rgba(255, 255, 255, 0.9)',
     lineHeight: 22,
   },
   formContainer: {
-    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+  },
+  card: {
+    width: '100%',
     backgroundColor: '#FFF',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 10,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF5F5',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF3B30',
+    backgroundColor: 'rgba(255, 78, 100, 0.1)',
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
   },
   errorText: {
+    color: ThemeColors.accentDanger,
+    fontSize: Typography.caption,
+    marginLeft: Spacing.xs,
     flex: 1,
-    marginLeft: 8,
-    color: '#FF3B30',
-    fontSize: 14,
   },
   inputGroup: {
-    marginBottom: 24,
+    marginBottom: Spacing.md,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#555',
-    marginBottom: 8,
-    marginLeft: 4,
+    fontSize: Typography.caption,
+    fontWeight: Typography.medium,
+    color: ThemeColors.primaryTextLight,
+    marginBottom: Spacing.xs,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F7FA',
-    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E9F0',
-    paddingVertical: 2,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    overflow: 'hidden',
   },
   inputError: {
-    borderColor: '#FF3B30',
-    backgroundColor: '#FFF5F5',
+    borderColor: ThemeColors.accentDanger,
   },
   inputIcon: {
-    paddingHorizontal: 12,
+    padding: Spacing.sm,
   },
   input: {
     flex: 1,
     height: 50,
-    color: '#333',
-    fontSize: 16,
+    fontSize: Typography.body,
+    color: ThemeColors.primaryTextLight,
+    paddingHorizontal: Spacing.sm,
   },
   resetButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    height: 54,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+    marginTop: Spacing.sm,
+  },
+  buttonGradient: {
+    paddingVertical: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-    marginBottom: 24,
-  },
-  buttonDisabled: {
-    backgroundColor: '#97C1F7',
   },
   resetButtonText: {
     color: '#FFF',
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: Typography.button,
+    fontWeight: Typography.semibold,
   },
-  loginContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loginText: {
-    color: '#666',
-    fontSize: 15,
+  buttonDisabled: {
+    opacity: 0.7,
   },
   loginLink: {
-    color: '#007AFF',
-    fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.xl,
+    padding: Spacing.sm,
+  },
+  loginLinkText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: Typography.body,
+    fontWeight: Typography.medium,
+    marginLeft: Spacing.xs,
   },
   successContainer: {
-    flex: 1,
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 10,
+    width: '100%',
     alignItems: 'center',
   },
   successIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(76, 217, 100, 0.1)',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  successIconCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(46, 203, 112, 0.15)',
+    borderWidth: 2,
+    borderColor: ThemeColors.accentSuccess,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
   },
   successTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
+    fontSize: Typography.sectionHeader,
+    fontWeight: Typography.semibold,
+    color: ThemeColors.primaryTextLight,
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
   },
   successMessage: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: Typography.body,
+    color: ThemeColors.secondaryTextLight,
     textAlign: 'center',
-    marginBottom: 36,
+    marginBottom: Spacing.xs,
+  },
+  emailSentTo: {
+    fontSize: Typography.body,
+    fontWeight: Typography.semibold,
+    color: ThemeColors.primaryTextLight,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  successInstructions: {
+    fontSize: Typography.caption,
+    color: ThemeColors.secondaryTextLight,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: Spacing.lg,
+  },
+  tryAgainButton: {
+    padding: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  tryAgainText: {
+    color: ThemeColors.primaryBlue,
+    fontSize: Typography.caption,
+    fontWeight: Typography.medium,
+    textAlign: 'center',
   },
   backToLoginButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-    marginBottom: 20,
-    width: '100%',
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
   },
   backToLoginText: {
     color: '#FFF',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  resendButton: {
-    paddingVertical: 10,
-  },
-  resendButtonText: {
-    color: '#007AFF',
-    fontSize: 14,
-    textDecorationLine: 'underline',
+    fontSize: Typography.button,
+    fontWeight: Typography.semibold,
   },
 });
 

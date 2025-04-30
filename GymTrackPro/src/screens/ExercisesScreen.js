@@ -25,47 +25,56 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { ExerciseContext } from '../context/ExerciseContext';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
-import Colors from '../constants/Colors';
-import CustomSkeletonLoader, { SkeletonItem } from '../components/CustomSkeletonLoader';
-import Container from '../components/ui/Container';
-import { Title, Heading, Subheading, Body, Caption } from '../components/ui/Text';
-import Button from '../components/ui/Button';
-import Card from '../components/ui/Card';
+import { 
+  Text, 
+  Button, 
+  Card, 
+  Container, 
+  Input,
+  FadeIn,
+  SlideIn 
+} from '../components/ui';
+import { Colors, Theme, Typography, Spacing, BorderRadius } from '../constants/Theme';
 
-// -----------------------------------------------------------------------------
-// Use only the following broader muscle groups
-// -----------------------------------------------------------------------------
+// Broader muscle groups for filtering
 const muscleGroupOptions = [
   { label: 'All', value: 'all', icon: 'body-outline' },
   { label: 'Chest', value: 'chest', icon: 'fitness-outline' },
   { label: 'Back', value: 'back', icon: 'barbell-outline' },
   { label: 'Arms', value: 'arms', icon: 'hand-right-outline' },
   { label: 'Legs', value: 'legs', icon: 'footsteps-outline' },
-  { label: 'Shoulders', value: 'shoulders', icon: 'golf-outline' }
+  { label: 'Shoulders', value: 'shoulders', icon: 'golf-outline' },
+  { label: 'Core', value: 'core', icon: 'body-outline' },
+  { label: 'Cardio', value: 'cardio', icon: 'heart-outline' }
 ];
 
-// -----------------------------------------------------------------------------
 // Mapping individual muscle IDs to one of the above categories.
-// Adjust these mappings as needed:
 const muscleToCategory = {
   // Chest remains chest
   chest: 'chest',
-  // Back includes various back muscles and core-related groups
+  upperChest: 'chest',
+  lowerChest: 'chest',
+  // Back includes various back muscles
   back: 'back',
   lats: 'back',
   lowerBack: 'back',
   erectorSpinae: 'back',
   traps: 'back',
-  core: 'back',
-  obliques: 'back',
-  neck: 'back',
+  rhomboids: 'back',
+  // Core-related groups
+  core: 'core',
+  abs: 'core',
+  obliques: 'core',
   // Arms covers biceps, triceps, and forearms
+  arms: 'arms',
   biceps: 'arms',
   triceps: 'arms',
   forearms: 'arms',
   // Shoulders: main delts and rear delts
   shoulders: 'shoulders',
   rearDelts: 'shoulders',
+  frontDelts: 'shoulders',
+  lateralDelts: 'shoulders',
   // Legs includes general legs plus specific groups
   legs: 'legs',
   quads: 'legs',
@@ -74,7 +83,9 @@ const muscleToCategory = {
   calves: 'legs',
   adductors: 'legs',
   abductors: 'legs',
-  hipFlexors: 'legs'
+  hipFlexors: 'legs',
+  // Cardio
+  cardio: 'cardio'
 };
 
 const exerciseTypeOptions = [
@@ -82,7 +93,9 @@ const exerciseTypeOptions = [
   { label: 'Gym', value: 'gym', icon: 'barbell-outline' },
   { label: 'Dumbbell', value: 'dumbbell', icon: 'barbell-outline' },
   { label: 'Bodyweight', value: 'bodyweight', icon: 'body-outline' },
-  { label: 'Cardio', value: 'cardio', icon: 'heart-outline' }
+  { label: 'Cardio', value: 'cardio', icon: 'heart-outline' },
+  { label: 'Machine', value: 'machine', icon: 'cog-outline' },
+  { label: 'Cable', value: 'cable', icon: 'git-network-outline' }
 ];
 
 const difficultyOptions = [
@@ -108,86 +121,47 @@ export default function ExercisesScreen() {
     getExerciseStats
   } = useContext(ExerciseContext);
 
+  // Theme based on dark mode
+  const theme = darkMode ? Theme.dark : Theme.light;
+
+  // State variables
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState('all');
   const [selectedType, setSelectedType] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
-  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [exerciseData, setExerciseData] = useState([]);
+  const [filteredExercises, setFilteredExercises] = useState([]);
   const [popularExercises, setPopularExercises] = useState([]);
   const [recentExercises, setRecentExercises] = useState([]);
+  const [favoriteExercises, setFavoriteExercises] = useState([]);
   const [filterCount, setFilterCount] = useState(0);
+  const [searchFocused, setSearchFocused] = useState(false);
   
-  // Animation values
+  // Animation values for scroll effects
   const scrollY = useRef(new Animated.Value(0)).current;
   
-  // Instead of directly animating height (which is not supported by native driver),
-  // use scale and translateY which are supported
-  const headerScale = scrollY.interpolate({
-    inputRange: [0, 120],
-    outputRange: [1, 0.8],
-    extrapolate: 'clamp'
-  });
-  
+  // Header animations
   const headerTranslateY = scrollY.interpolate({
-    inputRange: [0, 120],
-    outputRange: [0, -20],
-    extrapolate: 'clamp'
-  });
-  
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 60, 120],
-    outputRange: [1, 0.3, 0],
-    extrapolate: 'clamp'
-  });
-  
-  const filterBarTranslate = scrollY.interpolate({
     inputRange: [0, 120],
     outputRange: [0, -60],
     extrapolate: 'clamp'
   });
-
-  // Initialize a default colors object in case the import fails
-  const defaultColors = {
-    light: {
-      primary: '#007AFF',
-      secondary: '#5856D6',
-      background: '#F8F9FA',
-      backgroundSecondary: '#FFFFFF',
-      text: '#333333',
-      textSecondary: '#666666',
-      textTertiary: '#999999',
-      border: '#E0E0E0',
-      card: '#FFFFFF',
-      success: '#28A745',
-      warning: '#FF9500',
-      danger: '#FF3B30',
-      info: '#5AC8FA',
-      shadow: 'rgba(0,0,0,0.1)',
-    },
-    dark: {
-      primary: '#0A84FF',
-      secondary: '#5E5CE6',
-      background: '#1C1C1E',
-      backgroundSecondary: '#2C2C2E',
-      text: '#FFFFFF',
-      textSecondary: '#AAAAAA',
-      textTertiary: '#888888',
-      border: '#555555',
-      card: '#2C2C2E',
-      success: '#33CF4D',
-      warning: '#FF9F0A',
-      danger: '#FF453A',
-      info: '#64D2FF',
-      shadow: 'rgba(0,0,0,0.3)',
-    }
-  };
   
-  // Use the imported Colors if available, otherwise use the default
-  const colorScheme = Colors || defaultColors;
-  const colors = darkMode ? colorScheme.dark : colorScheme.light;
-
+  const filterBarTranslateY = scrollY.interpolate({
+    inputRange: [0, 80],
+    outputRange: [0, -40],
+    extrapolate: 'clamp'
+  });
+  
+  const searchScaleX = scrollY.interpolate({
+    inputRange: [0, 120],
+    outputRange: [1, 0.92],
+    extrapolate: 'clamp'
+  });
+  
   // Load initial data
   useEffect(() => {
     loadExercises();
@@ -199,214 +173,228 @@ export default function ExercisesScreen() {
       loadExercises();
     }, [])
   );
-
-  // Update filter count
+  
+  // Effect to update filter count
   useEffect(() => {
     let count = 0;
     if (selectedMuscle !== 'all') count++;
     if (selectedType !== '') count++;
     if (selectedDifficulty !== '') count++;
-    if (searchQuery.trim() !== '') count++;
     setFilterCount(count);
-  }, [selectedMuscle, selectedType, selectedDifficulty, searchQuery]);
-
+  }, [selectedMuscle, selectedType, selectedDifficulty]);
+  
+  // Effect to apply filters
+  useEffect(() => {
+    if (exerciseData.length > 0) {
+      applyFilters();
+    }
+  }, [searchQuery, selectedMuscle, selectedType, selectedDifficulty, exerciseData]);
+  
+  // Load exercises from API/database
   const loadExercises = async () => {
-    setIsLoading(true);
-    
     try {
-      // Load popular exercises
-      const allExercises = getAllExercises();
+      setIsLoading(true);
       
-      // For popular exercises, in a real app this would be based on:
-      // 1. Most viewed exercises
-      // 2. Highest rated exercises
-      // 3. Most favorited exercises
-      // For now, we'll just select some random ones
-      const randomIndex = Math.floor(Math.random() * (allExercises.length - 10));
-      const popular = allExercises.slice(randomIndex, randomIndex + 8);
+      // Fetch all exercises
+      const allExercises = await getAllExercises();
+      
+      // Process and categorize exercises
+      setExerciseData(allExercises);
+      
+      // Set popular exercises (in a real app this would come from analytics)
+      const popular = allExercises
+        .filter(ex => ex.popularity > 0.7)
+        .sort((a, b) => b.popularity - a.popularity)
+        .slice(0, 8);
       setPopularExercises(popular);
       
-      // For recent exercises, grab the ones related to the user's goal
-      if (userGoal) {
-        const goalExercises = getExercisesByGoal(userGoal).slice(0, 5);
-        setRecentExercises(goalExercises);
-      }
+      // Set recent exercises (in a real app this would come from user history)
+      const recent = allExercises
+        .filter(ex => ex.lastUsed)
+        .sort((a, b) => new Date(b.lastUsed) - new Date(a.lastUsed))
+        .slice(0, 8);
+      setRecentExercises(recent);
       
-      // Simulate network request
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 800);
+      // Set favorite exercises
+      const favorites = allExercises.filter(ex => isFavorite(ex.id));
+      setFavoriteExercises(favorites);
+      
+      // Apply initial filters
+      applyFilters();
+      
+      setIsLoading(false);
     } catch (error) {
-      console.error("Error loading exercises:", error);
+      console.error('Error loading exercises:', error);
       setIsLoading(false);
     }
   };
-
+  
+  // Apply filters to exercises
+  const applyFilters = () => {
+    let filtered = [...exerciseData];
+    
+    // Apply search query
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(ex => 
+        ex.name.toLowerCase().includes(query) || 
+        (ex.description && ex.description.toLowerCase().includes(query)) ||
+        (ex.primaryMuscles && ex.primaryMuscles.some(m => m.toLowerCase().includes(query))) ||
+        (ex.secondaryMuscles && ex.secondaryMuscles.some(m => m.toLowerCase().includes(query)))
+      );
+    }
+    
+    // Apply muscle filter
+    if (selectedMuscle !== 'all') {
+      filtered = filtered.filter(ex => {
+        const primaryMatches = ex.primaryMuscles && ex.primaryMuscles.some(m => 
+          muscleToCategory[m.toLowerCase()] === selectedMuscle
+        );
+        
+        const secondaryMatches = ex.secondaryMuscles && ex.secondaryMuscles.some(m => 
+          muscleToCategory[m.toLowerCase()] === selectedMuscle
+        );
+        
+        return primaryMatches || secondaryMatches;
+      });
+    }
+    
+    // Apply type filter
+    if (selectedType !== '') {
+      filtered = filtered.filter(ex => ex.type && ex.type.toLowerCase() === selectedType.toLowerCase());
+    }
+    
+    // Apply difficulty filter
+    if (selectedDifficulty !== '') {
+      filtered = filtered.filter(ex => ex.difficulty && ex.difficulty.toLowerCase() === selectedDifficulty.toLowerCase());
+    }
+    
+    setFilteredExercises(filtered);
+  };
+  
+  // Handle pull-to-refresh
   const onRefresh = async () => {
     setRefreshing(true);
     await loadExercises();
     setRefreshing(false);
   };
-
-  const allExercises = getAllExercises();
-
-  // Filter exercises
-  const filteredExercises = allExercises.filter((ex) => {
-    const matchName = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchType = selectedType ? ex.type === selectedType : true;
-    const matchDifficulty = selectedDifficulty ? ex.difficulty === selectedDifficulty : true;
-
-    let matchMuscle = true;
-    if (selectedMuscle !== 'all') {
-      const primaryMatch = ex.primaryMuscles.some(
-        (muscle) => muscleToCategory[muscle] === selectedMuscle
-      );
-      const secondaryMatch = ex.secondaryMuscles.some(
-        (muscle) => muscleToCategory[muscle] === selectedMuscle
-      );
-      matchMuscle = primaryMatch || secondaryMatch;
-    }
-    return matchName && matchType && matchMuscle && matchDifficulty;
-  });
-
+  
+  // Dismiss keyboard when touching outside inputs
   function dismissKeyboard() {
     Keyboard.dismiss();
-  }
-
+    setSearchFocused(false);
+  };
+  
+  // Toggle favorite status for an exercise
   function handleFavoriteToggle(exerciseId) {
-    toggleFavorite(exerciseId);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }
-
-  function renderPopularExerciseItem({ item }) {
-    const isFavorited = isFavorite(item.id);
+    toggleFavorite(exerciseId);
     
-    return (
-      <TouchableOpacity
-        style={[styles.popularExerciseCard, { backgroundColor: colors.backgroundSecondary }]}
-        onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: item.id })}
-      >
-        <View style={styles.popularExerciseIconContainer}>
-          <Ionicons 
-            name={item.type === 'cardio' ? 'pulse' : 'barbell'} 
-            size={24} 
-            color={colors.primary} 
-          />
-        </View>
-        <Body dark={darkMode} style={styles.exerciseName} numberOfLines={2}>
-          {item.name}
-        </Body>
-        <Caption dark={darkMode} style={styles.exerciseCategory}>
-          {item.category}
-        </Caption>
-        <TouchableOpacity 
-          style={styles.favoriteButton}
-          onPress={() => handleFavoriteToggle(item.id)}
-        >
-          <Ionicons 
-            name={isFavorited ? 'heart' : 'heart-outline'} 
-            size={20} 
-            color={isFavorited ? colors.danger : colors.textSecondary} 
-          />
-        </TouchableOpacity>
-      </TouchableOpacity>
-    );
-  }
+    // Update favorites list
+    if (isFavorite(exerciseId)) {
+      // Remove from favorites
+      setFavoriteExercises(prev => prev.filter(ex => ex.id !== exerciseId));
+    } else {
+      // Add to favorites
+      const exercise = exerciseData.find(ex => ex.id === exerciseId);
+      if (exercise) {
+        setFavoriteExercises(prev => [...prev, exercise]);
+      }
+    }
+  };
+  
+  // Navigate to exercise details
+  const navigateToExerciseDetail = (exerciseId) => {
+    Haptics.selectionAsync();
+    navigation.navigate('ExerciseDetail', { exerciseId });
+  };
+  
+  // Clear all filters
+  const clearFilters = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedMuscle('all');
+    setSelectedType('');
+    setSelectedDifficulty('');
+  };
+  
+  // Clear search query
+  const clearSearch = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSearchQuery('');
+  };
 
-  function renderExerciseItem({ item }) {
-    const isFavorited = isFavorite(item.id);
-    const stats = getExerciseStats(item.id);
-    
+  // Render the search bar
+  const renderSearchBar = () => {
     return (
-      <TouchableOpacity
-        style={[styles.exerciseItem, { backgroundColor: colors.backgroundSecondary }]}
-        onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: item.id })}
-      >
-        <View style={styles.exerciseItemContent}>
-          <View style={[styles.exerciseTypeIcon, { backgroundColor: colors.primary + '20' }]}>
-            <Ionicons 
-              name={
-                item.type === 'cardio' ? 'pulse' : 
-                item.type === 'bodyweight' ? 'body-outline' : 
-                'barbell-outline'
-              } 
-              size={22} 
-              color={colors.primary} 
-            />
-          </View>
-          <View style={styles.exerciseDetails}>
-            <Text style={[styles.exerciseNameText, { color: colors.text }]}>
-              {item.name}
-            </Text>
-            <Text style={[styles.exerciseInfo, { color: colors.textSecondary }]}>
-              {item.category} • {item.equipment || 'No equipment'}
-            </Text>
-            
-            {stats && stats.maxWeight > 0 && (
-              <View style={styles.statsRow}>
-                <Text style={[styles.statText, { color: colors.primary }]}>
-                  Last: {stats.maxWeight} lbs × {stats.lastPerformed ? stats.history[0].reps : 0}
-                </Text>
-              </View>
-            )}
-          </View>
-          <TouchableOpacity 
-            style={styles.favoriteButtonList}
-            onPress={() => handleFavoriteToggle(item.id)}
-          >
-            <Ionicons 
-              name={isFavorited ? 'heart' : 'heart-outline'} 
-              size={20} 
-              color={isFavorited ? colors.danger : colors.textSecondary} 
-            />
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    );
-  }
-
-  function renderFilterBar() {
-    return (
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.filterBar, 
-          { 
-            transform: [{ translateY: filterBarTranslate }],
-            backgroundColor: colors.backgroundSecondary
+          styles.searchBarContainer,
+          {
+            transform: [
+              { translateY: headerTranslateY },
+              { scaleX: searchScaleX }
+            ]
           }
         ]}
       >
-        <ScrollView 
-          horizontal 
+        <Input
+          placeholder="Search exercises..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          leftIcon="search"
+          rightIcon={searchQuery ? "close-circle" : undefined}
+          onRightIconPress={clearSearch}
+          onFocus={() => setSearchFocused(true)}
+          containerStyle={styles.searchInputContainer}
+          style={styles.searchInput}
+        />
+      </Animated.View>
+    );
+  };
+
+  // Render filter chips
+  const renderFilterChips = () => {
+    return (
+      <Animated.View
+        style={[
+          styles.filterChipsContainer,
+          {
+            transform: [{ translateY: filterBarTranslateY }]
+          }
+        ]}
+      >
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterChipsContainer}
+          contentContainerStyle={styles.filterChipsScroll}
         >
-          {muscleGroupOptions.map((opt) => (
+          {muscleGroupOptions.map((option) => (
             <TouchableOpacity
-              key={`muscle-${opt.value}`}
+              key={option.value}
               style={[
                 styles.filterChip,
-                {
-                  backgroundColor: selectedMuscle === opt.value ? colors.primary : 'transparent',
-                  borderColor: selectedMuscle === opt.value ? colors.primary : colors.border
-                }
+                selectedMuscle === option.value && styles.selectedFilterChip
               ]}
               onPress={() => {
-                setSelectedMuscle(opt.value);
                 Haptics.selectionAsync();
+                setSelectedMuscle(option.value);
               }}
+              activeOpacity={0.7}
             >
-              <Ionicons 
-                name={opt.icon} 
-                size={16} 
-                color={selectedMuscle === opt.value ? '#FFF' : colors.text} 
+              <Ionicons
+                name={option.icon}
+                size={16}
+                color={selectedMuscle === option.value ? Colors.primaryBlue : theme.textSecondary}
                 style={styles.chipIcon}
               />
-              <Text style={{ 
-                color: selectedMuscle === opt.value ? '#FFF' : colors.text,
-                fontWeight: selectedMuscle === opt.value ? '600' : 'normal'
-              }}>
-                {opt.label}
+              <Text
+                variant="caption"
+                style={[
+                  styles.chipText,
+                  selectedMuscle === option.value && styles.selectedChipText
+                ]}
+              >
+                {option.label}
               </Text>
             </TouchableOpacity>
           ))}
@@ -414,338 +402,482 @@ export default function ExercisesScreen() {
           <TouchableOpacity
             style={[
               styles.filterChip,
-              {
-                backgroundColor: filterCount > 0 ? colors.primary + '20' : 'transparent',
-                borderColor: colors.border
-              }
+              styles.moreFiltersChip,
+              (filterCount > 0 || showAdvancedFilters) && styles.activeFiltersChip
             ]}
             onPress={() => {
-              setShowFilterModal(true);
               Haptics.selectionAsync();
+              setShowAdvancedFilters(!showAdvancedFilters);
             }}
+            activeOpacity={0.7}
           >
-            <Ionicons 
-              name="options-outline" 
-              size={16} 
-              color={colors.primary} 
+            <Ionicons
+              name="options-outline"
+              size={16}
+              color={filterCount > 0 || showAdvancedFilters ? Colors.primaryBlue : theme.textSecondary}
               style={styles.chipIcon}
             />
-            <Text style={{ color: colors.primary }}>
+            <Text
+              variant="caption"
+              style={[
+                styles.chipText,
+                (filterCount > 0 || showAdvancedFilters) && styles.selectedChipText
+              ]}
+            >
               Filters {filterCount > 0 ? `(${filterCount})` : ''}
             </Text>
           </TouchableOpacity>
         </ScrollView>
       </Animated.View>
     );
-  }
-
-  function renderSkeletonPlaceholder() {
+  };
+  
+  // Render advanced filters section
+  const renderAdvancedFilters = () => {
+    if (!showAdvancedFilters) return null;
+    
     return (
-      <CustomSkeletonLoader>
-        <View style={styles.skeletonContainer}>
-          <SkeletonItem style={styles.skeletonHeader}>
-            <SkeletonItem style={styles.skeletonTitle} />
-            <SkeletonItem style={styles.skeletonSearch} />
-          </SkeletonItem>
-          
-          <SkeletonItem style={styles.skeletonFilterBar}>
-            <SkeletonItem style={styles.skeletonChip} />
-            <SkeletonItem style={styles.skeletonChip} />
-            <SkeletonItem style={styles.skeletonChip} />
-            <SkeletonItem style={styles.skeletonChip} />
-          </SkeletonItem>
-          
-          <SkeletonItem style={styles.skeletonPopularContainer}>
-            <SkeletonItem style={styles.skeletonSectionTitle} />
-            <View style={styles.skeletonPopularRow}>
-              <SkeletonItem style={styles.skeletonPopularItem} />
-              <SkeletonItem style={styles.skeletonPopularItem} />
-              <SkeletonItem style={styles.skeletonPopularItem} />
-            </View>
-          </SkeletonItem>
-          
-          <SkeletonItem style={styles.skeletonListContainer}>
-            <SkeletonItem style={styles.skeletonSectionTitle} />
-            <SkeletonItem style={styles.skeletonListItem} />
-            <SkeletonItem style={styles.skeletonListItem} />
-            <SkeletonItem style={styles.skeletonListItem} />
-            <SkeletonItem style={styles.skeletonListItem} />
-          </SkeletonItem>
-        </View>
-      </CustomSkeletonLoader>
-    );
-  }
-
-  return (
-    <Container style={{ backgroundColor: colors.background }}>
-      {/* Animated Header */}
-      <Animated.View 
-        style={[
-          styles.header, 
-          { 
-            backgroundColor: colors.background,
-            opacity: headerOpacity,
-            transform: [
-              { translateY: headerTranslateY },
-              { scale: headerScale }
-            ]
-          }
-        ]}
-      >
-        <Title style={{ color: colors.text }}>Exercise Library</Title>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text, borderColor: colors.border }]}
-            placeholder="Search exercises..."
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            onSubmitEditing={dismissKeyboard}
-          />
-          {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </Animated.View>
-
-      {/* Filter Bar */}
-      {renderFilterBar()}
-
-      {isLoading ? (
-        renderSkeletonPlaceholder()
-      ) : (
-        <Animated.ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: true }
-          )}
-          scrollEventThrottle={16}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          }
-        >
-          {/* Popular Exercises */}
-          {popularExercises.length > 0 && searchQuery === '' && selectedMuscle === 'all' && selectedType === '' && selectedDifficulty === '' && (
-            <View style={styles.section}>
-              <Subheading dark={darkMode} style={styles.sectionTitle}>Popular Exercises</Subheading>
-              <FlatList
-                data={popularExercises}
-                keyExtractor={(item) => `popular-${item.id}`}
-                renderItem={renderPopularExerciseItem}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.popularExercisesContainer}
-              />
-            </View>
-          )}
-          
-          {/* Goal-based Recommendations */}
-          {recentExercises.length > 0 && searchQuery === '' && selectedMuscle === 'all' && selectedType === '' && selectedDifficulty === '' && (
-            <View style={styles.section}>
-              <Subheading dark={darkMode} style={styles.sectionTitle}>
-                Recommended for Your Goal
-              </Subheading>
-              <FlatList
-                data={recentExercises}
-                keyExtractor={(item) => `goal-${item.id}`}
-                renderItem={renderPopularExerciseItem}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.popularExercisesContainer}
-              />
-            </View>
-          )}
-
-          {/* All Exercises */}
-          <View style={styles.section}>
-            <Subheading dark={darkMode} style={styles.sectionTitle}>
-              {searchQuery || selectedMuscle !== 'all' || selectedType || selectedDifficulty
-                ? `Results (${filteredExercises.length})`
-                : 'All Exercises'}
-            </Subheading>
-            {filteredExercises.length === 0 ? (
-              <View style={styles.emptyResultsContainer}>
-                <Ionicons name="search-outline" size={60} color={colors.textTertiary} />
-                <Text style={[styles.emptyResultsText, { color: colors.textSecondary }]}>
-                  No exercises found
-                </Text>
-                <Caption dark={darkMode} style={styles.emptyResultsSubtext}>
-                  Try changing your filters or search term
-                </Caption>
-                <Button
-                  title="Reset Filters"
-                  icon="refresh"
-                  onPress={() => {
-                    setSearchQuery('');
-                    setSelectedMuscle('all');
-                    setSelectedType('');
-                    setSelectedDifficulty('');
-                  }}
-                  style={styles.resetButton}
-                  dark={darkMode}
+      <Card style={styles.advancedFiltersCard}>
+        <View style={styles.filtersSection}>
+          <Text variant="cardTitle" style={styles.filterSectionTitle}>Equipment Type</Text>
+          <View style={styles.filterOptions}>
+            {exerciseTypeOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.filterOption,
+                  selectedType === option.value && styles.selectedFilterOption
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedType(option.value);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={option.icon}
+                  size={20}
+                  color={selectedType === option.value ? Colors.primaryBlue : theme.textSecondary}
+                  style={styles.filterOptionIcon}
                 />
-              </View>
-            ) : (
-              <FlatList
-                data={filteredExercises}
-                keyExtractor={(item) => item.id}
-                renderItem={renderExerciseItem}
-                showsVerticalScrollIndicator={false}
-                scrollEnabled={false} // Disable scrolling as it's inside another ScrollView
-                contentContainerStyle={{ paddingBottom: 20 }}
+                <Text
+                  variant="body"
+                  style={[
+                    styles.filterOptionText,
+                    selectedType === option.value && styles.selectedFilterOptionText
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        
+        <View style={styles.filtersSection}>
+          <Text variant="cardTitle" style={styles.filterSectionTitle}>Difficulty Level</Text>
+          <View style={styles.filterOptions}>
+            {difficultyOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.filterOption,
+                  selectedDifficulty === option.value && styles.selectedFilterOption
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedDifficulty(option.value);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={option.icon}
+                  size={20}
+                  color={selectedDifficulty === option.value ? Colors.primaryBlue : theme.textSecondary}
+                  style={styles.filterOptionIcon}
+                />
+                <Text
+                  variant="body"
+                  style={[
+                    styles.filterOptionText,
+                    selectedDifficulty === option.value && styles.selectedFilterOptionText
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        
+        <View style={styles.filterActions}>
+          <TouchableOpacity
+            style={styles.clearFilterButton}
+            onPress={clearFilters}
+            activeOpacity={0.7}
+          >
+            <Text variant="body" style={styles.clearFilterText}>
+              Clear Filters
+            </Text>
+          </TouchableOpacity>
+          
+          <Button
+            title="Apply"
+            onPress={() => setShowAdvancedFilters(false)}
+            type="primary"
+            size="small"
+          />
+        </View>
+      </Card>
+    );
+  };
+  
+  // Render a popular exercise card
+  const renderPopularExerciseCard = ({ item }) => {
+    const isFavorited = isFavorite(item.id);
+    
+    return (
+      <Card
+        style={styles.popularExerciseCard}
+        onPress={() => navigateToExerciseDetail(item.id)}
+      >
+        <View style={styles.popularExerciseTypeIcon}>
+          <Ionicons
+            name={
+              item.type === 'cardio' ? 'heart-outline' :
+              item.type === 'bodyweight' ? 'body-outline' :
+              item.type === 'dumbbell' ? 'barbell-outline' :
+              item.type === 'machine' ? 'cog-outline' :
+              item.type === 'cable' ? 'git-network-outline' :
+              'barbell-outline'
+            }
+            size={22}
+            color={theme.primary}
+          />
+        </View>
+        
+        <Text variant="cardTitle" style={styles.popularExerciseName} numberOfLines={2}>
+          {item.name}
+        </Text>
+        
+        <Text variant="caption" style={styles.popularExerciseDetails}>
+          {item.primaryMuscles?.join(', ')}
+        </Text>
+        
+        <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={() => handleFavoriteToggle(item.id)}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={isFavorited ? 'heart' : 'heart-outline'}
+            size={20}
+            color={isFavorited ? Colors.accentDanger : theme.textSecondary}
+          />
+        </TouchableOpacity>
+      </Card>
+    );
+  };
+  
+  // Render a standard exercise item for the main list
+  const renderExerciseItem = ({ item }) => {
+    const isFavorited = isFavorite(item.id);
+    
+    return (
+      <Card
+        style={styles.exerciseItem}
+        onPress={() => navigateToExerciseDetail(item.id)}
+      >
+        <View style={styles.exerciseContent}>
+          <View style={styles.exerciseIconContainer}>
+            <View style={styles.exerciseTypeIcon}>
+              <Ionicons
+                name={
+                  item.type === 'cardio' ? 'heart-outline' :
+                  item.type === 'bodyweight' ? 'body-outline' :
+                  item.type === 'dumbbell' ? 'barbell-outline' :
+                  item.type === 'machine' ? 'cog-outline' :
+                  item.type === 'cable' ? 'git-network-outline' :
+                  'barbell-outline'
+                }
+                size={22}
+                color={theme.primary}
+              />
+            </View>
+          </View>
+          
+          <View style={styles.exerciseDetails}>
+            <Text variant="cardTitle" style={styles.exerciseName}>
+              {item.name}
+            </Text>
+            
+            <View style={styles.muscleTagsContainer}>
+              {item.primaryMuscles?.slice(0, 2).map((muscle, index) => (
+                <View key={index} style={styles.muscleTag}>
+                  <Text variant="caption" style={styles.muscleTagText}>
+                    {muscle}
+                  </Text>
+                </View>
+              ))}
+              
+              {item.primaryMuscles?.length > 2 && (
+                <View style={styles.muscleTag}>
+                  <Text variant="caption" style={styles.muscleTagText}>
+                    +{item.primaryMuscles.length - 2}
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            <View style={styles.exerciseMetadata}>
+              <Text variant="caption" style={styles.exerciseMetadataText}>
+                {item.equipment || item.type || 'No equipment'} • {item.difficulty || 'All levels'}
+              </Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={() => handleFavoriteToggle(item.id)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isFavorited ? 'heart' : 'heart-outline'}
+              size={20}
+              color={isFavorited ? Colors.accentDanger : theme.textSecondary}
+            />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.quickAddButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate('WorkoutLogModal', { exerciseId: item.id });
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="add-circle-outline"
+              size={24}
+              color={theme.primary}
+            />
+          </TouchableOpacity>
+        </View>
+      </Card>
+    );
+  };
+  
+  // Render the popular exercises section
+  const renderPopularExercisesSection = () => {
+    if (!popularExercises.length || searchQuery) return null;
+    
+    return (
+      <View style={styles.popularSection}>
+        <View style={styles.sectionHeader}>
+          <Text variant="sectionHeader">Popular Exercises</Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              // Navigate to filtered view with popular exercises
+            }}
+            activeOpacity={0.7}
+          >
+            <Text variant="body" style={styles.seeAllButton}>
+              See All
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        <FlatList
+          horizontal
+          data={popularExercises}
+          renderItem={renderPopularExerciseCard}
+          keyExtractor={(item) => item.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.popularExercisesContainer}
+        />
+      </View>
+    );
+  };
+  
+  // Render favorites section
+  const renderFavoritesSection = () => {
+    if (!favoriteExercises.length || searchQuery) return null;
+    
+    return (
+      <View style={styles.favoritesSection}>
+        <View style={styles.sectionHeader}>
+          <Text variant="sectionHeader">Favorites</Text>
+        </View>
+        
+        <FlatList
+          horizontal
+          data={favoriteExercises}
+          renderItem={renderPopularExerciseCard}
+          keyExtractor={(item) => item.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.popularExercisesContainer}
+        />
+      </View>
+    );
+  };
+  
+  // Render all exercises or search results
+  const renderAllExercisesSection = () => {
+    return (
+      <View style={styles.allExercisesSection}>
+        <View style={styles.sectionHeader}>
+          <Text variant="sectionHeader">
+            {searchQuery ? 'Search Results' : 'All Exercises'}
+          </Text>
+          {filteredExercises.length > 0 && (
+            <Text variant="caption" style={styles.resultCount}>
+              {filteredExercises.length} exercise{filteredExercises.length !== 1 ? 's' : ''}
+            </Text>
+          )}
+        </View>
+        
+        {filteredExercises.length > 0 ? (
+          <FlatList
+            data={filteredExercises}
+            renderItem={renderExerciseItem}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.exerciseListContainer}
+          />
+        ) : (
+          <View style={styles.emptyResults}>
+            <Ionicons
+              name={searchQuery ? 'search-outline' : 'fitness-outline'}
+              size={60}
+              color={theme.textSecondary}
+            />
+            <Text variant="body" style={styles.emptyResultsText}>
+              {searchQuery ? 'No exercises found for your search' : 'No exercises match your filters'}
+            </Text>
+            {(searchQuery || filterCount > 0) && (
+              <Button
+                title="Clear Filters"
+                onPress={() => {
+                  clearSearch();
+                  clearFilters();
+                }}
+                type="secondary"
+                size="small"
+                style={styles.clearFiltersButton}
               />
             )}
           </View>
-        </Animated.ScrollView>
-      )}
-
-      {/* Filter Modal */}
-      <Modal
-        visible={showFilterModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowFilterModal(false)}
-      >
-        <View style={styles.modalContainer}>
-          <BlurView
-            tint={darkMode ? "dark" : "light"}
-            intensity={90}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={[styles.modalContent, { backgroundColor: colors.backgroundSecondary }]}>
-            <View style={styles.modalHeader}>
-              <Title dark={darkMode}>Filter Exercises</Title>
-              <TouchableOpacity 
-                style={styles.resetFiltersButton}
-                onPress={() => {
-                  setSelectedMuscle('all');
-                  setSelectedType('');
-                  setSelectedDifficulty('');
-                }}
-              >
-                <Text style={{ color: colors.primary }}>Reset</Text>
-              </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+  
+  // Render loading state
+  const renderLoading = () => {
+    return (
+      <View style={styles.loadingContainer}>
+        <View style={styles.loadingContent}>
+          {/* Header Placeholder */}
+          <View style={[styles.skeletonSection, styles.skeletonHeader]}>
+            <View style={styles.skeletonTitle} />
+            <View style={styles.skeletonSearchBar} />
+          </View>
+          
+          {/* Filter Placeholder */}
+          <View style={styles.skeletonFilterContainer}>
+            <View style={styles.skeletonFilterChip} />
+            <View style={styles.skeletonFilterChip} />
+            <View style={styles.skeletonFilterChip} />
+            <View style={styles.skeletonFilterChip} />
+          </View>
+          
+          {/* Popular Exercises Placeholder */}
+          <View style={styles.skeletonSection}>
+            <View style={styles.skeletonSectionHeader} />
+            <View style={styles.skeletonPopularContainer}>
+              <View style={styles.skeletonPopularCard} />
+              <View style={styles.skeletonPopularCard} />
+              <View style={styles.skeletonPopularCard} />
             </View>
-            
-            <ScrollView style={styles.modalScrollContent}>
-              <Subheading dark={darkMode} style={styles.filterGroupTitle}>Muscle Group</Subheading>
-              <View style={styles.filterOptionsGrid}>
-                {muscleGroupOptions.map((opt) => (
-                  <TouchableOpacity
-                    key={`modal-muscle-${opt.value}`}
-                    style={[
-                      styles.filterOptionItem,
-                      {
-                        backgroundColor: selectedMuscle === opt.value ? colors.primary : 'transparent',
-                        borderColor: colors.border
-                      }
-                    ]}
-                    onPress={() => {
-                      setSelectedMuscle(opt.value);
-                      Haptics.selectionAsync();
-                    }}
-                  >
-                    <Ionicons 
-                      name={opt.icon} 
-                      size={20} 
-                      color={selectedMuscle === opt.value ? '#FFF' : colors.text} 
-                      style={styles.filterOptionIcon}
-                    />
-                    <Text style={{ 
-                      color: selectedMuscle === opt.value ? '#FFF' : colors.text 
-                    }}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              
-              <Subheading dark={darkMode} style={styles.filterGroupTitle}>Exercise Type</Subheading>
-              <View style={styles.filterOptionsGrid}>
-                {exerciseTypeOptions.map((opt) => (
-                  <TouchableOpacity
-                    key={`modal-type-${opt.value}`}
-                    style={[
-                      styles.filterOptionItem,
-                      {
-                        backgroundColor: selectedType === opt.value ? colors.primary : 'transparent',
-                        borderColor: colors.border
-                      }
-                    ]}
-                    onPress={() => {
-                      setSelectedType(opt.value);
-                      Haptics.selectionAsync();
-                    }}
-                  >
-                    <Ionicons 
-                      name={opt.icon} 
-                      size={20} 
-                      color={selectedType === opt.value ? '#FFF' : colors.text} 
-                      style={styles.filterOptionIcon}
-                    />
-                    <Text style={{ 
-                      color: selectedType === opt.value ? '#FFF' : colors.text 
-                    }}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              
-              <Subheading dark={darkMode} style={styles.filterGroupTitle}>Difficulty</Subheading>
-              <View style={styles.filterOptionsGrid}>
-                {difficultyOptions.map((opt) => (
-                  <TouchableOpacity
-                    key={`modal-difficulty-${opt.value}`}
-                    style={[
-                      styles.filterOptionItem,
-                      {
-                        backgroundColor: selectedDifficulty === opt.value ? colors.primary : 'transparent',
-                        borderColor: colors.border
-                      }
-                    ]}
-                    onPress={() => {
-                      setSelectedDifficulty(opt.value);
-                      Haptics.selectionAsync();
-                    }}
-                  >
-                    <Ionicons 
-                      name={opt.icon} 
-                      size={20} 
-                      color={selectedDifficulty === opt.value ? '#FFF' : colors.text} 
-                      style={styles.filterOptionIcon}
-                    />
-                    <Text style={{ 
-                      color: selectedDifficulty === opt.value ? '#FFF' : colors.text 
-                    }}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-            
-            <TouchableOpacity 
-              style={[styles.applyButton, { backgroundColor: colors.primary }]}
-              onPress={() => setShowFilterModal(false)}
-            >
-              <Text style={styles.applyButtonText}>Apply Filters</Text>
-            </TouchableOpacity>
+          </View>
+          
+          {/* Exercise List Placeholder */}
+          <View style={styles.skeletonSection}>
+            <View style={styles.skeletonSectionHeader} />
+            <View style={styles.skeletonExerciseItem} />
+            <View style={styles.skeletonExerciseItem} />
+            <View style={styles.skeletonExerciseItem} />
           </View>
         </View>
-      </Modal>
+      </View>
+    );
+  };
+  
+  // Main render function
+  return (
+    <Container>
+      {isLoading ? (
+        renderLoading()
+      ) : (
+        <TouchableWithoutFeedback onPress={dismissKeyboard}>
+          <View style={styles.container}>
+            {/* Screen Header */}
+            <View style={styles.screenHeader}>
+              <Text variant="pageTitle">Exercise Library</Text>
+            </View>
+            
+            {/* Search Bar */}
+            {renderSearchBar()}
+            
+            {/* Filter Chips */}
+            {renderFilterChips()}
+            
+            {/* Advanced Filters */}
+            {renderAdvancedFilters()}
+            
+            {/* Main Content */}
+            <ScrollView
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={theme.primary}
+                  colors={[theme.primary]}
+                />
+              }
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                { useNativeDriver: true }
+              )}
+              scrollEventThrottle={16}
+            >
+              {/* Popular Exercises Section */}
+              {renderPopularExercisesSection()}
+              
+              {/* Favorites Section */}
+              {renderFavoritesSection()}
+              
+              {/* All Exercises Section */}
+              {renderAllExercisesSection()}
+            </ScrollView>
+            
+            {/* Floating Action Button */}
+            <TouchableOpacity
+              style={styles.fab}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                navigation.navigate('AddExercise');
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
+      )}
     </Container>
   );
 }
@@ -1069,5 +1201,160 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    fontSize: 16
+  },
+  filterChipsScroll: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  selectedFilterChip: {
+    borderColor: Colors.primaryBlue,
+    borderWidth: 2,
+  },
+  selectedChipText: {
+    fontWeight: 'bold',
+  },
+  chipText: {
+    marginLeft: 8,
+  },
+  advancedFiltersCard: {
+    marginBottom: 20,
+  },
+  filtersSection: {
+    marginBottom: 20,
+  },
+  filterSectionTitle: {
+    marginBottom: 12,
+  },
+  filterOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+  },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '48%',
+    marginHorizontal: '1%',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  selectedFilterOption: {
+    borderColor: Colors.primaryBlue,
+    borderWidth: 2,
+  },
+  filterOptionText: {
+    marginLeft: 8,
+  },
+  filterActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  clearFilterButton: {
+    padding: 8,
+  },
+  clearFilterText: {
+    color: theme.textSecondary,
+  },
+  popularSection: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  seeAllButton: {
+    color: Colors.primaryBlue,
+  },
+  favoritesSection: {
+    marginBottom: 20,
+  },
+  allExercisesSection: {
+    marginBottom: 20,
+  },
+  resultCount: {
+    color: theme.textSecondary,
+  },
+  emptyResults: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  exerciseListContainer: {
+    paddingBottom: 20,
+  },
+  screenHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 10,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primaryBlue,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  skeletonSection: {
+    padding: 16,
+  },
+  skeletonSectionHeader: {
+    height: 24,
+    marginBottom: 12,
+  },
+  skeletonSearchBar: {
+    height: 40,
+    width: '100%',
+    marginTop: 8,
+  },
+  skeletonFilterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  skeletonFilterChip: {
+    height: 36,
+    width: '48%',
+    borderRadius: 18,
+  },
+  skeletonPopularCard: {
+    height: 150,
+    width: SCREEN_WIDTH / 3.5,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  skeletonExerciseItem: {
+    height: 80,
+    marginBottom: 12,
+    borderRadius: 8,
   },
 });

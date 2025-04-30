@@ -511,543 +511,471 @@ export default function SocialScreen() {
     )
   }
 
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <Animated.View style={[styles.header, { opacity: headerOpacity, height: headerHeight }]}>
-        <View style={styles.headerContent}>
-          <Title style={{ color: colors.text }}>Social</Title>
-          <Text style={{ color: colors.textSecondary }}>Connect with friends and track workouts together</Text>
-        </View>
-      </Animated.View>
-    </View>
-  )
-
+  // Render the SocialScreen
   return (
-    <Container style={{ backgroundColor: colors.background }}>
-      {/* Animated Header */}
-      <Animated.View 
+    <Container>
+      <Animated.View
         style={[
-          styles.animatedHeader, 
-          { 
-            height: 200, // Fixed height
-            opacity: headerOpacity,
-            transform: [{ translateY: headerTranslateY }]
+          styles.header,
+          {
+            transform: [{ translateY: headerTranslateY }],
+            backgroundColor: colors.primary,
+            height: headerHeight,
+            zIndex: 1000
           }
         ]}
       >
-        {renderHeader()}
+        <Animated.View
+          style={[
+            styles.headerContent,
+            { opacity: headerOpacity }
+          ]}
+        >
+          <Title style={{ color: '#fff' }}>Social</Title>
+          <Subheading style={{ color: 'rgba(255, 255, 255, 0.8)', marginTop: 4 }}>
+            Connect with fitness friends
+          </Subheading>
+        </Animated.View>
+        
+        <View style={styles.searchContainer}>
+          <TouchableOpacity 
+            style={styles.searchBar}
+            onPress={() => setShowSearchModal(true)}
+          >
+            <Ionicons name="search" size={20} color={colors.textSecondary} />
+            <Text style={{ color: colors.textSecondary, marginLeft: 8 }}>
+              Search for friends...
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.requestsBadge}
+            onPress={() => navigation.navigate('FriendRequests')}
+          >
+            <Ionicons name="person-add" size={22} color="#fff" />
+            {requestsCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{requestsCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </Animated.View>
       
-      {/* Action Buttons */}
-      <View style={styles.actionButtonsContainer}>
-        <TouchableOpacity 
-          style={[styles.actionButton, { backgroundColor: colors.primary }]}
-          onPress={() => setShowSearchModal(true)}
-        >
-          <Ionicons name="search" size={20} color="#FFFFFF" />
-          <Text style={styles.actionButtonText}>Find Friends</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.actionButton, { backgroundColor: requestsCount > 0 ? colors.warning : colors.secondary }]}
-          onPress={() => navigation.navigate('FriendRequests')}
-        >
-          <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.actionButtonText}>
-            Requests {requestsCount > 0 ? `(${requestsCount})` : ''}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading social data...</Text>
-        </View>
-      ) : (
-        <Animated.ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          }
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: false }  // Changed to false since we're animating layout properties
-          )}
-          scrollEventThrottle={16}
-        >
-          {/* Friend Activity Feed */}
-          <View style={styles.section}>
-            <Subheading style={[styles.sectionTitle, { color: colors.text }]}>Activity Feed</Subheading>
-            {activityFeed.length > 0 ? (
-              <FlatList
-                data={activityFeed}
-                keyExtractor={(item, index) => `activity-${item.userId}-${index}`}
-                renderItem={renderActivityItem}
-                scrollEnabled={false}
-                style={styles.activityList}
-              />
-            ) : (
-              <View style={[styles.emptyContainer, { backgroundColor: colors.backgroundSecondary }]}>
-                <Ionicons name="people-outline" size={50} color={colors.textTertiary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No activity from friends yet
-                </Text>
-                <Caption style={{ color: colors.textTertiary, textAlign: 'center' }}>
-                  Connect with friends to see their workout progress and achievements
-                </Caption>
-              </View>
-            )}
+      <Animated.ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* Friend Activity Section */}
+        <View style={[styles.section, { marginTop: 150 }]}>
+          <View style={styles.sectionHeader}>
+            <Heading style={{ color: colors.text }}>Friend Activity</Heading>
+            <TouchableOpacity>
+              <Text style={{ color: colors.primary }}>See All</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Friend Suggestions */}
-          {suggestedFriends.length > 0 && (
-            <View style={styles.section}>
-              <Subheading style={[styles.sectionTitle, { color: colors.text }]}>Suggested Friends</Subheading>
-              <FlatList
-                data={suggestedFriends}
-                keyExtractor={(item) => `suggested-${item.id}`}
-                renderItem={renderSuggestedFriend}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.suggestedList}
-              />
-            </View>
-          )}
           
-          {/* Leaderboard */}
-          <View style={styles.section}>
-            <Subheading style={[styles.sectionTitle, { color: colors.text }]}>Leaderboard</Subheading>
-            <View style={[styles.leaderboardContainer, { backgroundColor: colors.backgroundSecondary }]}>
-              {topExercisers.map((item, index) => (
-                <React.Fragment key={`exerciser-${item.id || index}`}>
-                  {renderTopExerciser({ item, index })}
-                </React.Fragment>
-              ))}
-            </View>
+          {loading ? (
+            <ActivityIndicator style={{ marginTop: 20 }} color={colors.primary} />
+          ) : activityFeed.length > 0 ? (
+            <FlatList
+              data={activityFeed}
+              renderItem={renderActivityItem}
+              keyExtractor={(item, index) => `activity-${index}`}
+              scrollEnabled={false}
+            />
+          ) : (
+            <Card style={styles.emptyStateCard}>
+              <Ionicons name="people-outline" size={40} color={colors.textSecondary} />
+              <Text style={{ color: colors.textSecondary, marginTop: 12, textAlign: 'center' }}>
+                No friend activity yet.
+              </Text>
+              <Text style={{ color: colors.textTertiary, marginTop: 4, textAlign: 'center' }}>
+                Add friends to see their workout activity.
+              </Text>
+            </Card>
+          )}
+        </View>
+        
+        {/* Leaderboard Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Heading style={{ color: colors.text }}>Weekly Leaderboard</Heading>
+            <TouchableOpacity>
+              <Text style={{ color: colors.primary }}>See All</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* My Friends */}
-          <View style={styles.section}>
-            <Subheading style={[styles.sectionTitle, { color: colors.text }]}>My Friends</Subheading>
-            {myProfile?.friends && myProfile.friends.length > 0 ? (
+          
+          <Card style={styles.leaderboardCard}>
+            {topExercisers.length > 0 ? (
               <FlatList
-                data={myProfile.friends}
-                keyExtractor={item => `friend-${item}`}
-                renderItem={renderFriend}
+                data={topExercisers}
+                renderItem={renderTopExerciser}
+                keyExtractor={(item) => `top-${item.id}`}
                 scrollEnabled={false}
-                style={styles.friendsList}
               />
             ) : (
-              <View style={[styles.emptyContainer, { backgroundColor: colors.backgroundSecondary }]}>
-                <Ionicons name="people-outline" size={50} color={colors.textTertiary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No friends yet
+              <View style={styles.emptyLeaderboard}>
+                <Ionicons name="trophy-outline" size={40} color={colors.textSecondary} />
+                <Text style={{ color: colors.textSecondary, marginTop: 12, textAlign: 'center' }}>
+                  Leaderboard data is loading
                 </Text>
-                <Caption style={{ color: colors.textTertiary, textAlign: 'center' }}>
-                  Connect with others to see their workouts and track progress together
-                </Caption>
               </View>
             )}
-          </View>
-        </Animated.ScrollView>
-      )}
-
+            
+            <TouchableOpacity style={styles.viewChallengesButton}>
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                Join Challenge
+              </Text>
+            </TouchableOpacity>
+          </Card>
+        </View>
+        
+        {/* Suggested Friends Section */}
+        <View style={styles.section}>
+          <Heading style={{ marginBottom: 16, color: colors.text }}>
+            Suggested Friends
+          </Heading>
+          
+          {suggestedFriends.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.suggestedFriendsContainer}
+            >
+              {suggestedFriends.map(friend => renderSuggestedFriend({ item: friend }))}
+            </ScrollView>
+          ) : (
+            <Card style={styles.emptyStateCard}>
+              <Ionicons name="person-add-outline" size={40} color={colors.textSecondary} />
+              <Text style={{ color: colors.textSecondary, marginTop: 12, textAlign: 'center' }}>
+                No suggestions right now
+              </Text>
+              <Text style={{ color: colors.textTertiary, marginTop: 4, textAlign: 'center' }}>
+                Check back later for friend suggestions
+              </Text>
+            </Card>
+          )}
+        </View>
+      </Animated.ScrollView>
+      
       {/* Search Modal */}
-      {showSearchModal && (
-        <Modal
-          visible={showSearchModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowSearchModal(false)}
-        >
-          <View style={styles.modalContainer}>
-            <BlurView
-              tint={darkMode ? "dark" : "light"}
-              intensity={90}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={[styles.modalContent, { backgroundColor: colors.backgroundSecondary }]}>
-              <View style={styles.modalHeader}>
-                <Title style={{ color: colors.text }}>Find Friends</Title>
-                <TouchableOpacity onPress={() => setShowSearchModal(false)}>
-                  <Ionicons name="close" size={24} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-              
-              <View style={[styles.searchBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="Search by username"
-                  placeholderTextColor={colors.textTertiary}
-                  value={searchUsername}
-                  onChangeText={setSearchUsername}
-                  autoCapitalize="none"
-                  returnKeyType="search"
-                  onSubmitEditing={handleSearch}
-                />
-              </View>
-              
-              <TouchableOpacity
-                style={[styles.searchButton, { backgroundColor: colors.primary }]}
-                onPress={handleSearch}
-                disabled={loading}
-              >
-                <Text style={styles.searchButtonText}>
-                  {loading ? 'Searching...' : 'Search'}
-                </Text>
-              </TouchableOpacity>
-              
-              {searchResults.length > 0 ? (
-                <FlatList
-                  data={searchResults}
-                  keyExtractor={item => item.id}
-                  renderItem={renderSearchResult}
-                  style={styles.resultsList}
-                />
-              ) : (
-                searchUsername !== '' && !loading && (
-                  <View style={styles.noResults}>
-                    <Ionicons name="search-outline" size={40} color={colors.textTertiary} />
-                    <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>
-                      No users found
-                    </Text>
-                  </View>
-                )
-              )}
-            </View>
+      <Modal
+        visible={showSearchModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSearchModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowSearchModal(false)}>
+          <View style={styles.modalOverlay} />
+        </TouchableWithoutFeedback>
+        
+        <View style={[
+          styles.modalContainer, 
+          { backgroundColor: colors.backgroundSecondary }
+        ]}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowSearchModal(false)}>
+              <Ionicons name="close" size={28} color={colors.text} />
+            </TouchableOpacity>
+            <Title style={{ color: colors.text }}>Find Friends</Title>
+            <View style={{ width: 28 }} />
           </View>
-        </Modal>
-      )}
+          
+          <View style={[
+            styles.searchInputContainer,
+            { backgroundColor: darkMode ? colors.backgroundSecondary : '#f0f0f0' }
+          ]}>
+            <Ionicons name="search" size={20} color={colors.textSecondary} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Search by username"
+              placeholderTextColor={colors.textSecondary}
+              value={searchUsername}
+              onChangeText={setSearchUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              onSubmitEditing={handleSearch}
+            />
+            {searchUsername.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchUsername('')}>
+                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {loading ? (
+            <ActivityIndicator style={{ marginTop: 20 }} color={colors.primary} />
+          ) : (
+            <FlatList
+              data={searchResults}
+              renderItem={renderSearchResult}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingHorizontal: 16 }}
+              ListEmptyComponent={() => (
+                <View style={styles.emptyResults}>
+                  {searchUsername.length > 0 ? (
+                    <>
+                      <Ionicons name="search" size={40} color={colors.textSecondary} />
+                      <Text style={{ color: colors.textSecondary, marginTop: 12, textAlign: 'center' }}>
+                        No users found with username "{searchUsername}"
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="people-outline" size={40} color={colors.textSecondary} />
+                      <Text style={{ color: colors.textSecondary, marginTop: 12, textAlign: 'center' }}>
+                        Search for friends by username
+                      </Text>
+                    </>
+                  )}
+                </View>
+              )}
+            />
+          )}
+        </View>
+      </Modal>
     </Container>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
-  animatedHeader: {
+  header: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 10,
-  },
-  headerGradient: {
-    height: '100%',
-    width: '100%',
-    justifyContent: 'flex-end',
+    padding: 16,
+    paddingTop: 40,
   },
   headerContent: {
-    padding: 16,
-    paddingBottom: 30,
+    marginBottom: 20,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    marginTop: 4,
-  },
-  actionButtonsContainer: {
+  searchContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginTop: 210,
-    position: 'absolute',
-    zIndex: 20,
-    width: '100%',
+    alignItems: 'center',
   },
-  actionButton: {
+  searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    marginHorizontal: 4,
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: 260,
-    paddingHorizontal: 16,
-    paddingBottom: 40,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    marginBottom: 12,
-  },
-  emptyContainer: {
-    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 12,
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginVertical: 8,
-  },
-  activityList: {
-    marginTop: 8,
-  },
-  activityItem: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2.22,
-    elevation: 3,
-  },
-  activityHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  activityUser: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  activityAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 10,
-  },
-  activityAvatarPlaceholder: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activityUsername: {
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  activityTime: {
-    fontSize: 12,
-  },
-  activityContent: {
-    marginTop: 4,
-  },
-  suggestedList: {
-    marginTop: 8,
-  },
-  suggestedFriend: {
-    width: 120,
-    alignItems: 'center',
-    marginRight: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  suggestedFriendInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  friendAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  friendName: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  addButton: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
+    marginRight: 12,
   },
-  addButtonText: {
-    color: '#FFF',
-    fontWeight: '600',
-  },
-  leaderboardContainer: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: 8,
-  },
-  topExerciser: {
-    flex: 1,
-    padding: 12,
-    alignItems: 'center',
+  requestsBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
-    borderWidth: 0.5,
-    borderColor: 'rgba(200,200,200,0.3)',
-  },
-  topExerciserRank: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
+    position: 'relative',
   },
-  rankBadge: {
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#FF4E64',
     width: 20,
     height: 20,
     borderRadius: 10,
-    alignItems: 'center',
     justifyContent: 'center',
-  },
-  rankText: {
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  topExerciserInfo: {
-    flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#0A6CFF',
   },
-  topExerciserDetails: {
-    flex: 1,
+  badgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
-  topExerciserName: {
-    fontWeight: '600',
-    fontSize: 13,
-    marginBottom: 4,
-    textAlign: 'center',
-    width: '100%',
-  },
-  topExerciserStats: {
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  friendsList: {
+  section: {
+    padding: 16,
     marginTop: 8,
   },
-  friendItem: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: 16,
   },
-  loadingContainer: {
-    flex: 1,
+  emptyStateCard: {
+    padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 100,
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+  leaderboardCard: {
+    padding: 0,
+    overflow: 'hidden',
   },
-  // Modal styles
+  emptyLeaderboard: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewChallengesButton: {
+    padding: 16,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  suggestedFriendsContainer: {
+    paddingVertical: 8,
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
   modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingTop: 20,
-    paddingHorizontal: 16,
+    paddingBottom: 40,
     height: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    height: 48,
-    fontSize: 16,
-  },
-  searchButton: {
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  searchButtonText: {
-    color: '#FFF',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  resultsList: {
-    flex: 1,
-  },
-  searchResult: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
-  searchResultInfo: {
+  searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    margin: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
-  searchResultAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  searchResultName: {
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
     fontSize: 16,
-    fontWeight: '500',
+    paddingVertical: 8,
   },
-  noResults: {
+  emptyResults: {
+    padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
   },
-  noResultsText: {
-    fontSize: 16,
-    marginTop: 10,
+  activityItem: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
   },
-  headerContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
+  profilePic: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
   },
-  header: {
-    justifyContent: 'flex-end',
+  profileInitial: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(10, 108, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  activityContent: {
+    flex: 1,
+  },
+  topExerciserItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  rankCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  suggestedFriendCard: {
+    width: 150,
+    marginRight: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  suggestedFriendImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 12,
+  },
+  suggestedFriendInitial: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(10, 108, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  addFriendButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(10, 108, 255, 0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  searchResultImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+  },
+  searchResultInitial: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(10, 108, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  searchResultContent: {
+    flex: 1,
   },
 });

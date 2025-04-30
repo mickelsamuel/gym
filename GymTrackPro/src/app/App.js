@@ -7,7 +7,7 @@ import { View, StyleSheet, Text, LogBox } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ExerciseProvider, useExercise } from '../context/ExerciseContext';
 import AppNavigator from '../navigation/AppNavigator';
-import Colors from '../constants/Colors';
+import { Theme } from '../constants/Theme';
 import { db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import 'react-native-reanimated';
@@ -45,31 +45,8 @@ function AppContent() {
   const [error, setError] = useState(null);
   const [firebaseConnected, setFirebaseConnected] = useState(false);
 
-  // Initialize a default colors object in case the import fails
-  const defaultColors = {
-    light: {
-      primary: '#007AFF',
-      background: '#F8F9FA',
-      backgroundSecondary: '#FFFFFF',
-      text: '#333333',
-      textSecondary: '#666666',
-      textTertiary: '#999999',
-      border: '#E0E0E0'
-    },
-    dark: {
-      primary: '#0A84FF',
-      background: '#1C1C1E',
-      backgroundSecondary: '#2C2C2E',
-      text: '#FFFFFF',
-      textSecondary: '#AAAAAA',
-      textTertiary: '#888888',
-      border: '#555555'
-    }
-  };
-
-  // Use the imported Colors if available, otherwise use the default
-  const colorScheme = Colors || defaultColors;
-  const colors = darkMode ? colorScheme.dark : colorScheme.light;
+  // Get theme colors based on dark mode
+  const colors = darkMode ? Theme.dark : Theme.light;
 
   // Check if Firebase is connected
   useEffect(() => {
@@ -140,12 +117,17 @@ function AppContent() {
   return (
     <>
       <StatusBar style={darkMode ? 'light' : 'dark'} />
-      <AppNavigator />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <AppNavigator />
+      </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',

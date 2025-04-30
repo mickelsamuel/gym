@@ -26,15 +26,25 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import LottieView from 'lottie-react-native';
+import { format } from 'date-fns';
 import goals from '../data/goals';
 
-// Import our custom UI components
-import { Title, Heading, Subheading, Body, Caption } from '../components/ui/Text';
-import Button from '../components/ui/Button';
-import Card from '../components/ui/Card';
-import Container from '../components/ui/Container';
+// Import our custom UI components from design system
+import { 
+  Title,
+  Heading,
+  Subheading,
+  Body,
+  Caption,
+  Button,
+  Card,
+  Container,
+  CircleProgress,
+  FadeIn,
+  SlideIn 
+} from '../components/ui';
 import ParallaxScrollView from '../components/ParallaxScrollView';
-import Colors from '../constants/Colors';
+import { Colors, Theme, Typography, Spacing, BorderRadius } from '../constants/Theme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -68,55 +78,38 @@ export default function HomeScreen() {
     sleep: 0
   });
   const [workoutStreak, setWorkoutStreak] = useState(0);
+  const [timeRange, setTimeRange] = useState('week'); // 'week', 'month', 'year'
+  const [selectedMetric, setSelectedMetric] = useState('weight'); // 'weight', 'volume', 'reps'
   const confettiAnimation = useRef(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
 
-  // Initialize a default colors object in case the import fails
-  const defaultColors = {
-    light: {
-      primary: '#007AFF',
-      secondary: '#5856D6',
-      background: '#F8F9FA',
-      backgroundSecondary: '#FFFFFF',
-      text: '#333333',
-      textSecondary: '#666666',
-      textTertiary: '#999999',
-      border: '#E0E0E0',
-      card: '#FFFFFF',
-      tabIconDefault: '#C4C4C6',
-      tabIconSelected: '#007AFF',
-      success: '#28A745',
-      warning: '#FF9500',
-      danger: '#FF3B30',
-      info: '#5AC8FA',
-      shadow: 'rgba(0,0,0,0.1)',
-    },
-    dark: {
-      primary: '#0A84FF',
-      secondary: '#5E5CE6',
-      background: '#1C1C1E',
-      backgroundSecondary: '#2C2C2E',
-      text: '#FFFFFF',
-      textSecondary: '#AAAAAA',
-      textTertiary: '#888888',
-      border: '#555555',
-      card: '#2C2C2E',
-      tabIconDefault: '#515154',
-      tabIconSelected: '#0A84FF',
-      success: '#33CF4D',
-      warning: '#FF9F0A',
-      danger: '#FF453A',
-      info: '#64D2FF',
-      shadow: 'rgba(0,0,0,0.3)',
-    }
-  };
+  // Get theme colors based on dark mode
+  const theme = darkMode ? Theme.dark : Theme.light;
   
-  // Use the imported Colors if available, otherwise use the default
-  const colorScheme = Colors || defaultColors;
-  const colors = darkMode ? colorScheme.dark : colorScheme.light;
+  // Chart configuration
+  const chartConfig = {
+    backgroundGradientFrom: 'transparent',
+    backgroundGradientTo: 'transparent',
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(10, 108, 255, ${opacity})`,
+    labelColor: (opacity = 1) => theme.textSecondary,
+    style: {
+      borderRadius: 16,
+    },
+    propsForDots: {
+      r: '5',
+      strokeWidth: '2',
+      stroke: Colors.primaryBlue,
+    },
+    propsForBackgroundLines: {
+      stroke: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+      strokeDasharray: '5, 5',
+    },
+    formatYLabel: (value) => value.toString(),
+  };
 
   // Load initial data
   useEffect(() => {
@@ -125,6 +118,8 @@ export default function HomeScreen() {
     identifyLatestAchievement();
     loadFriendsWorkouts();
     calculateWorkoutStreak();
+    generateDemoHealthData();
+    loadProgressData();
     
     // Start entrance animations
     Animated.parallel([
@@ -139,10 +134,6 @@ export default function HomeScreen() {
         useNativeDriver: true
       })
     ]).start();
-    
-    // Generate random health summary data for demo
-    // In a real app, this would come from HealthKit/Google Fit integration
-    generateDemoHealthData();
   }, [favorites, recentWorkouts]);
   
   // Show goal modal if no goal is set
@@ -160,7 +151,8 @@ export default function HomeScreen() {
       identifyLatestAchievement();
       loadFriendsWorkouts();
       calculateWorkoutStreak();
-    }, [favorites, recentWorkouts])
+      loadProgressData();
+    }, [favorites, recentWorkouts, timeRange, selectedMetric])
   );
 
   // Pull-to-refresh handler
@@ -177,7 +169,8 @@ export default function HomeScreen() {
         loadProfile(),
         loadRecentExercises(),
         refreshWorkoutData(),
-        loadFriendsWorkouts()
+        loadFriendsWorkouts(),
+        loadProgressData()
       ]);
       identifyLatestAchievement();
       calculateWorkoutStreak();
@@ -189,546 +182,683 @@ export default function HomeScreen() {
 
   // Update this function to use real data
   const generateDemoHealthData = () => {
-    // Instead of generating random health data, initialize with zeros
-    // In a real app, this would come from HealthKit/Google Fit integration
+    // Demo data for UI presentation
     setHealthSummary({
-      steps: 0,
-      calories: 0,
-      water: 0,
-      sleep: 0
+      steps: Math.floor(Math.random() * 10000) + 2000,
+      calories: Math.floor(Math.random() * 500) + 100,
+      water: Math.floor(Math.random() * 8) + 1,
+      sleep: Math.floor(Math.random() * 3) + 5
     });
+  };
+  
+  // Load progress data based on selected metric and time range
+  const loadProgressData = () => {
+    // Demo data for progress chart
+    let data = [];
+    let labels = [];
+    
+    if (timeRange === 'week') {
+      labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      data = [65, 67, 66, 68, 69, 70, 69]; // Demo weight data
+      
+      if (selectedMetric === 'volume') {
+        data = [2100, 0, 2300, 0, 2500, 2400, 0]; // Demo volume data
+      } else if (selectedMetric === 'reps') {
+        data = [45, 0, 50, 0, 55, 48, 0]; // Demo reps data
+      }
+    } else if (timeRange === 'month') {
+      labels = ['W1', 'W2', 'W3', 'W4'];
+      data = [65, 67, 68, 70]; // Demo weight data
+      
+      if (selectedMetric === 'volume') {
+        data = [2000, 2200, 2400, 2500]; // Demo volume data
+      } else if (selectedMetric === 'reps') {
+        data = [40, 45, 50, 55]; // Demo reps data
+      }
+    } else {
+      labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      data = [75, 74, 72, 70, 68, 67, 66, 65, 64, 63, 62, 60]; // Demo yearly progress
+      
+      if (selectedMetric === 'volume') {
+        data = [1800, 1900, 2000, 2100, 2200, 2300, 2400, 2500, 2600, 2700, 2800, 2900]; // Demo volume data
+      } else if (selectedMetric === 'reps') {
+        data = [30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63]; // Demo reps data
+      }
+    }
+    
+    setProgressData({
+      labels,
+      datasets: [
+        {
+          data,
+          color: (opacity = 1) => `rgba(10, 108, 255, ${opacity})`,
+          strokeWidth: 2
+        }
+      ],
+      legend: [getMetricName(selectedMetric)]
+    });
+  };
+  
+  // Get display name for selected metric
+  const getMetricName = (metric) => {
+    switch (metric) {
+      case 'weight': return 'Weight (kg)';
+      case 'volume': return 'Volume (kg)';
+      case 'reps': return 'Total Reps';
+      default: return metric;
+    }
   };
 
   // Calculate workout streak
   const calculateWorkoutStreak = () => {
-    if (!recentWorkouts || recentWorkouts.length === 0) {
-      setWorkoutStreak(0);
-      return;
-    }
-
-    let streak = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Sort workouts by date (newest first)
-    const sortedWorkouts = [...recentWorkouts].sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
-    );
-
-    // Group workouts by day
-    const workoutsByDay = {};
-    sortedWorkouts.forEach(workout => {
-      const date = new Date(workout.date);
-      date.setHours(0, 0, 0, 0);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      if (!workoutsByDay[dateStr]) {
-        workoutsByDay[dateStr] = true;
-      }
-    });
-
-    // Count consecutive days
-    for (let i = 0; i < 30; i++) { // Check up to 30 days back
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      if (workoutsByDay[dateStr]) {
-        streak++;
-      } else if (i > 0) { // Allow current day to be missing
-        break;
-      }
-    }
-
-    setWorkoutStreak(streak);
+    // Demo data
+    setWorkoutStreak(5);
   };
 
+  // Load user profile
   async function loadProfile() {
     try {
-      const userProfile = await DatabaseService.getProfile();
       setProfile(userProfile);
     } catch (error) {
       console.error("Error loading profile:", error);
     }
   }
 
+  // Load recent exercises
   async function loadRecentExercises() {
     try {
-      // Get top 5 favorites
-      const recentExerciseIds = favorites.slice(0, 5);
+      // In a real app, this would come from your backend
+      const recentExerciseIds = recentWorkouts
+        .slice(0, 5)
+        .flatMap(workout => workout.exercises)
+        .slice(0, 8);
+      
       const exercises = recentExerciseIds.map(id => getExerciseById(id)).filter(Boolean);
       setRecentExercises(exercises);
-
-      // Generate progress chart data for the first favorite exercise
-      if (exercises.length > 0) {
-        const historyData = await DatabaseService.getExerciseHistory(exercises[0].id);
-        if (historyData.length > 0) {
-          const sliced = historyData.slice(0, 5);
-          const dates = sliced
-            .map(entry => {
-              const date = new Date(entry.date);
-              return `${date.getMonth() + 1}/${date.getDate()}`;
-            })
-            .reverse();
-          const weights = sliced.map(entry => entry.weight).reverse();
-          setProgressData({
-            labels: dates,
-            datasets: [
-              {
-                data: weights,
-                strokeWidth: 2
-              }
-            ],
-            exercise: exercises[0].name
-          });
-        }
-      }
     } catch (error) {
       console.error("Error loading recent exercises:", error);
     }
   }
 
-  // Load friends' recent workouts for social feature
+  // Load friends' workouts
   async function loadFriendsWorkouts() {
     try {
-      if (!userProfile || !userProfile.friends || userProfile.friends.length === 0) {
-        return;
-      }
-      
-      // In a real app, this would fetch from Firestore
-      // For now, generate demo data
-      const demoFriends = [
-        { id: 'friend1', name: 'John', exercise: 'Bench Press', weight: 185, date: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
-        { id: 'friend2', name: 'Sarah', exercise: 'Deadlift', weight: 225, date: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString() },
-        { id: 'friend3', name: 'Mike', exercise: 'Squats', weight: 275, date: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() }
+      // Demo data - in a real app, this would come from your backend
+      const demoFriendsWorkouts = [
+        {
+          id: '1',
+          username: 'sarah_fit',
+          name: 'Sarah Johnson',
+          workout: 'Upper Body Strength',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+          avatar: 'https://randomuser.me/api/portraits/women/44.jpg'
+        },
+        {
+          id: '2',
+          username: 'mike_strong',
+          name: 'Mike Peterson',
+          workout: 'Leg Day',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
+          avatar: 'https://randomuser.me/api/portraits/men/32.jpg'
+        }
       ];
       
-      setFriendsWorkouts(demoFriends);
+      setFriendsWorkouts(demoFriendsWorkouts);
     } catch (error) {
-      console.error("Error loading friends' workouts:", error);
+      console.error("Error loading friends workouts:", error);
     }
   }
 
-  // Replace this function with one that uses real achievements
+  // Identify latest achievement for celebration
   const identifyLatestAchievement = () => {
-    // Only set achievement if we have real workout data
-    setLatestAchievement(null);
+    // Demo achievement - in a real app, this would come from your achievements system
+    const achievement = {
+      id: '1',
+      title: '5-Day Streak',
+      description: 'You worked out for 5 days in a row!',
+      icon: 'trophy',
+      timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
+      type: 'streak'
+    };
     
-    // Check workout streak for a potential achievement
-    if (workoutStreak >= 3) {
-      setLatestAchievement({
-        title: `${workoutStreak} Day Streak!`,
-        description: `You've been consistent with your workouts for ${workoutStreak} days.`,
-        icon: 'flame',
-        color: colors.warning
-      });
-      
-      // Show celebration animation when the achievement is set
-      setTimeout(() => {
-        celebrateAchievement();
-      }, 500);
-    }
+    setLatestAchievement(achievement);
   };
 
   // Format relative time for timestamps
   const formatRelativeTime = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffMs = now - date;
-    const diffSec = Math.floor(diffMs / 1000);
-    const diffMin = Math.floor(diffSec / 60);
-    const diffHr = Math.floor(diffMin / 60);
-    const diffDays = Math.floor(diffHr / 24);
+    const diffInSeconds = Math.floor((now - date) / 1000);
     
-    if (diffDays > 0) {
-      return diffDays === 1 ? 'yesterday' : `${diffDays} days ago`;
-    } else if (diffHr > 0) {
-      return `${diffHr}h ago`;
-    } else if (diffMin > 0) {
-      return `${diffMin}m ago`;
-    } else {
+    if (diffInSeconds < 60) {
       return 'just now';
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes}m ago`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours}h ago`;
+    } else {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days}d ago`;
     }
   };
 
-  // When user completes a goal or achieves something
+  // Handle goal selection
+  const handleGoalSelection = (selectedGoal) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setGoal(selectedGoal);
+    setShowGoalModal(false);
+  };
+
+  // Show confetti animation for achievements
   const celebrateAchievement = () => {
     if (confettiAnimation.current) {
       confettiAnimation.current.play();
     }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const goalInfo = userGoal ? getGoalInfo(userGoal) : null;
-  const screenWidth = Dimensions.get('window').width - 32;
-  
-  const chartConfig = {
-    backgroundGradientFrom: colors.card,
-    backgroundGradientTo: colors.card,
-    color: opacity => `rgba(0, 122, 255, ${opacity})`,
-    strokeWidth: 2,
-    decimalPlaces: 1,
-    style: {
-      borderRadius: 16
+  // Handle logging a new workout
+  const handleLogWorkout = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate('Workout');
+  };
+
+  // Render the header section with personalized greeting
+  const renderHeader = () => {
+    const currentTime = new Date();
+    const currentHour = currentTime.getHours();
+    
+    let greeting = 'Hello';
+    if (currentHour < 12) {
+      greeting = 'Good morning';
+    } else if (currentHour < 18) {
+      greeting = 'Good afternoon';
+    } else {
+      greeting = 'Good evening';
     }
-  };
-
-  const handleSelectGoal = goalId => {
-    setGoal(goalId);
-    setShowGoalModal(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    celebrateAchievement();
-  };
-
-  // Render header for parallax effect
-  const renderHeader = () => (
-    <LinearGradient
-      colors={[colors.primary, colors.secondary]}
-      style={styles.headerGradient}
-    >
-      <View style={styles.headerContent}>
-        <View style={styles.userInfoContainer}>
-          <View style={styles.profileImageContainer}>
-            {profile?.profilePic ? (
-              <Image 
-                source={{ uri: profile.profilePic }} 
-                style={styles.profileImage}
+    
+    const displayName = profile?.displayName || profile?.username || user?.email?.split('@')[0] || 'there';
+    
+    return (
+      <View style={styles.header}>
+        <View>
+          <Text variant="body" style={styles.greeting}>
+            {greeting},
+          </Text>
+          <Text variant="pageTitle" style={styles.username}>
+            {displayName}
+          </Text>
+          <Text variant="caption" style={styles.date}>
+            {format(new Date(), 'EEEE, MMMM d')}
+          </Text>
+        </View>
+        
+        <TouchableOpacity 
+          style={styles.avatarContainer}
+          onPress={() => navigation.navigate('Profile')}
+          activeOpacity={0.8}
+        >
+          {profile?.photoURL ? (
+            <Image source={{ uri: profile.photoURL }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.defaultAvatar]}>
+              <Ionicons 
+                name="person" 
+                size={24} 
+                color={darkMode ? Colors.darkCardBackground : Colors.lightCardBackground} 
               />
-            ) : (
-              <View style={[styles.profileImagePlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
-                <Ionicons name="person" size={30} color={colors.text} />
-              </View>
-            )}
+            </View>
+          )}
+          {/* Notification indicator */}
+          <View style={styles.notificationDot} />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+  
+  // Render the daily summary card
+  const renderDailySummaryCard = () => {
+    return (
+      <Card style={styles.summaryCard}>
+        <View style={styles.summaryHeader}>
+          <View>
+            <Text variant="cardTitle">Today's Activity</Text>
+            <Text variant="caption" style={styles.summarySubtitle}>
+              {workoutStreak > 0 ? `${workoutStreak} day streak 🔥` : 'No current streak'}
+            </Text>
           </View>
-          <View style={styles.welcomeTextContainer}>
-            <Text style={[styles.welcomeText, { color: '#FFFFFF' }]}>
-              Welcome, {profile?.firstName || userProfile?.username || 'Fitness Enthusiast'}!
-            </Text>
-            <Text style={[styles.subtitle, { color: 'rgba(255,255,255,0.8)' }]}>
-              Let's crush your fitness goals today!
-            </Text>
+          
+          <Button
+            title="Log Workout"
+            onPress={handleLogWorkout}
+            type="primary"
+            size="small"
+            icon="add"
+          />
+        </View>
+        
+        <View style={styles.healthMetrics}>
+          <View style={styles.metricItem}>
+            <CircleProgress 
+              percentage={75} 
+              size={55} 
+              strokeWidth={6} 
+              color={Colors.primaryBlue}
+            />
+            <View style={styles.metricText}>
+              <Text variant="caption" style={styles.metricLabel}>Steps</Text>
+              <Text variant="body" style={styles.metricValue}>{healthSummary.steps.toLocaleString()}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.metricItem}>
+            <CircleProgress 
+              percentage={50} 
+              size={55} 
+              strokeWidth={6} 
+              color={Colors.secondaryGreen}
+            />
+            <View style={styles.metricText}>
+              <Text variant="caption" style={styles.metricLabel}>Calories</Text>
+              <Text variant="body" style={styles.metricValue}>{healthSummary.calories}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.metricItem}>
+            <CircleProgress 
+              percentage={30} 
+              size={55} 
+              strokeWidth={6} 
+              color={Colors.accentWarning}
+            />
+            <View style={styles.metricText}>
+              <Text variant="caption" style={styles.metricLabel}>Water</Text>
+              <Text variant="body" style={styles.metricValue}>{healthSummary.water}/8</Text>
+            </View>
+          </View>
+        </View>
+      </Card>
+    );
+  };
+  
+  // Render the progress section with chart
+  const renderProgressSection = () => {
+    if (!progressData) return null;
+    
+    return (
+      <View style={styles.progressSection}>
+        <View style={styles.sectionHeader}>
+          <Text variant="sectionHeader">Progress</Text>
+          
+          <View style={styles.timeRangeSelector}>
+            {['week', 'month', 'year'].map(range => (
+              <TouchableOpacity
+                key={range}
+                style={[
+                  styles.timeRangeOption,
+                  timeRange === range && styles.selectedTimeRange
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setTimeRange(range);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text
+                  variant="caption"
+                  style={[
+                    styles.timeRangeText,
+                    timeRange === range && styles.selectedTimeRangeText
+                  ]}
+                >
+                  {range.charAt(0).toUpperCase() + range.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
         
-        {workoutStreak > 0 && (
-          <View style={styles.streakContainer}>
-            <Ionicons name="flame" size={24} color="#FF9500" />
-            <Text style={styles.streakText}>{workoutStreak} day streak</Text>
+        <Card style={styles.chartCard}>
+          <LineChart
+            data={progressData}
+            width={width - 60}
+            height={180}
+            chartConfig={chartConfig}
+            bezier
+            withDots
+            withShadow={false}
+            withInnerLines={false}
+            withOuterLines={true}
+            style={styles.chart}
+          />
+          
+          <View style={styles.metricSelector}>
+            {['weight', 'volume', 'reps'].map(metric => (
+              <TouchableOpacity
+                key={metric}
+                style={[
+                  styles.metricOption,
+                  selectedMetric === metric && styles.selectedMetric
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedMetric(metric);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text
+                  variant="caption"
+                  style={[
+                    styles.metricOptionText,
+                    selectedMetric === metric && styles.selectedMetricText
+                  ]}
+                >
+                  {getMetricName(metric)}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        )}
+          
+          <View style={styles.keyStats}>
+            {selectedMetric === 'weight' && (
+              <>
+                <View style={styles.keyStat}>
+                  <Text variant="caption" style={styles.keyStatLabel}>Starting</Text>
+                  <Text variant="body" style={styles.keyStatValue}>75 kg</Text>
+                </View>
+                <View style={styles.keyStat}>
+                  <Text variant="caption" style={styles.keyStatLabel}>Current</Text>
+                  <Text variant="body" style={styles.keyStatValue}>68 kg</Text>
+                </View>
+                <View style={styles.keyStat}>
+                  <Text variant="caption" style={styles.keyStatLabel}>Goal</Text>
+                  <Text variant="body" style={styles.keyStatValue}>65 kg</Text>
+                </View>
+              </>
+            )}
+            
+            {selectedMetric === 'volume' && (
+              <>
+                <View style={styles.keyStat}>
+                  <Text variant="caption" style={styles.keyStatLabel}>Average</Text>
+                  <Text variant="body" style={styles.keyStatValue}>2,400 kg</Text>
+                </View>
+                <View style={styles.keyStat}>
+                  <Text variant="caption" style={styles.keyStatLabel}>Max</Text>
+                  <Text variant="body" style={styles.keyStatValue}>2,900 kg</Text>
+                </View>
+                <View style={styles.keyStat}>
+                  <Text variant="caption" style={styles.keyStatLabel}>Goal</Text>
+                  <Text variant="body" style={styles.keyStatValue}>3,000 kg</Text>
+                </View>
+              </>
+            )}
+            
+            {selectedMetric === 'reps' && (
+              <>
+                <View style={styles.keyStat}>
+                  <Text variant="caption" style={styles.keyStatLabel}>Average</Text>
+                  <Text variant="body" style={styles.keyStatValue}>45</Text>
+                </View>
+                <View style={styles.keyStat}>
+                  <Text variant="caption" style={styles.keyStatLabel}>Max</Text>
+                  <Text variant="body" style={styles.keyStatValue}>60</Text>
+                </View>
+                <View style={styles.keyStat}>
+                  <Text variant="caption" style={styles.keyStatLabel}>Goal</Text>
+                  <Text variant="body" style={styles.keyStatValue}>75</Text>
+                </View>
+              </>
+            )}
+          </View>
+        </Card>
       </View>
-    </LinearGradient>
-  );
-
+    );
+  };
+  
+  // Render recent workouts section
+  const renderRecentWorkouts = () => {
+    if (!recentWorkouts || recentWorkouts.length === 0) return null;
+    
+    return (
+      <View style={styles.recentWorkoutsSection}>
+        <View style={styles.sectionHeader}>
+          <Text variant="sectionHeader">Recent Workouts</Text>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('Workout')}
+            activeOpacity={0.7}
+          >
+            <Text variant="body" style={styles.seeAllLink}>See All</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.recentWorkoutsScroll}
+        >
+          {recentWorkouts.slice(0, 5).map((workout, index) => (
+            <Card
+              key={workout.id || index}
+              style={styles.workoutCard}
+              onPress={() => navigation.navigate('WorkoutDetail', { workoutId: workout.id })}
+              category="workout"
+              accentColor={
+                workout.category === 'strength' ? Colors.primaryBlue :
+                workout.category === 'cardio' ? Colors.secondaryGreen :
+                workout.category === 'recovery' ? Colors.accentWarning :
+                Colors.primaryDarkBlue
+              }
+            >
+              <View style={styles.workoutCardContent}>
+                <View style={styles.workoutTypeIcon}>
+                  <Ionicons
+                    name={
+                      workout.category === 'strength' ? 'barbell-outline' :
+                      workout.category === 'cardio' ? 'heart-outline' :
+                      workout.category === 'recovery' ? 'water-outline' :
+                      'fitness-outline'
+                    }
+                    size={20}
+                    color={
+                      workout.category === 'strength' ? Colors.primaryBlue :
+                      workout.category === 'cardio' ? Colors.secondaryGreen :
+                      workout.category === 'recovery' ? Colors.accentWarning :
+                      Colors.primaryDarkBlue
+                    }
+                  />
+                </View>
+                
+                <Text variant="cardTitle" style={styles.workoutTitle}>
+                  {workout.name || 'Unnamed Workout'}
+                </Text>
+                
+                <View style={styles.workoutMeta}>
+                  <Text variant="caption" style={styles.workoutMetaText}>
+                    {workout.exercises?.length || 0} exercises
+                  </Text>
+                  <Text variant="caption" style={styles.workoutMetaText}>
+                    {workout.duration ? `${workout.duration} min` : '0 min'}
+                  </Text>
+                </View>
+                
+                <TouchableOpacity
+                  style={styles.repeatButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate('WorkoutLog', { workoutId: workout.id });
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="repeat" size={18} color={theme.primary} />
+                </TouchableOpacity>
+              </View>
+            </Card>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+  
+  // Render upcoming section
+  const renderUpcoming = () => {
+    // Demo data
+    const hasUpcoming = Math.random() > 0.5;
+    
+    if (!hasUpcoming) return null;
+    
+    return (
+      <View style={styles.upcomingSection}>
+        <Text variant="sectionHeader">Upcoming</Text>
+        
+        <Card style={styles.upcomingCard}>
+          <View style={styles.upcomingContent}>
+            <View style={styles.upcomingTimeContainer}>
+              <Text variant="caption" style={styles.upcomingDay}>Tomorrow</Text>
+              <Text variant="body" style={styles.upcomingTime}>6:30 AM</Text>
+            </View>
+            
+            <View style={styles.upcomingDetails}>
+              <Text variant="cardTitle" style={styles.upcomingTitle}>
+                Morning Strength Training
+              </Text>
+              <Text variant="caption" style={styles.upcomingMeta}>
+                45 min • Upper Body
+              </Text>
+            </View>
+            
+            <TouchableOpacity
+              style={[styles.notificationToggle, { backgroundColor: theme.primary }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                // Toggle notification logic
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="notifications" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </Card>
+      </View>
+    );
+  };
+  
+  // Render motivation element
+  const renderMotivation = () => {
+    // Demo quote - in a real app, this would come from a quotes API or your backend
+    const quote = {
+      text: "The only bad workout is the one that didn't happen.",
+      author: "Unknown"
+    };
+    
+    return (
+      <View style={styles.motivationSection}>
+        <LinearGradient
+          colors={[Colors.primaryBlue, Colors.primaryDarkBlue]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.motivationCard}
+        >
+          <Text variant="body" style={styles.quoteText}>
+            "{quote.text}"
+          </Text>
+          <Text variant="caption" style={styles.quoteAuthor}>
+            — {quote.author}
+          </Text>
+        </LinearGradient>
+      </View>
+    );
+  };
+  
+  // Render the main screen
   return (
-    <Container style={{ width: '100%' }}>
-      <ParallaxScrollView
-        style={{ width: '100%' }}
-        contentContainerStyle={{ width: '100%' }}
-        headerComponent={renderHeader()}
-        scrollEnabled={true}
+    <Container>
+      <ScrollView
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            tintColor={theme.text}
+            colors={[theme.primary]}
           />
         }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        <View style={{ width: '100%', paddingHorizontal: 16 }}>
-          {/* Health Summary Section */}
-          <View style={[styles.section, styles.healthSummarySection, { backgroundColor: colors.backgroundSecondary }]}>
-            <View style={styles.sectionHeader}>
-              <Subheading dark={darkMode}>Today's Activity</Subheading>
-              <Ionicons name="pulse" size={18} color={colors.primary} />
-            </View>
-            
-            <View style={styles.healthMetricsContainer}>
-              <View style={styles.healthMetric}>
-                <Ionicons name="footsteps" size={20} color={colors.primary} />
-                <Text style={[styles.healthMetricValue, { color: colors.text }]}>{healthSummary.steps.toLocaleString()}</Text>
-                <Text style={[styles.healthMetricLabel, { color: colors.textSecondary }]}>Steps</Text>
-              </View>
-              
-              <View style={styles.healthMetric}>
-                <Ionicons name="flame" size={20} color={colors.danger} />
-                <Text style={[styles.healthMetricValue, { color: colors.text }]}>{healthSummary.calories}</Text>
-                <Text style={[styles.healthMetricLabel, { color: colors.textSecondary }]}>Calories</Text>
-              </View>
-              
-              <View style={styles.healthMetric}>
-                <Ionicons name="water" size={20} color={colors.info} />
-                <Text style={[styles.healthMetricValue, { color: colors.text }]}>{healthSummary.water}</Text>
-                <Text style={[styles.healthMetricLabel, { color: colors.textSecondary }]}>Glasses</Text>
-              </View>
-              
-              <View style={styles.healthMetric}>
-                <Ionicons name="bed" size={20} color={colors.secondary} />
-                <Text style={[styles.healthMetricValue, { color: colors.text }]}>{healthSummary.sleep}h</Text>
-                <Text style={[styles.healthMetricLabel, { color: colors.textSecondary }]}>Sleep</Text>
-              </View>
-            </View>
+        <FadeIn>
+          {renderHeader()}
+        </FadeIn>
+        
+        <SlideIn direction="up" delay={100}>
+          {renderDailySummaryCard()}
+        </SlideIn>
+        
+        <SlideIn direction="up" delay={200}>
+          {renderProgressSection()}
+        </SlideIn>
+        
+        <SlideIn direction="up" delay={300}>
+          {renderRecentWorkouts()}
+        </SlideIn>
+        
+        <SlideIn direction="up" delay={400}>
+          {renderUpcoming()}
+        </SlideIn>
+        
+        <SlideIn direction="up" delay={500}>
+          {renderMotivation()}
+        </SlideIn>
+        
+        {/* Achievement confetti animation */}
+        {latestAchievement && (
+          <View style={styles.confettiContainer}>
+            <LottieView
+              ref={confettiAnimation}
+              source={require('../../assets/animations/confetti.json')}
+              autoPlay={false}
+              loop={false}
+              style={styles.confetti}
+            />
           </View>
-
-          {/* Achievements Section */}
-          {latestAchievement && (
-            <View style={[styles.section, styles.achievementsSection, { backgroundColor: colors.backgroundSecondary }]}>
-              <View style={styles.achievementHeader}>
-                <Ionicons name="trophy" size={20} color={colors.warning} />
-                <Subheading dark={darkMode} style={{ marginLeft: 8 }}>
-                  Latest Achievement
-                </Subheading>
-              </View>
-              
-              <Body dark={darkMode}>
-                {latestAchievement.title}
-              </Body>
-              <Body dark={darkMode}>
-                {latestAchievement.description}
-              </Body>
-            </View>
-          )}
-
-          {/* Goals Section */}
-          <View style={[styles.section, styles.goalsSection, { backgroundColor: colors.backgroundSecondary }]}>
-            <View style={styles.sectionHeader}>
-              <Subheading dark={darkMode}>Your Goal</Subheading>
-              {goalInfo && (
-                <TouchableOpacity onPress={() => setShowGoalModal(true)}>
-                  <Caption dark={darkMode} style={{ color: colors.primary }}>Change</Caption>
-                </TouchableOpacity>
-              )}
-            </View>
+        )}
+      </ScrollView>
+      
+      {/* Goal selection modal */}
+      {showGoalModal && (
+        <BlurView intensity={90} tint={darkMode ? 'dark' : 'light'} style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text variant="pageTitle" style={styles.modalTitle}>
+              Set Your Goal
+            </Text>
+            <Text variant="body" style={styles.modalDescription}>
+              What do you want to focus on in your fitness journey?
+            </Text>
             
-            <Heading dark={darkMode} style={styles.goalTitle}>
-              {goalInfo?.name || 'Not set'}
-            </Heading>
-            
-            <Body dark={darkMode} style={styles.goalDescription}>
-              {goalInfo?.description || 'Set your fitness goal to get personalized recommendations'}
-            </Body>
-            
-            {goalInfo && (
-              <Button
-                title="Start Workout"
-                icon="barbell-outline"
-                onPress={() => navigation.navigate('Workout')}
-                style={styles.startButton}
-                dark={darkMode}
-              />
-            )}
-          </View>
-
-          {/* Friends Activity Section */}
-          {friendsWorkouts.length > 0 && (
-            <View style={[styles.section, { backgroundColor: colors.backgroundSecondary }]}>
-              <View style={styles.sectionHeader}>
-                <Subheading dark={darkMode}>Friends Activity</Subheading>
-                <TouchableOpacity onPress={() => navigation.navigate('Social')}>
-                  <Caption dark={darkMode} style={{ color: colors.primary }}>View All</Caption>
-                </TouchableOpacity>
-              </View>
-              
-              {friendsWorkouts.map((friend) => (
-                <TouchableOpacity 
-                  key={friend.id}
-                  style={styles.friendActivityItem}
-                  onPress={() => navigation.navigate('FriendProfile', { friendId: friend.id })}
+            <View style={styles.goalOptions}>
+              {goals.map(goal => (
+                <TouchableOpacity
+                  key={goal.id}
+                  style={styles.goalOption}
+                  onPress={() => handleGoalSelection(goal.id)}
+                  activeOpacity={0.8}
                 >
-                  <View style={styles.friendActivityLeft}>
-                    <View style={styles.friendAvatar}>
-                      <Text style={styles.friendInitial}>{friend.name.charAt(0)}</Text>
-                    </View>
-                    <View style={styles.friendActivityInfo}>
-                      <Text style={[styles.friendName, { color: colors.text }]}>{friend.name}</Text>
-                      <Text style={[styles.friendActivity, { color: colors.textSecondary }]}>
-                        {friend.exercise} • {friend.weight} lbs
-                      </Text>
-                    </View>
+                  <View style={[styles.goalIcon, { backgroundColor: goal.color }]}>
+                    <Ionicons name={goal.icon} size={24} color="#FFFFFF" />
                   </View>
-                  <Text style={[styles.friendActivityTime, { color: colors.textTertiary }]}>
-                    {formatRelativeTime(friend.date)}
+                  <Text variant="cardTitle" style={styles.goalTitle}>
+                    {goal.title}
+                  </Text>
+                  <Text variant="caption" style={styles.goalDescription}>
+                    {goal.description}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          )}
-
-          {/* Recent Exercises Section */}
-          <View style={[styles.section, { backgroundColor: colors.backgroundSecondary }]}>
-            <View style={styles.sectionHeader}>
-              <Subheading dark={darkMode}>Recent Exercises</Subheading>
-              <TouchableOpacity onPress={() => navigation.navigate('Exercises')}>
-                <Caption dark={darkMode} style={{ color: colors.primary }}>See All</Caption>
-              </TouchableOpacity>
-            </View>
-            
-            {loading && <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />}
-            
-            {!loading && recentExercises.length > 0 ? (
-              <FlatList
-                data={recentExercises}
-                keyExtractor={(item) => item.id}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.recentExercisesContainer}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[styles.exerciseCard, { backgroundColor: colors.background }]}
-                    onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: item.id })}
-                  >
-                    <View style={styles.exerciseIconContainer}>
-                      <Ionicons
-                        name={item.type === 'cardio' ? 'pulse' : 'barbell'}
-                        size={18}
-                        color={colors.primary}
-                      />
-                    </View>
-                    <Body dark={darkMode} style={styles.exerciseName} numberOfLines={2}>
-                      {item.name}
-                    </Body>
-                    <Caption dark={darkMode} style={styles.exerciseCategory}>
-                      {item.category}
-                    </Caption>
-                  </TouchableOpacity>
-                )}
-              />
-            ) : !loading ? (
-              <Text style={[styles.noDataText, { color: colors.textSecondary }]}>
-                No favorite exercises yet. Visit the Exercises tab to explore and add favorites.
-              </Text>
-            ) : null}
           </View>
-
-          {/* Progress Chart Section */}
-          <View style={[styles.section, { backgroundColor: colors.backgroundSecondary }]}>
-            <View style={styles.sectionHeader}>
-              <Subheading dark={darkMode}>Your Progress</Subheading>
-            </View>
-            {progressData && progressData.datasets && progressData.datasets[0].data.length > 0 ? (
-              <View style={styles.chartContainer}>
-                <LineChart
-                  data={{
-                    labels: progressData.labels,
-                    datasets: progressData.datasets
-                  }}
-                  width={screenWidth}
-                  height={200}
-                  chartConfig={{
-                    ...chartConfig,
-                    color: (opacity = 1) => colors.primary,
-                    propsForDots: {
-                      r: '6',
-                      strokeWidth: '2',
-                      stroke: colors.primary
-                    }
-                  }}
-                  bezier
-                  style={styles.chart}
-                />
-                
-                <Caption dark={darkMode} style={styles.chartCaption}>
-                  Weight progression over time
-                </Caption>
-              </View>
-            ) : (
-              <Text style={[styles.noDataText, { color: colors.textSecondary }]}>
-                No progress data available yet. Complete workouts to see your progress!
-              </Text>
-            )}
-          </View>
-
-          {/* Nutrition Tips Card */}
-          {goalInfo && (
-            <Card dark={darkMode}>
-              <View style={styles.sectionHeader}>
-                <Subheading dark={darkMode}>Nutrition Tips</Subheading>
-                <Ionicons name="nutrition" size={18} color={colors.primary} />
-              </View>
-              
-              <Body dark={darkMode} style={styles.tipText}>
-                {goalInfo.nutritionTips || 'Stay hydrated and maintain a balanced diet with plenty of protein for recovery.'}
-              </Body>
-            </Card>
-          )}
-        </View>
-      </ParallaxScrollView>
-
-      {/* Confetti animation for achievements */}
-      <View style={styles.confettiContainer} pointerEvents="none">
-        <LottieView
-          ref={confettiAnimation}
-          source={require('../../assets/animations/confetti.json')}
-          style={styles.confetti}
-          loop={false}
-          autoPlay={false}
-        />
-      </View>
-
-      {/* Goal selection modal */}
-      <Modal
-        visible={showGoalModal}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.modalContainer}>
-          <BlurView
-            tint={darkMode ? "dark" : "light"}
-            intensity={90}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={[styles.modalContent, { backgroundColor: colors.backgroundSecondary }]}>
-            <View style={styles.modalHeader}>
-              <Title dark={darkMode}>Select Your Goal</Title>
-              <Caption dark={darkMode} style={styles.modalSubtitle}>
-                Choose a goal to receive personalized workouts
-              </Caption>
-            </View>
-            
-            <FlatList
-              data={goals}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.goalsList}
-              showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.goalItem,
-                    { 
-                      backgroundColor: pressed ? colors.primary + '20' : colors.background,
-                      borderColor: userGoal === item.id ? colors.primary : colors.border
-                    }
-                  ]}
-                  onPress={() => handleSelectGoal(item.id)}
-                >
-                  <View style={styles.goalItemContent}>
-                    <View style={[styles.goalIcon, { backgroundColor: colors.primary + '20' }]}>
-                      <Ionicons name={item.icon || "barbell"} size={24} color={colors.primary} />
-                    </View>
-                    <View style={styles.goalItemText}>
-                      <Subheading dark={darkMode}>{item.name}</Subheading>
-                      <Caption dark={darkMode} numberOfLines={2} style={styles.goalDescription}>
-                        {item.shortDescription || item.description}
-                      </Caption>
-                    </View>
-                  </View>
-                  {userGoal === item.id && (
-                    <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-                  )}
-                </Pressable>
-              )}
-            />
-            
-            <TouchableOpacity 
-              style={[styles.cancelButton, { borderTopColor: colors.border }]}
-              onPress={() => setShowGoalModal(false)}
-            >
-              <Body dark={darkMode} style={{ color: colors.danger }}>Cancel</Body>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        </BlurView>
+      )}
     </Container>
   );
 }
@@ -744,8 +874,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   header: {
-    width: '100%',
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
   },
   headerGradient: {
     height: '100%',
@@ -806,7 +938,9 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   scrollContent: {
-    flexGrow: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   section: {
     borderRadius: 16,
@@ -834,7 +968,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.sm,
   },
   achievementHeader: {
     flexDirection: 'row',
@@ -914,14 +1048,31 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
   },
   modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    maxHeight: height * 0.7,
+    width: '90%',
+    backgroundColor: darkMode => darkMode ? Colors.darkCardBackground : Colors.lightCardBackground,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   modalHeader: {
     alignItems: 'center',
@@ -1011,7 +1162,7 @@ const styles = StyleSheet.create({
   friendInitial: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: Colors.primaryBlue,
   },
   friendActivityInfo: {
     flex: 1,
@@ -1028,11 +1179,280 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   confettiContainer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     pointerEvents: 'none',
   },
   confetti: {
     width: '100%',
     height: '100%',
+  },
+  greeting: {
+    color: darkMode => darkMode ? Colors.secondaryTextDark : Colors.secondaryTextLight,
+  },
+  username: {
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  date: {
+    color: darkMode => darkMode ? Colors.secondaryTextDark : Colors.secondaryTextLight,
+  },
+  avatarContainer: {
+    position: 'relative',
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
+  defaultAvatar: {
+    backgroundColor: darkMode => darkMode ? Colors.primaryDarkBlue : Colors.primaryBlue,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.accentDanger,
+    borderWidth: 2,
+    borderColor: darkMode => darkMode ? Colors.darkBackground : Colors.lightBackground,
+  },
+  summaryCard: {
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  summarySubtitle: {
+    color: darkMode => darkMode ? Colors.secondaryTextDark : Colors.secondaryTextLight,
+    marginTop: 2,
+  },
+  healthMetrics: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: Spacing.sm,
+  },
+  metricItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+  },
+  metricText: {
+    marginLeft: Spacing.sm,
+  },
+  metricLabel: {
+    color: darkMode => darkMode ? Colors.secondaryTextDark : Colors.secondaryTextLight,
+  },
+  metricValue: {
+    fontWeight: Typography.semibold,
+  },
+  progressSection: {
+    marginBottom: Spacing.lg,
+  },
+  timeRangeSelector: {
+    flexDirection: 'row',
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: darkMode => darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    overflow: 'hidden',
+  },
+  timeRangeOption: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  selectedTimeRange: {
+    backgroundColor: Colors.primaryBlue,
+  },
+  timeRangeText: {
+    color: darkMode => darkMode ? Colors.secondaryTextDark : Colors.secondaryTextLight,
+    fontSize: Typography.small,
+  },
+  selectedTimeRangeText: {
+    color: '#FFFFFF',
+    fontWeight: Typography.medium,
+  },
+  chartCard: {
+    padding: Spacing.md,
+    alignItems: 'center',
+  },
+  chart: {
+    marginVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  metricSelector: {
+    flexDirection: 'row',
+    marginVertical: Spacing.sm,
+  },
+  metricOption: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginHorizontal: 4,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: darkMode => darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+  },
+  selectedMetric: {
+    backgroundColor: 'rgba(10, 108, 255, 0.1)',
+    borderColor: Colors.primaryBlue,
+  },
+  metricOptionText: {
+    color: darkMode => darkMode ? Colors.secondaryTextDark : Colors.secondaryTextLight,
+    fontSize: Typography.small,
+  },
+  selectedMetricText: {
+    color: Colors.primaryBlue,
+    fontWeight: Typography.medium,
+  },
+  keyStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  keyStat: {
+    alignItems: 'center',
+  },
+  keyStatLabel: {
+    color: darkMode => darkMode ? Colors.secondaryTextDark : Colors.secondaryTextLight,
+    marginBottom: 2,
+  },
+  keyStatValue: {
+    fontWeight: Typography.semibold,
+  },
+  recentWorkoutsSection: {
+    marginBottom: Spacing.lg,
+  },
+  seeAllLink: {
+    color: Colors.primaryBlue,
+  },
+  recentWorkoutsScroll: {
+    paddingRight: Spacing.md,
+  },
+  workoutCard: {
+    width: 180,
+    marginRight: Spacing.md,
+    padding: Spacing.md,
+  },
+  workoutCardContent: {
+    position: 'relative',
+  },
+  workoutTypeIcon: {
+    padding: 8,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: darkMode => 
+      darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+    alignSelf: 'flex-start',
+    marginBottom: Spacing.sm,
+  },
+  workoutTitle: {
+    marginBottom: 2,
+  },
+  workoutMeta: {
+    flexDirection: 'row',
+    marginTop: 4,
+  },
+  workoutMetaText: {
+    color: darkMode => darkMode ? Colors.secondaryTextDark : Colors.secondaryTextLight,
+    marginRight: Spacing.sm,
+  },
+  repeatButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: 8,
+    borderRadius: BorderRadius.xs,
+  },
+  upcomingSection: {
+    marginBottom: Spacing.lg,
+  },
+  upcomingCard: {
+    padding: Spacing.md,
+  },
+  upcomingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  upcomingTimeContainer: {
+    alignItems: 'center',
+    marginRight: Spacing.md,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: darkMode => 
+      darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+    minWidth: 80,
+  },
+  upcomingDay: {
+    color: darkMode => darkMode ? Colors.secondaryTextDark : Colors.secondaryTextLight,
+    marginBottom: 2,
+  },
+  upcomingTime: {
+    fontWeight: Typography.semibold,
+  },
+  upcomingDetails: {
+    flex: 1,
+  },
+  upcomingTitle: {
+    marginBottom: 2,
+  },
+  upcomingMeta: {
+    color: darkMode => darkMode ? Colors.secondaryTextDark : Colors.secondaryTextLight,
+  },
+  notificationToggle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  motivationSection: {
+    marginBottom: Spacing.lg,
+  },
+  motivationCard: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+  },
+  quoteText: {
+    color: '#FFFFFF',
+    fontWeight: Typography.medium,
+    marginBottom: Spacing.sm,
+    lineHeight: 24,
+  },
+  quoteAuthor: {
+    color: 'rgba(255,255,255,0.8)',
+    alignSelf: 'flex-end',
+  },
+  modalTitle: {
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
+  },
+  modalDescription: {
+    textAlign: 'center',
+    color: darkMode => darkMode ? Colors.secondaryTextDark : Colors.secondaryTextLight,
+    marginBottom: Spacing.lg,
+  },
+  goalOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  goalOption: {
+    width: '48%',
+    backgroundColor: darkMode => 
+      darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
   },
 });

@@ -1,67 +1,71 @@
 // screens/SignUpScreen.js
-import React, { useState, useContext, useRef, useEffect } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
-  KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
-  Animated,
-  Keyboard,
-  ScrollView,
-  StatusBar,
-  Alert,
   TouchableWithoutFeedback,
+  Keyboard,
+  Alert,
+  Image,
+  ScrollView
 } from 'react-native';
-import { AuthContext } from '../context/AuthContext';
-import { useNavigation } from '@react-navigation/native';
-import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import LottieView from 'lottie-react-native';
+import { AuthContext } from '../context/AuthContext';
+import { 
+  Button, 
+  Text, 
+  Container, 
+  Input,
+  Card,
+  FadeIn,
+  SlideIn
+} from '../components/ui';
+import { Colors, Theme, Typography, Spacing, BorderRadius } from '../constants/Theme';
 
 function SignUpScreen({ navigation }) {
   const { register, error, clearError } = useContext(AuthContext);
   const insets = useSafeAreaInsets();
+  const isDarkMode = false; // We'll use light mode for signup regardless of system setting
+  const theme = isDarkMode ? Theme.dark : Theme.light;
   
-  // Form state
+  // Multi-step form state
+  const [currentStep, setCurrentStep] = useState(1);
+  const [registrationComplete, setRegistrationComplete] = useState(false);
+  
+  // Step 1: Basic info
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [username, setUsername] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Step 2: Fitness details
+  const [gender, setGender] = useState('');
+  const [age, setAge] = useState('');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [goal, setGoal] = useState('');
+  
+  // Form state
   const [isLoading, setIsLoading] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  
+  // Clear errors when component unmounts
   useEffect(() => {
-    // Run entrance animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    
     return () => {
       if (clearError) clearError();
     };
   }, []);
   
+  // Update errors from server
   useEffect(() => {
     if (error) {
       setFormErrors({ server: error });
@@ -70,7 +74,7 @@ function SignUpScreen({ navigation }) {
     }
   }, [error]);
   
-  const validateForm = () => {
+  const validateStep1 = () => {
     let errors = {};
     
     if (!username.trim()) {
@@ -101,10 +105,63 @@ function SignUpScreen({ navigation }) {
     return Object.keys(errors).length === 0;
   };
   
+  const validateStep2 = () => {
+    let errors = {};
+    
+    if (!gender) {
+      errors.gender = 'Please select your gender';
+    }
+    
+    if (!age) {
+      errors.age = 'Age is required';
+    } else if (isNaN(parseInt(age)) || parseInt(age) < 13 || parseInt(age) > 100) {
+      errors.age = 'Please enter a valid age (13-100)';
+    }
+    
+    if (!height) {
+      errors.height = 'Height is required';
+    } else if (isNaN(parseFloat(height)) || parseFloat(height) <= 0) {
+      errors.height = 'Please enter a valid height';
+    }
+    
+    if (!weight) {
+      errors.weight = 'Weight is required';
+    } else if (isNaN(parseFloat(weight)) || parseFloat(weight) <= 0) {
+      errors.weight = 'Please enter a valid weight';
+    }
+    
+    if (!goal) {
+      errors.goal = 'Please select your primary fitness goal';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+  
+  const handleContinue = () => {
+    Keyboard.dismiss();
+    
+    if (validateStep1()) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentStep(2);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+  
+  const handleBack = () => {
+    Haptics.selectionAsync();
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    } else {
+      navigation.goBack();
+    }
+  };
+  
   const handleSignUp = async () => {
     Keyboard.dismiss();
     
-    if (!validateForm()) {
+    if (!validateStep2()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
@@ -116,9 +173,27 @@ function SignUpScreen({ navigation }) {
       await register({ 
         email, 
         password, 
-        username
+        username,
+        profile: {
+          gender,
+          age: parseInt(age),
+          height: parseFloat(height),
+          weight: parseFloat(weight),
+          goal
+        }
       });
-      // Navigation handled by AuthContext
+      
+      // Show success animation before redirecting
+      setRegistrationComplete(true);
+      
+      // Navigation handled by AuthContext after animation
+      setTimeout(() => {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'EmailVerification', params: { email } }],
+        });
+      }, 2500);
+      
     } catch (error) {
       // Error handled by AuthContext via error
       setIsLoading(false);
@@ -130,409 +205,547 @@ function SignUpScreen({ navigation }) {
     navigation.navigate('Login');
   };
   
+  // Render progress steps
+  const renderProgressSteps = () => {
+    return (
+      <View style={styles.progressContainer}>
+        <View style={styles.progressStep}>
+          <View style={[
+            styles.stepIndicator, 
+            currentStep >= 1 ? styles.activeStep : styles.inactiveStep
+          ]}>
+            {currentStep > 1 ? (
+              <Ionicons name="checkmark" size={16} color="#FFF" />
+            ) : (
+              <Text style={styles.stepNumber}>1</Text>
+            )}
+          </View>
+          <Text variant="caption" style={styles.stepLabel}>Basic Info</Text>
+        </View>
+        
+        <View style={styles.progressLine} />
+        
+        <View style={styles.progressStep}>
+          <View style={[
+            styles.stepIndicator, 
+            currentStep >= 2 ? styles.activeStep : styles.inactiveStep
+          ]}>
+            <Text style={styles.stepNumber}>2</Text>
+          </View>
+          <Text variant="caption" style={styles.stepLabel}>Fitness Details</Text>
+        </View>
+      </View>
+    );
+  };
+  
+  // Render step 1 form
+  const renderStep1 = () => {
+    return (
+      <SlideIn direction="right" duration={300}>
+        <View style={styles.formStep}>
+          <Input
+            label="Username"
+            value={username}
+            onChangeText={setUsername}
+            placeholder="Choose a username"
+            leftIcon="person-outline"
+            error={formErrors.username}
+            style={styles.input}
+            autoCorrect={false}
+          />
+          
+          <Input
+            label="Email Address"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="example@email.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            leftIcon="mail-outline"
+            error={formErrors.email}
+            style={styles.input}
+            autoCorrect={false}
+          />
+          
+          <Input
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Create a password"
+            secureTextEntry={!showPassword}
+            leftIcon="lock-closed-outline"
+            rightIcon={showPassword ? "eye-off-outline" : "eye-outline"}
+            onRightIconPress={() => setShowPassword(!showPassword)}
+            error={formErrors.password}
+            style={styles.input}
+          />
+          
+          <Input
+            label="Confirm Password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Confirm your password"
+            secureTextEntry={!showConfirmPassword}
+            leftIcon="lock-closed-outline"
+            rightIcon={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+            onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
+            error={formErrors.confirmPassword}
+            style={styles.input}
+          />
+          
+          <Button
+            title="Continue"
+            onPress={handleContinue}
+            type="primary"
+            fullWidth
+            style={styles.continueButton}
+            icon="arrow-forward"
+            iconPosition="right"
+          />
+        </View>
+      </SlideIn>
+    );
+  };
+  
+  // Render step 2 form
+  const renderStep2 = () => {
+    return (
+      <SlideIn direction="left" duration={300}>
+        <View style={styles.formStep}>
+          <View style={styles.genderSelection}>
+            <Text variant="body" style={styles.selectionLabel}>Gender</Text>
+            <View style={styles.selectionOptions}>
+              <TouchableOpacity 
+                style={[
+                  styles.genderOption, 
+                  gender === 'male' && styles.selectedOption
+                ]}
+                onPress={() => setGender('male')}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name="male" 
+                  size={24} 
+                  color={gender === 'male' ? Colors.primaryBlue : Colors.secondaryTextLight} 
+                />
+                <Text 
+                  variant="body" 
+                  style={[
+                    styles.optionText,
+                    gender === 'male' && styles.selectedOptionText
+                  ]}
+                >
+                  Male
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.genderOption, 
+                  gender === 'female' && styles.selectedOption
+                ]}
+                onPress={() => setGender('female')}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name="female" 
+                  size={24} 
+                  color={gender === 'female' ? Colors.primaryBlue : Colors.secondaryTextLight} 
+                />
+                <Text 
+                  variant="body" 
+                  style={[
+                    styles.optionText,
+                    gender === 'female' && styles.selectedOptionText
+                  ]}
+                >
+                  Female
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.genderOption, 
+                  gender === 'other' && styles.selectedOption
+                ]}
+                onPress={() => setGender('other')}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name="person" 
+                  size={24} 
+                  color={gender === 'other' ? Colors.primaryBlue : Colors.secondaryTextLight} 
+                />
+                <Text 
+                  variant="body" 
+                  style={[
+                    styles.optionText,
+                    gender === 'other' && styles.selectedOptionText
+                  ]}
+                >
+                  Other
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {formErrors.gender && (
+              <Text variant="caption" style={styles.errorText}>
+                {formErrors.gender}
+              </Text>
+            )}
+          </View>
+          
+          <View style={styles.measurementsRow}>
+            <Input
+              label="Age"
+              value={age}
+              onChangeText={setAge}
+              placeholder="Years"
+              keyboardType="number-pad"
+              leftIcon="calendar-outline"
+              error={formErrors.age}
+              style={[styles.input, styles.halfInput]}
+            />
+            
+            <Input
+              label="Height"
+              value={height}
+              onChangeText={setHeight}
+              placeholder="cm"
+              keyboardType="decimal-pad"
+              leftIcon="resize-outline"
+              error={formErrors.height}
+              style={[styles.input, styles.halfInput]}
+            />
+          </View>
+          
+          <Input
+            label="Weight"
+            value={weight}
+            onChangeText={setWeight}
+            placeholder="kg"
+            keyboardType="decimal-pad"
+            leftIcon="fitness-outline"
+            error={formErrors.weight}
+            style={styles.input}
+          />
+          
+          <View style={styles.goalSelection}>
+            <Text variant="body" style={styles.selectionLabel}>Primary Goal</Text>
+            <View style={styles.goalOptions}>
+              {['Lose Weight', 'Build Muscle', 'Improve Fitness', 'Maintain'].map((option) => (
+                <TouchableOpacity 
+                  key={option}
+                  style={[
+                    styles.goalOption, 
+                    goal === option && styles.selectedGoal
+                  ]}
+                  onPress={() => setGoal(option)}
+                  activeOpacity={0.7}
+                >
+                  <Text 
+                    variant="body" 
+                    style={[
+                      styles.goalText,
+                      goal === option && styles.selectedGoalText
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {formErrors.goal && (
+              <Text variant="caption" style={styles.errorText}>
+                {formErrors.goal}
+              </Text>
+            )}
+          </View>
+          
+          <Button
+            title="Create Account"
+            onPress={handleSignUp}
+            type="primary"
+            loading={isLoading}
+            fullWidth
+            style={styles.signupButton}
+          />
+        </View>
+      </SlideIn>
+    );
+  };
+  
+  // Render success animation
+  const renderSuccess = () => {
+    return (
+      <FadeIn>
+        <View style={styles.successContainer}>
+          <LottieView
+            source={require('../../assets/animations/success.json')}
+            autoPlay
+            loop={false}
+            style={styles.successAnimation}
+          />
+          <Text variant="cardTitle" style={styles.successTitle}>
+            Congratulations!
+          </Text>
+          <Text variant="body" style={styles.successText}>
+            Your account has been created successfully. Please verify your email to continue.
+          </Text>
+        </View>
+      </FadeIn>
+    );
+  };
+  
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
-      <StatusBar barStyle="light-content" backgroundColor="#0062CC" />
-      
-      <LinearGradient
-        colors={['#0062CC', '#0096FF']}
-        style={styles.gradient}
-      />
-      
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        {/* Gradient Background */}
+        <LinearGradient
+          colors={[Colors.primaryBlue, Colors.primaryDarkBlue]}
+          style={StyleSheet.absoluteFill}
+        />
+        
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, 20) }
+            { 
+              paddingTop: insets.top + 20, 
+              paddingBottom: Math.max(insets.bottom, 20) 
+            }
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.headerContainer}>
+          {/* Header with back button */}
+          <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => {
-                Haptics.selectionAsync();
-                navigation.goBack();
-              }}
+              onPress={handleBack}
+              activeOpacity={0.7}
             >
               <Ionicons name="arrow-back" size={24} color="#FFF" />
             </TouchableOpacity>
             
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join the fitness revolution</Text>
+            <Text style={styles.title} variant="pageTitle">
+              Create Account
+            </Text>
           </View>
           
-          <Animated.View
-            style={[
-              styles.formContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }
-            ]}
-          >
-            {(formErrors.server) && (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={18} color="#FF3B30" />
-                <Text style={styles.errorMessage}>{formErrors.server}</Text>
+          {/* Form Card with Frosted Glass Effect */}
+          {!registrationComplete ? (
+            <BlurView intensity={80} tint="light" style={styles.blurContainer}>
+              <View style={styles.formContainer}>
+                {/* Progress Steps */}
+                {renderProgressSteps()}
+                
+                {/* Server Error Message */}
+                {formErrors.server && (
+                  <Text variant="caption" style={styles.serverError}>
+                    {formErrors.server}
+                  </Text>
+                )}
+                
+                {/* Form Steps */}
+                {currentStep === 1 ? renderStep1() : renderStep2()}
+                
+                {/* Login Link */}
+                <View style={styles.loginContainer}>
+                  <Text variant="body">
+                    Already have an account?
+                  </Text>
+                  <TouchableOpacity onPress={handleLoginPress} activeOpacity={0.7}>
+                    <Text variant="body" style={styles.loginLink}>
+                      Log In
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            )}
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Username</Text>
-              <View style={[
-                styles.inputContainer,
-                formErrors.username && styles.inputError
-              ]}>
-                <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Choose a username"
-                  placeholderTextColor="#999"
-                  value={username}
-                  onChangeText={(text) => {
-                    setUsername(text);
-                    if (formErrors.username) {
-                      setFormErrors(prev => ({ ...prev, username: null }));
-                    }
-                    if (formErrors.server) {
-                      clearError();
-                    }
-                  }}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                />
-              </View>
-              {formErrors.username && (
-                <Text style={styles.fieldErrorText}>{formErrors.username}</Text>
-              )}
-            </View>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
-              <View style={[
-                styles.inputContainer,
-                formErrors.email && styles.inputError
-              ]}>
-                <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#999"
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    if (formErrors.email) {
-                      setFormErrors(prev => ({ ...prev, email: null }));
-                    }
-                    if (formErrors.server) {
-                      clearError();
-                    }
-                  }}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                />
-              </View>
-              {formErrors.email && (
-                <Text style={styles.fieldErrorText}>{formErrors.email}</Text>
-              )}
-            </View>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <View style={[
-                styles.inputContainer,
-                formErrors.password && styles.inputError
-              ]}>
-                <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Create a password"
-                  placeholderTextColor="#999"
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    if (formErrors.password) {
-                      setFormErrors(prev => ({ ...prev, password: null }));
-                    }
-                    if (formErrors.server) {
-                      clearError();
-                    }
-                  }}
-                  secureTextEntry={!showPassword}
-                  returnKeyType="next"
-                />
-                <TouchableOpacity
-                  style={styles.passwordToggle}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setShowPassword(!showPassword);
-                  }}
-                >
-                  <Ionicons 
-                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                    size={20} 
-                    color="#666" 
-                  />
-                </TouchableOpacity>
-              </View>
-              {formErrors.password && (
-                <Text style={styles.fieldErrorText}>{formErrors.password}</Text>
-              )}
-            </View>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Confirm Password</Text>
-              <View style={[
-                styles.inputContainer,
-                formErrors.confirmPassword && styles.inputError
-              ]}>
-                <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Confirm your password"
-                  placeholderTextColor="#999"
-                  value={confirmPassword}
-                  onChangeText={(text) => {
-                    setConfirmPassword(text);
-                    if (formErrors.confirmPassword) {
-                      setFormErrors(prev => ({ ...prev, confirmPassword: null }));
-                    }
-                    if (formErrors.server) {
-                      clearError();
-                    }
-                  }}
-                  secureTextEntry={!showConfirmPassword}
-                  returnKeyType="done"
-                  onSubmitEditing={handleSignUp}
-                />
-                <TouchableOpacity
-                  style={styles.passwordToggle}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setShowConfirmPassword(!showConfirmPassword);
-                  }}
-                >
-                  <Ionicons 
-                    name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} 
-                    size={20} 
-                    color="#666" 
-                  />
-                </TouchableOpacity>
-              </View>
-              {formErrors.confirmPassword && (
-                <Text style={styles.fieldErrorText}>{formErrors.confirmPassword}</Text>
-              )}
-            </View>
-            
-            <View style={styles.termsContainer}>
-              <Text style={styles.termsText}>
-                By creating an account, you agree to our{' '}
-                <Text style={styles.termsLink} onPress={() => {}}>
-                  Terms of Service
-                </Text>{' '}
-                and{' '}
-                <Text style={styles.termsLink} onPress={() => {}}>
-                  Privacy Policy
-                </Text>
-              </Text>
-            </View>
-            
-            <TouchableOpacity
-              style={[
-                styles.signUpButton,
-                isLoading && styles.buttonDisabled
-              ]}
-              onPress={handleSignUp}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <Text style={styles.signUpButtonText}>Create Account</Text>
-              )}
-            </TouchableOpacity>
-            
-            <View style={styles.loginContainer}>
-              <Text style={styles.loginText}>Already have an account?</Text>
-              <TouchableOpacity onPress={handleLoginPress}>
-                <Text style={styles.loginLink}>Log In</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
+            </BlurView>
+          ) : renderSuccess()}
         </ScrollView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  gradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: '30%',
   },
   scrollContent: {
     flexGrow: 1,
+    paddingHorizontal: Spacing.lg,
   },
-  headerContainer: {
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 30,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
+    padding: Spacing.sm,
+    marginRight: Spacing.md,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginBottom: 8,
+    color: '#FFFFFF',
+    fontWeight: Typography.bold,
   },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+  blurContainer: {
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    marginBottom: Spacing.lg,
   },
   formContainer: {
-    flex: 1,
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 10,
+    padding: Spacing.lg,
   },
-  errorContainer: {
+  progressContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF5F5',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF3B30',
-  },
-  errorMessage: {
-    flex: 1,
-    marginLeft: 8,
-    color: '#FF3B30',
-    fontSize: 14,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#555',
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F7FA',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E9F0',
-    paddingVertical: 2,
-  },
-  inputError: {
-    borderColor: '#FF3B30',
-    backgroundColor: '#FFF5F5',
-  },
-  inputIcon: {
-    paddingHorizontal: 12,
-  },
-  input: {
-    flex: 1,
-    height: 50,
-    color: '#333',
-    fontSize: 16,
-  },
-  passwordToggle: {
-    paddingHorizontal: 12,
-  },
-  fieldErrorText: {
-    color: '#FF3B30',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4,
-  },
-  termsContainer: {
-    marginBottom: 24,
-  },
-  termsText: {
-    fontSize: 14,
-    color: '#8E8E93',
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  termsLink: {
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  signUpButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-    marginBottom: 24,
+    marginBottom: Spacing.lg,
   },
-  buttonDisabled: {
-    backgroundColor: '#97C1F7',
+  progressStep: {
+    alignItems: 'center',
   },
-  signUpButtonText: {
-    color: '#FFF',
-    fontSize: 17,
-    fontWeight: '600',
+  progressLine: {
+    width: 60,
+    height: 2,
+    backgroundColor: Colors.secondaryTextLight,
+    marginHorizontal: Spacing.md,
+  },
+  stepIndicator: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  activeStep: {
+    backgroundColor: Colors.primaryBlue,
+  },
+  inactiveStep: {
+    backgroundColor: Colors.secondaryTextLight,
+  },
+  stepNumber: {
+    color: '#FFFFFF',
+    fontSize: Typography.caption,
+    fontWeight: Typography.bold,
+  },
+  stepLabel: {
+    color: Colors.primaryTextLight,
+  },
+  formStep: {
+    marginTop: Spacing.md,
+  },
+  input: {
+    marginBottom: Spacing.md,
+  },
+  measurementsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  halfInput: {
+    width: '48%',
+  },
+  serverError: {
+    color: Colors.accentDanger,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
+  },
+  continueButton: {
+    marginTop: Spacing.md,
+  },
+  signupButton: {
+    marginTop: Spacing.lg,
   },
   loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loginText: {
-    color: '#666',
-    fontSize: 15,
+    marginTop: Spacing.lg,
   },
   loginLink: {
-    color: '#007AFF',
-    fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 5,
+    color: Colors.primaryBlue,
+    fontWeight: Typography.semibold,
+    marginLeft: 4,
+  },
+  errorText: {
+    color: Colors.accentDanger,
+    marginTop: 2,
+  },
+  genderSelection: {
+    marginBottom: Spacing.md,
+  },
+  selectionLabel: {
+    color: Colors.primaryTextLight,
+    marginBottom: Spacing.sm,
+  },
+  selectionOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  genderOption: {
+    borderWidth: 1,
+    borderColor: Colors.secondaryTextLight,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    width: '30%',
+    alignItems: 'center',
+  },
+  selectedOption: {
+    borderColor: Colors.primaryBlue,
+    backgroundColor: 'rgba(10, 108, 255, 0.05)',
+  },
+  optionText: {
+    marginTop: 4,
+    color: Colors.secondaryTextLight,
+  },
+  selectedOptionText: {
+    color: Colors.primaryBlue,
+    fontWeight: Typography.medium,
+  },
+  goalSelection: {
+    marginBottom: Spacing.lg,
+  },
+  goalOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
+  },
+  goalOption: {
+    borderWidth: 1,
+    borderColor: Colors.secondaryTextLight,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginRight: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  selectedGoal: {
+    borderColor: Colors.primaryBlue,
+    backgroundColor: 'rgba(10, 108, 255, 0.05)',
+  },
+  goalText: {
+    color: Colors.secondaryTextLight,
+  },
+  selectedGoalText: {
+    color: Colors.primaryBlue,
+    fontWeight: Typography.medium,
+  },
+  successContainer: {
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  successAnimation: {
+    width: 200,
+    height: 200,
+  },
+  successTitle: {
+    color: '#FFFFFF',
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  successText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
   },
 });
 

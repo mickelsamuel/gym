@@ -2,81 +2,48 @@
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
-  StatusBar,
-  ImageBackground,
-  ScrollView,
-  Image,
   TouchableWithoutFeedback,
   Keyboard,
-  Alert
+  Alert,
+  Switch,
+  Image
 } from 'react-native';
-import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { AuthContext } from '../context/AuthContext';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withTiming,
-  withDelay,
+import { 
+  Button, 
+  Text, 
+  Container, 
+  Card,
+  Input,
   FadeIn,
-  FadeOut,
-  SlideInDown
-} from 'react-native-reanimated';
+  SlideIn
+} from '../components/ui';
+import { Colors, Theme, Typography, Spacing, BorderRadius } from '../constants/Theme';
 
 function LoginScreen({ navigation }) {
   const { login, error, clearError, user } = useContext(AuthContext);
   const insets = useSafeAreaInsets();
+  const isDarkMode = false; // We'll use light mode for login regardless of system setting
+  const theme = isDarkMode ? Theme.dark : Theme.light;
   
   // State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   const [needsVerification, setNeedsVerification] = useState(false);
   
-  // Animation values
-  const logoScale = useSharedValue(0.8);
-  const logoOpacity = useSharedValue(0);
-  const formOpacity = useSharedValue(0);
-  const formTranslateY = useSharedValue(30);
-  
-  // Animated styles
-  const logoAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: logoOpacity.value,
-      transform: [{ scale: logoScale.value }]
-    };
-  });
-  
-  const formAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: formOpacity.value,
-      transform: [{ translateY: formTranslateY.value }]
-    };
-  });
-  
   useEffect(() => {
-    // Run entrance animations safely on JS thread
-    requestAnimationFrame(() => {
-      logoScale.value = withTiming(1, { duration: 800 });
-      logoOpacity.value = withTiming(1, { duration: 800 });
-      
-      // Delay the form animation until the logo is visible
-      formOpacity.value = withDelay(400, withTiming(1, { duration: 600 }));
-      formTranslateY.value = withDelay(400, withTiming(0, { duration: 600 }));
-    });
-    
     return () => {
       if (clearError) clearError();
     };
@@ -129,7 +96,7 @@ function LoginScreen({ navigation }) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       // Navigation handled by AuthContext
     } catch (error) {
       // Check if the error is related to email verification
@@ -165,398 +132,246 @@ function LoginScreen({ navigation }) {
     }
   };
   
+  const toggleRememberMe = () => {
+    Haptics.selectionAsync();
+    setRememberMe(!rememberMe);
+  };
+  
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
-      <StatusBar barStyle="light-content" backgroundColor="#0062CC" />
-      
-      <LinearGradient
-        colors={['#0062CC', '#0096FF']}
-        style={styles.gradient}
-      />
-      
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, 20) }
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        {/* Gradient Background */}
+        <LinearGradient
+          colors={[Colors.primaryBlue, Colors.primaryDarkBlue]}
+          style={StyleSheet.absoluteFill}
+        />
+        
+        <View 
+          style={[
+            styles.content,
+            { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 }
           ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.headerContainer}>
-            <Animated.Image
-              source={require('../../assets/images/icon.png')}
-              style={[styles.logo, logoAnimatedStyle]}
-              resizeMode="contain"
-            />
-            
-            <Animated.Text
-              style={[styles.title, logoAnimatedStyle]}
-            >
-              GymTrackPro
-            </Animated.Text>
-            
-            <Animated.Text
-              style={[styles.subtitle, logoAnimatedStyle]}
-            >
-              Elevate your fitness journey
-            </Animated.Text>
-          </View>
+          {/* Logo Section with Animations */}
+          <FadeIn delay={100} duration={800}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('../../assets/images/icon.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              
+              <Text style={styles.title} variant="pageTitle">
+                GymTrackPro
+              </Text>
+            </View>
+          </FadeIn>
           
-          <Animated.View
-            style={[styles.formContainer, formAnimatedStyle]}
-            entering={FadeIn.duration(600).delay(400)}
-          >
-            {(formErrors.server || error) && (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={18} color="#FF3B30" />
-                <Text style={styles.errorMessage}>{formErrors.server || error}</Text>
+          {/* Form Card with Frosted Glass Effect */}
+          <SlideIn direction="up" delay={400} duration={600}>
+            <BlurView intensity={80} tint="light" style={styles.blurContainer}>
+              <View style={styles.formContainer}>
+                <Text variant="cardTitle" style={styles.formTitle}>
+                  Log in to your account
+                </Text>
                 
-                {needsVerification && (
-                  <TouchableOpacity
-                    style={styles.verifyEmailButton}
-                    onPress={handleVerifyEmailPress}
-                  >
-                    <Text style={styles.verifyEmailText}>Verify Email</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
-              <View style={[
-                styles.inputContainer,
-                formErrors.email && styles.inputError
-              ]}>
-                <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#999"
+                {/* Email Input */}
+                <Input
+                  label="Email Address"
                   value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    if (formErrors.email) {
-                      setFormErrors(prev => ({ ...prev, email: null }));
-                    }
-                    if (formErrors.server) {
-                      if (clearError) clearError();
-                    }
-                  }}
+                  onChangeText={setEmail}
+                  placeholder="example@email.com"
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  autoComplete="email"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                />
-              </View>
-              {formErrors.email && (
-                <Text style={styles.fieldErrorText}>{formErrors.email}</Text>
-              )}
-            </View>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <View style={[
-                styles.inputContainer,
-                formErrors.password && styles.inputError
-              ]}>
-                <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
+                  leftIcon="mail-outline"
+                  error={formErrors.email}
                   style={styles.input}
-                  placeholder="Enter your password"
-                  placeholderTextColor="#999"
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    if (formErrors.password) {
-                      setFormErrors(prev => ({ ...prev, password: null }));
-                    }
-                    if (formErrors.server) {
-                      if (clearError) clearError();
-                    }
-                  }}
-                  secureTextEntry={!showPassword}
-                  returnKeyType="done"
-                  onSubmitEditing={handleLogin}
+                  autoCorrect={false}
                 />
-                <TouchableOpacity
-                  style={styles.showPasswordButton}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setShowPassword(!showPassword);
-                  }}
-                >
-                  <Ionicons 
-                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                    size={20} 
-                    color="#666" 
+                
+                {/* Password Input */}
+                <Input
+                  label="Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Enter your password"
+                  secureTextEntry={!showPassword}
+                  leftIcon="lock-closed-outline"
+                  rightIcon={showPassword ? "eye-off-outline" : "eye-outline"}
+                  onRightIconPress={() => setShowPassword(!showPassword)}
+                  error={formErrors.password}
+                  style={styles.input}
+                />
+                
+                {/* Remember Me & Forgot Password */}
+                <View style={styles.optionsRow}>
+                  <TouchableOpacity 
+                    style={styles.rememberMeContainer} 
+                    onPress={toggleRememberMe}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[
+                      styles.checkbox,
+                      rememberMe && { backgroundColor: theme.primary, borderColor: theme.primary }
+                    ]}>
+                      {rememberMe && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                    </View>
+                    <Text variant="body" style={styles.rememberMeText}>Remember Me</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    onPress={handleForgotPasswordPress}
+                    activeOpacity={0.7}
+                  >
+                    <Text variant="body" style={styles.forgotPassword}>
+                      Forgot Password?
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {/* Server Error Message */}
+                {formErrors.server && (
+                  <Text variant="caption" style={styles.errorText}>
+                    {formErrors.server}
+                  </Text>
+                )}
+                
+                {/* Email Verification Message */}
+                {needsVerification && (
+                  <View style={styles.verificationContainer}>
+                    <Text variant="caption" style={styles.verificationText}>
+                      Your email address requires verification.
+                    </Text>
+                    <TouchableOpacity onPress={handleVerifyEmailPress}>
+                      <Text variant="caption" style={styles.verifyLink}>
+                        Verify now
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                
+                {/* Login Button */}
+                <Button
+                  title="Log In"
+                  onPress={handleLogin}
+                  type="primary"
+                  loading={isLoading}
+                  fullWidth
+                  style={styles.loginButton}
+                />
+                
+                {/* Sign Up Link */}
+                <View style={styles.signupContainer}>
+                  <Text variant="body">
+                    Don't have an account?
+                  </Text>
+                  <Button
+                    title="Create Account"
+                    onPress={handleSignUpPress}
+                    type="secondary"
+                    style={styles.signupButton}
                   />
-                </TouchableOpacity>
+                </View>
               </View>
-              {formErrors.password && (
-                <Text style={styles.fieldErrorText}>{formErrors.password}</Text>
-              )}
-            </View>
-            
-            <TouchableOpacity
-              style={styles.forgotPasswordLink}
-              onPress={handleForgotPasswordPress}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.loginButton,
-                isLoading && styles.buttonDisabled
-              ]}
-              onPress={handleLogin}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <Text style={styles.loginButtonText}>Log In</Text>
-              )}
-            </TouchableOpacity>
-            
-            <View style={styles.dividerContainer}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.divider} />
-            </View>
-            
-            <View style={styles.socialButtonsContainer}>
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  // Implement Google sign-in
-                }}
-              >
-                <Ionicons name="logo-google" size={20} color="#EA4335" />
-                <Text style={styles.socialButtonText}>Google</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  // Implement Apple sign-in
-                }}
-              >
-                <Ionicons name="logo-apple" size={20} color="#000" />
-                <Text style={styles.socialButtonText}>Apple</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.signUpContainer}>
-              <Text style={styles.signUpText}>Don't have an account?</Text>
-              <TouchableOpacity onPress={handleSignUpPress}>
-                <Text style={styles.signUpLink}>Sign Up</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </ScrollView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+            </BlurView>
+          </SlideIn>
+        </View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
-  gradient: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingTop: 30,
-    paddingHorizontal: 20,
-  },
-  headerContainer: {
+  content: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 30,
-    marginBottom: 40,
+    paddingHorizontal: Spacing.lg,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
   },
   logo: {
     width: 100,
     height: 100,
-    marginBottom: 15,
+    marginBottom: Spacing.md,
   },
   title: {
-    fontSize: 30,
-    fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 5,
+    fontSize: Typography.title + 8, // Larger than standard title
+    fontWeight: Typography.bold,
   },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
+  blurContainer: {
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    width: '100%',
   },
   formContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    padding: Spacing.lg,
   },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,59,48,0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  errorMessage: {
-    color: '#FF3B30',
-    fontSize: 14,
-    marginLeft: 10,
-    flex: 1,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#333',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    paddingHorizontal: 12,
-    height: 50,
-  },
-  inputError: {
-    borderColor: '#FF3B30',
-  },
-  inputIcon: {
-    marginRight: 10,
+  formTitle: {
+    marginBottom: Spacing.lg,
+    textAlign: 'center',
   },
   input: {
-    flex: 1,
-    color: '#333',
-    fontSize: 16,
-    height: '100%',
+    marginBottom: Spacing.md,
   },
-  fieldErrorText: {
-    color: '#FF3B30',
-    fontSize: 12,
-    marginTop: 6,
-    marginLeft: 4,
-  },
-  showPasswordButton: {
-    padding: 5,
-  },
-  forgotPasswordLink: {
-    alignSelf: 'flex-end',
-    marginBottom: 15,
-  },
-  forgotPasswordText: {
-    color: '#007AFF',
-    fontSize: 14,
-  },
-  loginButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 10,
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 5,
-  },
-  buttonDisabled: {
-    backgroundColor: '#97C1F7',
-  },
-  loginButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E0E0E0',
-  },
-  dividerText: {
-    color: '#999',
-    paddingHorizontal: 10,
-  },
-  socialButtonsContainer: {
+  optionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
   },
-  socialButton: {
+  rememberMeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: Colors.secondaryTextLight,
+    marginRight: 8,
+    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F5F7FA',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E9F0',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    width: '48%',
   },
-  socialButtonText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+  rememberMeText: {
+    color: Colors.primaryTextLight,
   },
-  signUpContainer: {
+  forgotPassword: {
+    color: Colors.primaryBlue,
+  },
+  loginButton: {
+    marginTop: Spacing.md,
+  },
+  errorText: {
+    color: Colors.accentDanger,
+    marginBottom: Spacing.md,
+  },
+  verificationContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 5,
+    flexWrap: 'wrap',
+    marginBottom: Spacing.md,
   },
-  signUpText: {
-    fontSize: 15,
-    color: '#666',
+  verificationText: {
+    color: Colors.accentWarning,
+    marginRight: 4,
   },
-  signUpLink: {
-    fontSize: 15,
-    color: '#007AFF',
-    fontWeight: '600',
-    marginLeft: 5,
+  verifyLink: {
+    color: Colors.primaryBlue,
+    fontWeight: Typography.semibold,
   },
-  verifyEmailButton: {
-    backgroundColor: '#4CD964',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginTop: 10,
+  signupContainer: {
+    marginTop: Spacing.lg,
+    alignItems: 'center',
   },
-  verifyEmailText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-    textAlign: 'center',
+  signupButton: {
+    marginTop: Spacing.sm,
   },
 });
 

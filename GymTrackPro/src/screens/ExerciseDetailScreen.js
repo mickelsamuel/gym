@@ -2,19 +2,17 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import {
   View,
-  Text,
-  StyleSheet,
   ScrollView,
   Image,
   TouchableOpacity,
-  Alert,
   Dimensions,
   ActivityIndicator,
   Animated,
   StatusBar,
   Platform,
   ImageBackground,
-  Share
+  Share,
+  SectionList
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,10 +23,18 @@ import WorkoutLogModal from './WorkoutLogModal';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import Colors from '../constants/Colors';
-import { Title, Heading, Subheading, Body, Caption } from '../components/ui/Text';
-import Container from '../components/ui/Container';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { format } from 'date-fns';
+import { 
+  Button, 
+  Text,
+  Card, 
+  Container,
+  FadeIn,
+  SlideIn,
+  CircleProgress
+} from '../components/ui';
+import { Colors, Theme, Typography, Spacing, BorderRadius } from '../constants/Theme';
 
 function ExerciseDetailScreen() {
   const navigation = useNavigation();
@@ -40,21 +46,32 @@ function ExerciseDetailScreen() {
     toggleFavorite,
     isFavorite,
     userGoal,
-    darkMode
+    darkMode,
+    getRelatedExercises
   } = useContext(ExerciseContext);
   const exercise = getExerciseById(exerciseId);
   const insets = useSafeAreaInsets();
+  const theme = darkMode ? Theme.dark : Theme.light;
+  const { width } = Dimensions.get('window');
 
   // States for logging and history
   const [logModalVisible, setLogModalVisible] = useState(logWorkout || false);
   const [editingSet, setEditingSet] = useState(null);
   const [exerciseHistory, setExerciseHistory] = useState([]);
+  const [personalRecords, setPersonalRecords] = useState({
+    weight: { value: 0, date: null },
+    reps: { value: 0, date: null },
+    volume: { value: 0, date: null }
+  });
   const [nextWorkout, setNextWorkout] = useState(null);
 
-  // States for progress filtering & chart metric
-  const [timeRange, setTimeRange] = useState('30'); // options: '7', '30', or 'all'
-  const [chartMetric, setChartMetric] = useState('volume'); // options: 'volume', 'weight', 'reps'
+  // States for progress filtering & chart
+  const [timeRange, setTimeRange] = useState('30'); // options: '7', '30', '90', 'all'
+  const [chartMetric, setChartMetric] = useState('weight'); // options: 'weight', 'reps', 'volume'
+  const [chartData, setChartData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [relatedExercises, setRelatedExercises] = useState([]);
   
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -62,51 +79,28 @@ function ExerciseDetailScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
-  // Initialize colors
-  const defaultColors = {
-    light: {
-      primary: '#007AFF',
-      secondary: '#5856D6',
-      background: '#F8F9FA',
-      backgroundSecondary: '#FFFFFF',
-      text: '#333333',
-      textSecondary: '#666666',
-      textTertiary: '#999999',
-      border: '#E0E0E0',
-      card: '#FFFFFF',
-      warning: '#FF9500',
-      success: '#28A745',
-      danger: '#FF3B30',
-      info: '#5AC8FA',
-      shadow: 'rgba(0,0,0,0.1)',
-    },
-    dark: {
-      primary: '#0A84FF',
-      secondary: '#5E5CE6',
-      background: '#1C1C1E',
-      backgroundSecondary: '#2C2C2E',
-      text: '#FFFFFF',
-      textSecondary: '#AAAAAA',
-      textTertiary: '#888888',
-      border: '#555555',
-      card: '#2C2C2E',
-      warning: '#FF9F0A',
-      success: '#33CF4D',
-      danger: '#FF453A',
-      info: '#64D2FF',
-      shadow: 'rgba(0,0,0,0.3)',
-    }
-  };
-  
-  // Use the imported Colors if available, otherwise use the default
-  const colorScheme = Colors || defaultColors;
-  const colors = darkMode ? colorScheme.dark : colorScheme.light;
-
   // Derived values for header animations
   const HEADER_MAX_HEIGHT = 300;
   const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 90 + insets.top : 70;
   const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
   
+  // Setup animations
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+  
+  // Animation interpolations
   const headerHeight = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE],
     outputRange: [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
@@ -133,61 +127,232 @@ function ExerciseDetailScreen() {
   
   const headerBackgroundColor = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE],
-    outputRange: ['transparent', colors.backgroundSecondary],
+    outputRange: ['transparent', theme.card],
     extrapolate: 'clamp',
   });
 
+  // Chart configuration
+  const chartConfig = {
+    backgroundGradientFrom: theme.card,
+    backgroundGradientTo: theme.card,
+    decimalPlaces: chartMetric === 'weight' || chartMetric === 'volume' ? 1 : 0,
+    color: (opacity = 1) => `rgba(10, 108, 255, ${opacity})`,
+    labelColor: (opacity = 1) => theme.textSecondary,
+    style: {
+      borderRadius: BorderRadius.lg,
+    },
+    propsForDots: {
+      r: '5',
+      strokeWidth: '2',
+      stroke: Colors.primaryBlue,
+    },
+    propsForBackgroundLines: {
+      stroke: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+      strokeDasharray: '5, 5',
+    },
+  };
+
   useEffect(() => {
-    async function loadHistory() {
+    async function loadExerciseData() {
       try {
+        if (!exercise) return;
+        
+        // Load exercise history
         const history = await DatabaseService.getExerciseHistory(exerciseId);
         setExerciseHistory(history);
 
+        // Calculate personal records
+        const records = calculatePersonalRecords(history);
+        setPersonalRecords(records);
+        
+        // Get next workout recommendation
         const recommendation = await DatabaseService.calculateNextWorkout(exerciseId);
         setNextWorkout(recommendation);
+        
+        // Get related exercises
+        const related = getRelatedExercises(exerciseId);
+        setRelatedExercises(related);
+        
+        // Update chart data
+        updateChartData(history, chartMetric, timeRange);
       } catch (error) {
-        console.warn(error);
+        console.warn("Error loading exercise data:", error);
       } finally {
         setIsLoading(false);
       }
     }
     
-    if (exercise) {
-      loadHistory();
-      
-      // Run animations
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        })
-      ]).start();
-    }
+    loadExerciseData();
   }, [exerciseId, exercise]);
+  
+  // Update chart data when metric or time range changes
+  useEffect(() => {
+    updateChartData(exerciseHistory, chartMetric, timeRange);
+  }, [chartMetric, timeRange, exerciseHistory]);
 
-  // Utility: Filter history based on timeRange selection.
-  const getFilteredHistory = () => {
-    const now = new Date();
-    if (timeRange === 'all') {
-      return exerciseHistory;
+  // Calculate personal records from history
+  const calculatePersonalRecords = (history) => {
+    if (!history || history.length === 0) {
+      return {
+        weight: { value: 0, date: null },
+        reps: { value: 0, date: null },
+        volume: { value: 0, date: null }
+      };
     }
-    return exerciseHistory.filter(entry => {
-      const entryDate = new Date(entry.date);
-      const daysDiff = (now - entryDate) / (1000 * 3600 * 24);
-      return daysDiff <= Number(timeRange);
+    
+    let records = {
+      weight: { value: 0, date: null },
+      reps: { value: 0, date: null },
+      volume: { value: 0, date: null }
+    };
+    
+    history.forEach(session => {
+      // Find max weight for a single set
+      const maxWeightSet = session.sets.reduce((max, set) => 
+        (set.weight > max.weight) ? set : max, { weight: 0 });
+      
+      if (maxWeightSet.weight > records.weight.value) {
+        records.weight = { 
+          value: maxWeightSet.weight, 
+          date: session.date 
+        };
+      }
+      
+      // Find max reps for a single set
+      const maxRepsSet = session.sets.reduce((max, set) => 
+        (set.reps > max.reps) ? set : max, { reps: 0 });
+      
+      if (maxRepsSet.reps > records.reps.value) {
+        records.reps = { 
+          value: maxRepsSet.reps, 
+          date: session.date 
+        };
+      }
+      
+      // Calculate total volume for the session (weight × reps for all sets)
+      const totalVolume = session.sets.reduce((sum, set) => 
+        sum + (set.weight * set.reps), 0);
+      
+      if (totalVolume > records.volume.value) {
+        records.volume = { 
+          value: totalVolume, 
+          date: session.date 
+        };
+      }
+    });
+    
+    return records;
+  };
+
+  // Update chart data based on selected metric and time range
+  const updateChartData = (history, metric, range) => {
+    if (!history || history.length === 0) {
+      setChartData(null);
+      return;
+    }
+    
+    // Filter history based on time range
+    const filteredHistory = getFilteredHistory(history, range);
+    
+    if (filteredHistory.length === 0) {
+      setChartData(null);
+      return;
+    }
+    
+    // Sort history by date (oldest first)
+    const sortedHistory = [...filteredHistory].sort(
+      (a, b) => new Date(a.date) - new Date(b.date)
+    );
+    
+    // Generate data points based on the selected metric
+    let labels = [];
+    let data = [];
+    
+    // Limit to 7 data points for clarity
+    const step = Math.max(1, Math.floor(sortedHistory.length / 7));
+    const limitedHistory = sortedHistory.filter((_, index) => index % step === 0 || index === sortedHistory.length - 1);
+    
+    limitedHistory.forEach(session => {
+      const date = new Date(session.date);
+      
+      // Format the label based on time range
+      let label;
+      if (range === '7') {
+        label = format(date, 'E'); // Day of week (Mon, Tue, etc.)
+      } else if (range === '30') {
+        label = format(date, 'MM/dd'); // Month/day
+      } else {
+        label = format(date, 'MM/yy'); // Month/year
+      }
+      
+      labels.push(label);
+      
+      switch (metric) {
+        case 'weight':
+          // Use the max weight from the session
+          const maxWeight = session.sets.reduce((max, set) => 
+            Math.max(max, set.weight), 0);
+          data.push(maxWeight);
+          break;
+          
+        case 'reps':
+          // Use the max reps from the session
+          const maxReps = session.sets.reduce((max, set) => 
+            Math.max(max, set.reps), 0);
+          data.push(maxReps);
+          break;
+          
+        case 'volume':
+          // Calculate total volume (weight × reps for all sets)
+          const totalVolume = session.sets.reduce((sum, set) => 
+            sum + (set.weight * set.reps), 0);
+          data.push(totalVolume);
+          break;
+      }
+    });
+    
+    setChartData({
+      labels,
+      datasets: [
+        {
+          data,
+          color: (opacity = 1) => `rgba(10, 108, 255, ${opacity})`,
+          strokeWidth: 2
+        }
+      ],
+      legend: [getMetricLabel(metric)]
     });
   };
 
-  // Sort the filtered history in ascending order (oldest first)
-  const sortedHistory = getFilteredHistory().sort(
-    (a, b) => new Date(a.date) - new Date(b.date)
-  );
+  // Utility: Filter history based on timeRange selection
+  const getFilteredHistory = (history, range) => {
+    if (!history) return [];
+    
+    const now = new Date();
+    if (range === 'all') {
+      return history;
+    }
+    
+    return history.filter(entry => {
+      const entryDate = new Date(entry.date);
+      const daysDiff = (now - entryDate) / (1000 * 3600 * 24);
+      return daysDiff <= Number(range);
+    });
+  };
+  
+  // Get formatted label for the selected metric
+  const getMetricLabel = (metric) => {
+    switch (metric) {
+      case 'weight':
+        return 'Weight (kg)';
+      case 'reps':
+        return 'Repetitions';
+      case 'volume':
+        return 'Total Volume (kg)';
+      default:
+        return metric;
+    }
+  };
 
   // Handle share exercise
   const handleShareExercise = async () => {
@@ -203,10 +368,10 @@ function ExerciseDetailScreen() {
   };
 
   // De-structure data for muscles and rep ranges
-  const primaryMuscles = exercise?.primaryMuscles.map(id => getMuscleInfo(id)) || [];
-  const secondaryMuscles = exercise?.secondaryMuscles.map(id => getMuscleInfo(id)) || [];
+  const primaryMuscles = exercise?.primaryMuscles?.map(id => getMuscleInfo(id)) || [];
+  const secondaryMuscles = exercise?.secondaryMuscles?.map(id => getMuscleInfo(id)) || [];
   const goalRepRange =
-    exercise?.repRanges.find(range => range.goal === userGoal) || exercise?.repRanges[0];
+    exercise?.repRanges?.find(range => range.goal === userGoal) || exercise?.repRanges?.[0];
 
   // Toggle favorite with haptic feedback
   const handleToggleFavorite = () => {
@@ -218,14 +383,22 @@ function ExerciseDetailScreen() {
     toggleFavorite(exercise.id);
   };
 
+  // Handle log workout
+  const handleLogWorkout = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setLogModalVisible(true);
+  };
+
   if (!exercise) {
     return (
-      <Container style={{ backgroundColor: colors.background }}>
-        <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Exercise not found
-          </Text>
+      <Container>
+        <View style={styles.loadingContainer}>
+          <FadeIn>
+            <ActivityIndicator size="large" color={Colors.primaryBlue} />
+            <Text variant="body" style={styles.loadingText}>
+              Exercise not found
+            </Text>
+          </FadeIn>
         </View>
       </Container>
     );
@@ -233,22 +406,24 @@ function ExerciseDetailScreen() {
 
   if (isLoading) {
     return (
-      <Container style={{ backgroundColor: colors.background }}>
-        <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading exercise details...
-          </Text>
+      <Container>
+        <View style={styles.loadingContainer}>
+          <FadeIn>
+            <ActivityIndicator size="large" color={Colors.primaryBlue} />
+            <Text variant="body" style={styles.loadingText}>
+              Loading exercise details...
+            </Text>
+          </FadeIn>
         </View>
       </Container>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <Container>
       <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
       
-      {/* Header */}
+      {/* Hero Section with Animated Header */}
       <Animated.View 
         style={[
           styles.header, 
@@ -269,24 +444,30 @@ function ExerciseDetailScreen() {
             },
           ]}
         >
-          <ImageBackground source={exercise.image} style={styles.backgroundImage}>
+          <ImageBackground 
+            source={exercise.image ? exercise.image : require('../../assets/images/exercise-placeholder.jpg')} 
+            style={styles.backgroundImage}
+            resizeMode="cover"
+          >
             <LinearGradient
-              colors={['rgba(0,0,0,0.5)', 'transparent', 'rgba(0,0,0,0.8)']}
+              colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.7)']}
               style={styles.gradient}
             />
           </ImageBackground>
         </Animated.View>
         
         {/* Header Controls */}
-        <View style={[styles.headerControls, { paddingTop: Platform.OS === 'ios' ? 0 : 8 }]}>
+        <View style={[styles.headerControls, { paddingTop: insets.top }]}>
           <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: 'rgba(0,0,0,0.3)' }]}
+            style={styles.headerButton}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.goBack();
             }}
           >
-            <Ionicons name="arrow-back" size={22} color="#FFF" />
+            <BlurView intensity={80} tint="dark" style={styles.blurButton}>
+              <Ionicons name="arrow-back" size={22} color="#FFF" />
+            </BlurView>
           </TouchableOpacity>
           
           <Animated.Text 
@@ -294,7 +475,7 @@ function ExerciseDetailScreen() {
               styles.headerTitle, 
               { 
                 opacity: headerTitleOpacity,
-                color: colors.text,
+                color: theme.text,
               }
             ]}
             numberOfLines={1}
@@ -304,21 +485,25 @@ function ExerciseDetailScreen() {
           
           <View style={styles.headerRightButtons}>
             <TouchableOpacity
-              style={[styles.headerButton, { backgroundColor: 'rgba(0,0,0,0.3)' }]}
+              style={styles.headerButton}
               onPress={handleShareExercise}
             >
-              <Ionicons name="share-outline" size={22} color="#FFF" />
+              <BlurView intensity={80} tint="dark" style={styles.blurButton}>
+                <Ionicons name="share-outline" size={22} color="#FFF" />
+              </BlurView>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={[styles.headerButton, { backgroundColor: 'rgba(0,0,0,0.3)' }]}
+              style={styles.headerButton}
               onPress={handleToggleFavorite}
             >
-              <Ionicons
-                name={isFavorite(exercise.id) ? 'heart' : 'heart-outline'}
-                size={22}
-                color={isFavorite(exercise.id) ? '#FF3B30' : '#FFF'}
-              />
+              <BlurView intensity={80} tint="dark" style={styles.blurButton}>
+                <Ionicons
+                  name={isFavorite(exercise.id) ? 'heart' : 'heart-outline'}
+                  size={22}
+                  color={isFavorite(exercise.id) ? Colors.accentDanger : '#FFF'}
+                />
+              </BlurView>
             </TouchableOpacity>
           </View>
         </View>
@@ -336,11 +521,18 @@ function ExerciseDetailScreen() {
             }
           ]}
         >
-          <Text style={[styles.exerciseName, { color: '#FFFFFF' }]}>
+          <Text variant="pageTitle" style={styles.exerciseName}>
             {exercise.name}
           </Text>
           <View style={styles.exerciseCategoryContainer}>
-            <Text style={styles.exerciseCategory}>{exercise.category}</Text>
+            <Text style={styles.exerciseCategory}>
+              {exercise.category || exercise.primaryMuscles?.[0] || 'Exercise'}
+            </Text>
+            <View style={styles.difficultyContainer}>
+              <Text style={styles.difficulty}>
+                {exercise.difficulty || 'All Levels'}
+              </Text>
+            </View>
           </View>
         </Animated.View>
       </Animated.View>
@@ -349,517 +541,382 @@ function ExerciseDetailScreen() {
       <Animated.ScrollView
         contentContainerStyle={[
           styles.scrollContainer,
-          { paddingTop: HEADER_MAX_HEIGHT - 20 }
+          { paddingTop: HEADER_MAX_HEIGHT - 40 }
         ]}
         scrollEventThrottle={16}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
+          { useNativeDriver: true }
         )}
       >
-        <Animated.View 
-          style={[
-            styles.contentContainer, 
-            { 
-              backgroundColor: colors.backgroundSecondary,
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-              shadowColor: colors.shadow,
-            }
-          ]}
-        >
-          {/* Next Workout Recommendation */}
-          {nextWorkout && (
-            <View style={styles.nextWorkoutContainer}>
-              <View style={styles.nextWorkoutHeader}>
-                <Ionicons name="fitness-outline" size={20} color={colors.primary} />
-                <Subheading style={{ color: colors.text, marginLeft: 8 }}>Recommendation</Subheading>
+        {/* Main Content Cards */}
+        <SlideIn direction="up" delay={100}>
+          <Card style={styles.mainCard}>
+            {/* Personal Records Section */}
+            <View style={styles.recordsSection}>
+              <Text variant="cardTitle" style={styles.sectionTitle}>Personal Records</Text>
+              <View style={styles.recordsGrid}>
+                <View style={styles.recordCard}>
+                  <CircleProgress 
+                    size={70} 
+                    progress={personalRecords.weight.value > 0 ? 1 : 0}
+                    strokeWidth={4}
+                    progressColor={Colors.primaryBlue}
+                  />
+                  <Text variant="cardTitle" style={styles.recordValue}>
+                    {personalRecords.weight.value > 0 ? personalRecords.weight.value : '-'}
+                  </Text>
+                  <Text variant="caption" style={styles.recordLabel}>Max Weight</Text>
+                  {personalRecords.weight.date && (
+                    <Text variant="caption" style={styles.recordDate}>
+                      {format(new Date(personalRecords.weight.date), 'MMM d, yyyy')}
+                    </Text>
+                  )}
+                </View>
+                
+                <View style={styles.recordCard}>
+                  <CircleProgress 
+                    size={70} 
+                    progress={personalRecords.reps.value > 0 ? 1 : 0} 
+                    strokeWidth={4}
+                    progressColor={Colors.secondaryGreen}
+                  />
+                  <Text variant="cardTitle" style={styles.recordValue}>
+                    {personalRecords.reps.value > 0 ? personalRecords.reps.value : '-'}
+                  </Text>
+                  <Text variant="caption" style={styles.recordLabel}>Max Reps</Text>
+                  {personalRecords.reps.date && (
+                    <Text variant="caption" style={styles.recordDate}>
+                      {format(new Date(personalRecords.reps.date), 'MMM d, yyyy')}
+                    </Text>
+                  )}
+                </View>
+                
+                <View style={styles.recordCard}>
+                  <CircleProgress 
+                    size={70} 
+                    progress={personalRecords.volume.value > 0 ? 1 : 0}
+                    strokeWidth={4}
+                    progressColor={Colors.accentWarning}
+                  />
+                  <Text variant="cardTitle" style={styles.recordValue}>
+                    {personalRecords.volume.value > 0 ? personalRecords.volume.value : '-'}
+                  </Text>
+                  <Text variant="caption" style={styles.recordLabel}>Max Volume</Text>
+                  {personalRecords.volume.date && (
+                    <Text variant="caption" style={styles.recordDate}>
+                      {format(new Date(personalRecords.volume.date), 'MMM d, yyyy')}
+                    </Text>
+                  )}
+                </View>
               </View>
+            </View>
+            
+            {/* Muscles Section */}
+            <View style={styles.musclesSection}>
+              <Text variant="cardTitle" style={styles.sectionTitle}>Muscles Targeted</Text>
               
-              <View style={styles.nextWorkoutContent}>
-                <View style={styles.recommendationMetrics}>
-                  <View style={styles.recommendationMetric}>
-                    <Text style={[styles.metricValue, { color: colors.primary }]}>
-                      {nextWorkout.sets}
-                    </Text>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Sets</Text>
-                  </View>
-                  
-                  <View style={styles.recommendationMetric}>
-                    <Text style={[styles.metricValue, { color: colors.primary }]}>
-                      {nextWorkout.reps}
-                    </Text>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Reps</Text>
-                  </View>
-                  
-                  <View style={styles.recommendationMetric}>
-                    <Text style={[styles.metricValue, { color: colors.primary }]}>
-                      {nextWorkout.weight}
-                    </Text>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Weight</Text>
+              <View style={styles.muscleGroups}>
+                <View style={styles.muscleGroup}>
+                  <Text variant="body" style={styles.muscleGroupLabel}>Primary</Text>
+                  <View style={styles.muscleChips}>
+                    {primaryMuscles.length > 0 ? (
+                      primaryMuscles.map((muscle, index) => (
+                        <View key={index} style={styles.muscleChip}>
+                          <Text style={styles.muscleChipText}>{muscle.name}</Text>
+                        </View>
+                      ))
+                    ) : (
+                      <Text variant="body" style={styles.noDataText}>No primary muscles specified</Text>
+                    )}
                   </View>
                 </View>
                 
-                <TouchableOpacity
-                  style={[styles.logButton, { backgroundColor: colors.primary }]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setEditingSet(nextWorkout);
-                    setLogModalVisible(true);
-                  }}
-                >
-                  <Text style={styles.logButtonText}>Log Workout</Text>
-                </TouchableOpacity>
+                {secondaryMuscles.length > 0 && (
+                  <View style={styles.muscleGroup}>
+                    <Text variant="body" style={styles.muscleGroupLabel}>Secondary</Text>
+                    <View style={styles.muscleChips}>
+                      {secondaryMuscles.map((muscle, index) => (
+                        <View key={index} style={[styles.muscleChip, styles.secondaryMuscleChip]}>
+                          <Text style={[styles.muscleChipText, styles.secondaryMuscleText]}>
+                            {muscle.name}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </View>
             </View>
-          )}
-
-          {/* Exercise Info Panel */}
-          <View style={styles.sectionContainer}>
-            <Heading style={{ color: colors.text, marginBottom: 16 }}>About this Exercise</Heading>
+          </Card>
+        </SlideIn>
+        
+        {/* Description Section */}
+        <SlideIn direction="up" delay={200}>
+          <Card style={styles.descriptionCard}>
+            <Text variant="cardTitle" style={styles.sectionTitle}>Description</Text>
+            <Text variant="body" style={styles.descriptionText}>
+              {exercise.instructions || exercise.description || 'No description available for this exercise.'}
+            </Text>
             
-            <View style={styles.exerciseInfoGrid}>
-              {/* Equipment */}
-              <View style={styles.infoCard}>
-                <View style={[styles.infoIconContainer, { backgroundColor: `${colors.primary}20` }]}>
-                  <Ionicons name="barbell-outline" size={24} color={colors.primary} />
-                </View>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Equipment</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>{exercise.equipment}</Text>
-              </View>
-              
-              {/* Difficulty */}
-              <View style={styles.infoCard}>
-                <View style={[styles.infoIconContainer, { backgroundColor: `${colors.warning}20` }]}>
-                  <Ionicons name="speedometer-outline" size={24} color={colors.warning} />
-                </View>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Difficulty</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>{exercise.difficulty}</Text>
-              </View>
-              
-              {/* Suggested Rep Range */}
-              <View style={styles.infoCard}>
-                <View style={[styles.infoIconContainer, { backgroundColor: `${colors.success}20` }]}>
-                  <Ionicons name="repeat-outline" size={24} color={colors.success} />
-                </View>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Rep Range</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {goalRepRange ? `${goalRepRange.min}-${goalRepRange.max}` : 'N/A'}
-                </Text>
-              </View>
-              
-              {/* Set Range */}
-              <View style={styles.infoCard}>
-                <View style={[styles.infoIconContainer, { backgroundColor: `${colors.info}20` }]}>
-                  <Ionicons name="layers-outline" size={24} color={colors.info} />
-                </View>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Sets</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {goalRepRange ? goalRepRange.sets : 'N/A'}
-                </Text>
-              </View>
-            </View>
-          </View>
-          
-          {/* Muscle Groups */}
-          <View style={styles.sectionContainer}>
-            <Heading style={{ color: colors.text, marginBottom: 16 }}>Muscles Targeted</Heading>
-            
-            <View>
-              <View style={styles.muscleGroup}>
-                <View style={styles.muscleGroupHeader}>
-                  <Text style={[styles.muscleGroupTitle, { color: colors.text }]}>Primary</Text>
-                </View>
-                <View style={styles.muscleList}>
-                  {primaryMuscles.map(muscle => (
-                    <View key={muscle.id} style={styles.muscleTag}>
-                      <Text style={styles.muscleTagText}>{muscle.name}</Text>
+            {/* Technique Tips Section */}
+            {exercise.tips && exercise.tips.length > 0 && (
+              <View style={styles.tipsSection}>
+                <Text variant="cardTitle" style={styles.sectionTitle}>Technique Tips</Text>
+                <View style={styles.tipsList}>
+                  {exercise.tips.map((tip, index) => (
+                    <View key={index} style={styles.tipItem}>
+                      <View style={styles.tipBullet} />
+                      <Text variant="body" style={styles.tipText}>{tip}</Text>
                     </View>
                   ))}
                 </View>
               </View>
-              
-              {secondaryMuscles.length > 0 && (
-                <View style={styles.muscleGroup}>
-                  <View style={styles.muscleGroupHeader}>
-                    <Text style={[styles.muscleGroupTitle, { color: colors.text }]}>Secondary</Text>
-                  </View>
-                  <View style={styles.muscleList}>
-                    {secondaryMuscles.map(muscle => (
-                      <View key={muscle.id} style={[styles.muscleTag, { backgroundColor: `${colors.secondary}30` }]}>
-                        <Text style={[styles.muscleTagText, { color: colors.secondary }]}>{muscle.name}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-            </View>
-          </View>
-          
-          {/* Instructions */}
-          <View style={styles.sectionContainer}>
-            <Heading style={{ color: colors.text, marginBottom: 16 }}>Instructions</Heading>
-            <Body style={{ color: colors.text, lineHeight: 22 }}>{exercise.instructions}</Body>
-          </View>
-          
-          {/* Tips */}
-          {exercise.tips && exercise.tips.length > 0 && (
-            <View style={styles.sectionContainer}>
-              <Heading style={{ color: colors.text, marginBottom: 16 }}>Tips</Heading>
-              <View style={styles.tipsList}>
-                {exercise.tips.map((tip, index) => (
-                  <View key={index} style={styles.tipItem}>
-                    <View style={[styles.tipBullet, { backgroundColor: colors.primary }]} />
-                    <Body style={{ color: colors.text, flex: 1 }}>{tip}</Body>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-        </Animated.View>
-        
-        {/* Progress Section */}
-        {sortedHistory.length > 0 && (
-          <Animated.View 
-            style={[
-              styles.contentContainer, 
-              { 
-                backgroundColor: colors.backgroundSecondary, 
-                marginTop: 16,
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-                shadowColor: colors.shadow,
-              }
-            ]}
-          >
-            <View style={styles.historyHeader}>
-              <Heading style={{ color: colors.text }}>Your Progress</Heading>
-              <View style={styles.timeRangeSelectors}>
-                <TouchableOpacity
-                  style={[
-                    styles.timeRangeButton,
-                    timeRange === '7' && { backgroundColor: `${colors.primary}20` },
-                  ]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setTimeRange('7');
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.timeRangeText,
-                      { color: timeRange === '7' ? colors.primary : colors.textSecondary },
-                    ]}
-                  >
-                    7d
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[
-                    styles.timeRangeButton,
-                    timeRange === '30' && { backgroundColor: `${colors.primary}20` },
-                  ]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setTimeRange('30');
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.timeRangeText,
-                      { color: timeRange === '30' ? colors.primary : colors.textSecondary },
-                    ]}
-                  >
-                    30d
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[
-                    styles.timeRangeButton,
-                    timeRange === 'all' && { backgroundColor: `${colors.primary}20` },
-                  ]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setTimeRange('all');
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.timeRangeText,
-                      { color: timeRange === 'all' ? colors.primary : colors.textSecondary },
-                    ]}
-                  >
-                    All
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            {/* Metric selectors */}
-            <View style={styles.metricSelectors}>
-              <TouchableOpacity
-                style={[
-                  styles.metricButton,
-                  chartMetric === 'volume' && { backgroundColor: `${colors.primary}20`, borderColor: colors.primary },
-                ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setChartMetric('volume');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.metricButtonText,
-                    { color: chartMetric === 'volume' ? colors.primary : colors.textSecondary },
-                  ]}
-                >
-                  Volume
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.metricButton,
-                  chartMetric === 'weight' && { backgroundColor: `${colors.primary}20`, borderColor: colors.primary },
-                ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setChartMetric('weight');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.metricButtonText,
-                    { color: chartMetric === 'weight' ? colors.primary : colors.textSecondary },
-                  ]}
-                >
-                  Weight
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.metricButton,
-                  chartMetric === 'reps' && { backgroundColor: `${colors.primary}20`, borderColor: colors.primary },
-                ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setChartMetric('reps');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.metricButtonText,
-                    { color: chartMetric === 'reps' ? colors.primary : colors.textSecondary },
-                  ]}
-                >
-                  Reps
-                </Text>
-              </TouchableOpacity>
-            </View>
-            
-            {/* Chart */}
-            {sortedHistory.length >= 2 ? (
-              <View style={styles.chartContainer}>
-                <LineChart
-                  data={{
-                    labels: sortedHistory.map(entry => 
-                      new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                    ),
-                    datasets: [
-                      {
-                        data: sortedHistory.map(entry => {
-                          if (chartMetric === 'volume') {
-                            // Volume = weight * reps * sets
-                            return entry.sets.reduce(
-                              (sum, set) => sum + (set.weight * set.reps),
-                              0
-                            );
-                          } else if (chartMetric === 'weight') {
-                            // Max weight from all sets
-                            return Math.max(...entry.sets.map(set => set.weight));
-                          } else if (chartMetric === 'reps') {
-                            // Total reps from all sets
-                            return entry.sets.reduce(
-                              (sum, set) => sum + set.reps,
-                              0
-                            );
-                          }
-                        }),
-                      },
-                    ],
-                  }}
-                  width={Dimensions.get('window').width - 40}
-                  height={220}
-                  yAxisLabel={chartMetric === 'weight' ? '' : ''}
-                  yAxisSuffix={chartMetric === 'weight' ? ' lb' : ''}
-                  chartConfig={{
-                    backgroundColor: colors.backgroundSecondary,
-                    backgroundGradientFrom: colors.backgroundSecondary,
-                    backgroundGradientTo: colors.backgroundSecondary,
-                    decimalPlaces: 0,
-                    color: (opacity = 1) => `rgba(${darkMode ? '10, 132, 255' : '0, 122, 255'}, ${opacity})`,
-                    labelColor: (opacity = 1) => colors.textSecondary,
-                    style: {
-                      borderRadius: 16,
-                    },
-                    propsForDots: {
-                      r: '4',
-                      strokeWidth: '2',
-                      stroke: colors.primary,
-                    },
-                  }}
-                  style={styles.chart}
-                  bezier
-                />
-              </View>
-            ) : (
-              <View style={styles.notEnoughDataContainer}>
-                <Ionicons name="analytics-outline" size={40} color={colors.textTertiary} />
-                <Text style={[styles.notEnoughDataText, { color: colors.textSecondary }]}>
-                  Log at least two workouts to see progress chart
-                </Text>
-              </View>
             )}
-            
-            {/* History List */}
-            <View style={styles.historyListContainer}>
-              <Subheading style={{ color: colors.text, marginBottom: 12 }}>History</Subheading>
+          </Card>
+        </SlideIn>
+        
+        {/* Progress Chart Section */}
+        {exerciseHistory.length > 0 && (
+          <SlideIn direction="up" delay={300}>
+            <Card style={styles.chartCard}>
+              <Text variant="cardTitle" style={styles.sectionTitle}>Your Progress</Text>
               
-              {sortedHistory.slice().reverse().map((entry, index) => (
-                <View key={index} style={[styles.historyItem, { borderBottomColor: colors.border }]}>
-                  <View style={styles.historyItemHeader}>
-                    <Text style={[styles.historyDate, { color: colors.text }]}>
-                      {new Date(entry.date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
+              {/* Chart Time Range */}
+              <View style={styles.chartControls}>
+                <View style={styles.timeRangeContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.timeRangeButton,
+                      timeRange === '7' && styles.activeTimeRange
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setTimeRange('7');
+                    }}
+                  >
+                    <Text style={[
+                      styles.timeRangeText,
+                      timeRange === '7' && styles.activeTimeRangeText
+                    ]}>
+                      Week
                     </Text>
-                    <TouchableOpacity
-                      style={styles.editButton}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setEditingSet({
-                          sets: entry.sets.length,
-                          reps: entry.sets[0]?.reps,
-                          weight: entry.sets[0]?.weight,
-                          date: entry.date
-                        });
-                        setLogModalVisible(true);
-                      }}
-                    >
-                      <Ionicons name="create-outline" size={16} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                  </View>
+                  </TouchableOpacity>
                   
-                  <View style={styles.setsList}>
-                    {entry.sets.map((set, setIndex) => (
-                      <View key={setIndex} style={styles.setItem}>
-                        <View style={styles.setNumber}>
-                          <Text style={[styles.setNumberText, { color: colors.text }]}>
-                            {setIndex + 1}
-                          </Text>
-                        </View>
-                        <Text style={[styles.setText, { color: colors.text }]}>
-                          {set.reps} reps × {set.weight} lb
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.timeRangeButton,
+                      timeRange === '30' && styles.activeTimeRange
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setTimeRange('30');
+                    }}
+                  >
+                    <Text style={[
+                      styles.timeRangeText,
+                      timeRange === '30' && styles.activeTimeRangeText
+                    ]}>
+                      Month
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[
+                      styles.timeRangeButton,
+                      timeRange === 'all' && styles.activeTimeRange
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setTimeRange('all');
+                    }}
+                  >
+                    <Text style={[
+                      styles.timeRangeText,
+                      timeRange === 'all' && styles.activeTimeRangeText
+                    ]}>
+                      All time
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              ))}
+                
+                {/* Metric Toggles */}
+                <View style={styles.metricToggleContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.metricButton,
+                      chartMetric === 'weight' && styles.activeMetric
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setChartMetric('weight');
+                    }}
+                  >
+                    <Text style={[
+                      styles.metricText,
+                      chartMetric === 'weight' && styles.activeMetricText
+                    ]}>
+                      Weight
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[
+                      styles.metricButton,
+                      chartMetric === 'reps' && styles.activeMetric
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setChartMetric('reps');
+                    }}
+                  >
+                    <Text style={[
+                      styles.metricText,
+                      chartMetric === 'reps' && styles.activeMetricText
+                    ]}>
+                      Reps
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[
+                      styles.metricButton,
+                      chartMetric === 'volume' && styles.activeMetric
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setChartMetric('volume');
+                    }}
+                  >
+                    <Text style={[
+                      styles.metricText,
+                      chartMetric === 'volume' && styles.activeMetricText
+                    ]}>
+                      Volume
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
               
-              {sortedHistory.length === 0 && (
-                <View style={styles.noHistoryContainer}>
-                  <Ionicons name="fitness-outline" size={40} color={colors.textTertiary} />
-                  <Text style={[styles.noHistoryText, { color: colors.textSecondary }]}>
-                    No history found for this timeframe
+              {/* The Chart */}
+              {chartData && exerciseHistory.length > 1 ? (
+                <View style={styles.chartWrapper}>
+                  <LineChart
+                    data={chartData}
+                    width={width - 48}
+                    height={220}
+                    chartConfig={chartConfig}
+                    bezier
+                    style={styles.chart}
+                    withInnerLines={false}
+                    withOuterLines={true}
+                    withDots={true}
+                    withShadow={false}
+                    fromZero={true}
+                  />
+                </View>
+              ) : (
+                <View style={styles.noChartDataContainer}>
+                  <Ionicons 
+                    name="analytics-outline" 
+                    size={48} 
+                    color={theme.textSecondary} 
+                  />
+                  <Text variant="body" style={styles.noChartDataText}>
+                    Need more data to show progress chart
+                  </Text>
+                  <Text variant="caption" style={styles.noChartDataSubtext}>
+                    Log at least two workouts to see your progress
                   </Text>
                 </View>
               )}
-            </View>
-          </Animated.View>
+            </Card>
+          </SlideIn>
         )}
         
         {/* Related Exercises */}
-        <Animated.View
-          style={[
-            styles.contentContainer,
-            {
-              backgroundColor: colors.backgroundSecondary,
-              marginTop: 16,
-              marginBottom: 24,
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-              shadowColor: colors.shadow,
-            },
-          ]}
-        >
-          <Heading style={{ color: colors.text, marginBottom: 16 }}>Similar Exercises</Heading>
-          <View style={styles.relatedExercisesContainer}>
-            {exercise.relatedExercises && exercise.relatedExercises.length > 0 ? (
-              exercise.relatedExercises.map(relatedId => {
-                const relatedExercise = getExerciseById(relatedId);
-                if (!relatedExercise) return null;
-                
-                return (
-                  <TouchableOpacity
-                    key={relatedId}
-                    style={[styles.relatedExerciseCard, { backgroundColor: colors.background }]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      navigation.push('ExerciseDetail', { exerciseId: relatedId });
-                    }}
-                  >
-                    <View style={styles.relatedExerciseImageContainer}>
+        {relatedExercises.length > 0 && (
+          <SlideIn direction="up" delay={400}>
+            <Card style={styles.relatedCard}>
+              <Text variant="cardTitle" style={styles.sectionTitle}>Similar Exercises</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.relatedExercisesScroll}
+              >
+                {relatedExercises.map(relatedId => {
+                  const relatedExercise = getExerciseById(relatedId);
+                  if (!relatedExercise) return null;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={relatedId}
+                      style={styles.relatedExerciseCard}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.push('ExerciseDetail', { exerciseId: relatedId });
+                      }}
+                    >
                       {relatedExercise.image ? (
                         <Image
                           source={relatedExercise.image}
                           style={styles.relatedExerciseImage}
+                          resizeMode="cover"
                         />
                       ) : (
-                        <View style={[styles.relatedExercisePlaceholder, { backgroundColor: `${colors.primary}20` }]}>
-                          <Ionicons name="barbell-outline" size={24} color={colors.primary} />
+                        <View style={styles.relatedExercisePlaceholder}>
+                          <Ionicons 
+                            name="barbell-outline" 
+                            size={28} 
+                            color={Colors.primaryBlue} 
+                          />
                         </View>
                       )}
-                    </View>
-                    <Text 
-                      style={[styles.relatedExerciseName, { color: colors.text }]}
-                      numberOfLines={2}
-                    >
-                      {relatedExercise.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })
-            ) : (
-              <View style={styles.noRelatedContainer}>
-                <Ionicons name="barbell-outline" size={40} color={colors.textTertiary} />
-                <Text style={[styles.noRelatedText, { color: colors.textSecondary }]}>
-                  No similar exercises found
-                </Text>
-              </View>
-            )}
-          </View>
-        </Animated.View>
+                      <View style={styles.relatedExerciseInfo}>
+                        <Text 
+                          variant="body" 
+                          style={styles.relatedExerciseName}
+                          numberOfLines={2}
+                        >
+                          {relatedExercise.name}
+                        </Text>
+                        <Text 
+                          variant="caption" 
+                          style={styles.relatedExerciseTarget}
+                          numberOfLines={1}
+                        >
+                          {relatedExercise.primaryMuscles?.[0] || 'Exercise'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </Card>
+          </SlideIn>
+        )}
       </Animated.ScrollView>
       
-      {/* Bottom Button */}
-      <TouchableOpacity
-        style={[styles.floatingButton, { backgroundColor: colors.primary }]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setLogModalVisible(true);
-        }}
-      >
-        <Ionicons name="add-outline" size={24} color="#FFFFFF" />
-        <Text style={styles.floatingButtonText}>Log Workout</Text>
-      </TouchableOpacity>
+      {/* Log Workout Button */}
+      <FadeIn delay={500}>
+        <TouchableOpacity
+          style={styles.logWorkoutButton}
+          onPress={handleLogWorkout}
+          activeOpacity={0.9}
+        >
+          <LinearGradient
+            colors={[Colors.primaryBlue, Colors.primaryDarkBlue]}
+            style={styles.logWorkoutGradient}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+          >
+            <Ionicons name="add-outline" size={22} color="#FFFFFF" />
+            <Text style={styles.logWorkoutText}>Log Workout</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </FadeIn>
       
-      {/* Modal for logging workout */}
+      {/* Workout Log Modal */}
       <WorkoutLogModal
         visible={logModalVisible}
         onClose={() => {
@@ -870,22 +927,25 @@ function ExerciseDetailScreen() {
         exerciseName={exercise.name}
         initialValues={editingSet}
       />
-    </View>
+    </Container>
   );
 }
 
 const styles = StyleSheet.create({
   container: { 
-    flex: 1 
+    flex: 1,
+    backgroundColor: Theme.light.background
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: Spacing.xl,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
+    marginTop: Spacing.md,
+    textAlign: 'center',
+    color: Colors.secondaryTextLight
   },
   header: {
     position: 'absolute',
@@ -920,7 +980,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
     position: 'absolute',
     top: 0,
     left: 0,
@@ -928,20 +988,29 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   headerButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 8,
+    marginVertical: Spacing.sm,
+    overflow: 'hidden',
+  },
+  blurButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerRightButtons: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.sm,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: Typography.cardTitle,
+    fontWeight: Typography.semibold,
     position: 'absolute',
     left: 0,
     right: 0,
@@ -951,313 +1020,336 @@ const styles = StyleSheet.create({
   },
   exerciseNameContainer: {
     position: 'absolute',
-    bottom: 40,
-    left: 20,
-    right: 20,
+    bottom: Spacing.xl,
+    left: Spacing.lg,
+    right: Spacing.lg,
   },
   exerciseName: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: Typography.pageTitle,
+    fontWeight: Typography.bold,
+    color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
   exerciseCategoryContainer: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.sm,
   },
   exerciseCategory: {
-    fontSize: 14,
+    fontSize: Typography.body,
     color: '#FFFFFF',
-    fontWeight: '500',
+    fontWeight: Typography.medium,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+  },
+  difficultyContainer: {
+    marginLeft: Spacing.sm,
+  },
+  difficulty: {
+    fontSize: Typography.caption,
+    color: '#FFFFFF',
+    fontWeight: Typography.medium,
+    backgroundColor: 'rgba(46, 203, 112, 0.3)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
   },
   scrollContainer: {
-    paddingBottom: 40,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 100, // Extra space for the floating button
   },
-  contentContainer: {
-    borderRadius: 16,
-    padding: 16,
-    shadowOffset: { width: 0, height: 2 },
+  mainCard: {
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+    shadowColor: Theme.light.shadow,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 12,
     elevation: 4,
+    overflow: 'hidden',
   },
-  nextWorkoutContainer: {
-    marginBottom: 16,
-    borderRadius: 8,
+  descriptionCard: {
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+    shadowColor: Theme.light.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+    overflow: 'hidden',
   },
-  nextWorkoutHeader: {
+  chartCard: {
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+    shadowColor: Theme.light.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  relatedCard: {
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.xxl,
+    shadowColor: Theme.light.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  sectionTitle: {
+    marginBottom: Spacing.md,
+    color: Colors.primaryTextLight,
+  },
+  recordsSection: {
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  recordsGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  nextWorkoutContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: Spacing.sm,
   },
-  recommendationMetrics: {
-    flexDirection: 'row',
-  },
-  recommendationMetric: {
-    marginRight: 20,
-  },
-  metricValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  metricLabel: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  logButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  logButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  sectionContainer: {
-    marginBottom: 20,
-  },
-  exerciseInfoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  infoCard: {
-    width: '48%',
-    marginBottom: 16,
-  },
-  infoIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  recordCard: {
+    width: '30%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
-  infoLabel: {
-    fontSize: 12,
-    marginBottom: 4,
+  recordValue: {
+    position: 'absolute',
+    fontWeight: Typography.bold,
+    color: Colors.primaryTextLight,
   },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '600',
+  recordLabel: {
+    marginTop: Spacing.sm,
+    textAlign: 'center',
+    color: Colors.secondaryTextLight,
+  },
+  recordDate: {
+    marginTop: 2,
+    fontSize: Typography.small,
+    color: Colors.secondaryTextLight,
+  },
+  musclesSection: {
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+  },
+  muscleGroups: {
+    gap: Spacing.md,
   },
   muscleGroup: {
-    marginBottom: 16,
+    marginBottom: Spacing.md,
   },
-  muscleGroupHeader: {
-    marginBottom: 8,
+  muscleGroupLabel: {
+    fontWeight: Typography.medium,
+    marginBottom: Spacing.sm,
+    color: Colors.primaryTextLight,
   },
-  muscleGroupTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  muscleList: {
+  muscleChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: Spacing.sm,
   },
-  muscleTag: {
-    backgroundColor: 'rgba(0, 122, 255, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
+  muscleChip: {
+    backgroundColor: 'rgba(10, 108, 255, 0.1)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
   },
-  muscleTagText: {
-    color: '#007AFF',
-    fontWeight: '500',
+  muscleChipText: {
+    color: Colors.primaryBlue,
+    fontWeight: Typography.medium,
+  },
+  secondaryMuscleChip: {
+    backgroundColor: 'rgba(93, 107, 138, 0.1)',
+  },
+  secondaryMuscleText: {
+    color: Colors.secondaryTextLight,
+  },
+  noDataText: {
+    color: Colors.secondaryTextLight,
+    fontStyle: 'italic',
+  },
+  descriptionText: {
+    lineHeight: 22,
+    color: Colors.primaryTextLight,
+  },
+  tipsSection: {
+    marginTop: Spacing.lg,
   },
   tipsList: {
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
   tipItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   tipBullet: {
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: Colors.primaryBlue,
     marginTop: 6,
-    marginRight: 8,
+    marginRight: Spacing.sm,
   },
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+  tipText: {
+    flex: 1,
+    lineHeight: 20,
+    color: Colors.primaryTextLight,
   },
-  timeRangeSelectors: {
+  chartControls: {
+    marginBottom: Spacing.lg,
+  },
+  timeRangeContainer: {
     flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
   },
   timeRangeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginLeft: 8,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginHorizontal: Spacing.xs,
+  },
+  activeTimeRange: {
+    backgroundColor: 'rgba(10, 108, 255, 0.1)',
   },
   timeRangeText: {
-    fontSize: 14,
-    fontWeight: '500',
+    color: Colors.secondaryTextLight,
+    fontWeight: Typography.medium,
   },
-  metricSelectors: {
+  activeTimeRangeText: {
+    color: Colors.primaryBlue,
+  },
+  metricToggleContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    padding: 2,
   },
   metricButton: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     alignItems: 'center',
-    marginRight: 8,
+    borderRadius: BorderRadius.sm,
   },
-  metricButtonText: {
-    fontWeight: '500',
+  activeMetric: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: 'rgba(0,0,0,0.1)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  chartContainer: {
+  metricText: {
+    color: Colors.secondaryTextLight,
+    fontWeight: Typography.medium,
+  },
+  activeMetricText: {
+    color: Colors.primaryTextLight,
+  },
+  chartWrapper: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginTop: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
   },
   chart: {
-    marginVertical: 8,
-    borderRadius: 16,
+    borderRadius: BorderRadius.lg,
   },
-  notEnoughDataContainer: {
+  noChartDataContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 180,
+    height: 220,
+    padding: Spacing.xl,
   },
-  notEnoughDataText: {
-    marginTop: 12,
+  noChartDataText: {
+    marginTop: Spacing.md,
     textAlign: 'center',
-    maxWidth: 220,
+    color: Colors.secondaryTextLight,
+    fontWeight: Typography.medium,
   },
-  historyListContainer: {
-    marginTop: 8,
+  noChartDataSubtext: {
+    marginTop: Spacing.xs,
+    textAlign: 'center',
+    color: Colors.secondaryTextLight,
   },
-  historyItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  historyItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  historyDate: {
-    fontWeight: '600',
-  },
-  editButton: {
-    padding: 4,
-  },
-  setsList: {
-    marginLeft: 8,
-  },
-  setItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  setNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  setNumberText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  setText: {
-    fontSize: 15,
-  },
-  noHistoryContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 30,
-  },
-  noHistoryText: {
-    marginTop: 12,
-  },
-  relatedExercisesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  relatedExercisesScroll: {
+    paddingBottom: Spacing.sm,
+    paddingRight: Spacing.lg,
   },
   relatedExerciseCard: {
-    width: '48%',
-    borderRadius: 12,
-    marginBottom: 16,
+    width: 160,
+    marginRight: Spacing.md,
+    borderRadius: BorderRadius.lg,
     overflow: 'hidden',
-  },
-  relatedExerciseImageContainer: {
-    height: 100,
-    overflow: 'hidden',
+    backgroundColor: Theme.light.background,
+    shadowColor: Theme.light.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   relatedExerciseImage: {
     width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    height: 100,
   },
   relatedExercisePlaceholder: {
     width: '100%',
-    height: '100%',
+    height: 100,
+    backgroundColor: 'rgba(10, 108, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  relatedExerciseInfo: {
+    padding: Spacing.md,
   },
   relatedExerciseName: {
-    padding: 12,
-    fontWeight: '500',
+    fontWeight: Typography.medium,
+    marginBottom: 2,
+    color: Colors.primaryTextLight,
   },
-  noRelatedContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 30,
-    width: '100%',
+  relatedExerciseTarget: {
+    color: Colors.secondaryTextLight,
   },
-  noRelatedText: {
-    marginTop: 12,
-  },
-  floatingButton: {
+  logWorkoutButton: {
     position: 'absolute',
-    right: 16,
-    bottom: 24,
+    bottom: Platform.OS === 'ios' ? 40 : 30,
+    left: Spacing.lg,
+    right: Spacing.lg,
+    height: 56,
     borderRadius: 28,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  logWorkoutGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    justifyContent: 'center',
+    height: '100%',
+    paddingHorizontal: Spacing.lg,
   },
-  floatingButtonText: {
+  logWorkoutText: {
     color: '#FFFFFF',
-    fontWeight: '600',
-    marginLeft: 4,
-  },
+    fontWeight: Typography.semibold,
+    fontSize: Typography.body,
+    marginLeft: Spacing.sm,
+  }
 });
 
 export default ExerciseDetailScreen;

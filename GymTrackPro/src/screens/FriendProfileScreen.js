@@ -24,6 +24,7 @@ import Container from '../components/ui/Container'
 import { Title, Heading, Subheading, Body, Caption } from '../components/ui/Text'
 import Button from '../components/ui/Button'
 import * as Haptics from 'expo-haptics'
+import Card from '../components/ui/Card'
 
 export default function FriendProfileScreen() {
   const navigation = useNavigation()
@@ -229,27 +230,6 @@ export default function FriendProfileScreen() {
     )
   }
   
-  const renderAchievementItem = ({ item }) => {
-    return (
-      <TouchableOpacity 
-        style={[styles.achievementCard, { backgroundColor: colors.backgroundSecondary }]}
-        onPress={celebrateAchievement}
-      >
-        <View style={[styles.achievementIconCircle, { backgroundColor: item.color + '30' }]}>
-          <Ionicons name={item.icon} size={24} color={item.color} />
-        </View>
-        <View style={styles.achievementInfo}>
-          <Text style={[styles.achievementTitle, { color: colors.text }]}>
-            {item.title}
-          </Text>
-          <Caption style={{ color: colors.textSecondary }}>
-            {item.description}
-          </Caption>
-        </View>
-      </TouchableOpacity>
-    )
-  }
-  
   const renderWeightLogItem = ({ item }) => {
     // Calculate weight change from previous entry
     const weightChange = item.change ?? 0
@@ -283,153 +263,256 @@ export default function FriendProfileScreen() {
     )
   }
 
-  if (loading && !refreshing) {
-    return (
-      <Container style={{ backgroundColor: colors.background }}>
+  return (
+    <Container>
+      {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading profile...
+        </View>
+      ) : friendData ? (
+        <>
+          <Animated.View
+            style={[
+              styles.header,
+              {
+                height: headerHeight,
+                backgroundColor: colors.primary,
+              }
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="chevron-back" size={24} color="#FFF" />
+            </TouchableOpacity>
+            
+            <View style={styles.profileImageContainer}>
+              {friendData.profilePic ? (
+                <Image
+                  source={{ uri: friendData.profilePic }}
+                  style={styles.profileImage}
+                />
+              ) : (
+                <View style={[styles.profileImage, { backgroundColor: colors.secondary }]}>
+                  <Text style={styles.profileInitial}>
+                    {friendData.username ? friendData.username.charAt(0).toUpperCase() : 'U'}
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            <View style={styles.userInfo}>
+              <Heading style={{ color: '#FFF' }}>
+                {friendData.username || 'Gym Friend'}
+              </Heading>
+              
+              <Text style={styles.userGoal}>
+                {friendData.userGoal ? 
+                  `Goal: ${friendData.userGoal.charAt(0).toUpperCase() + friendData.userGoal.slice(1)}` : 
+                  'Fitness Enthusiast'}
+              </Text>
+            </View>
+            
+            <View style={styles.socialActions}>
+              <TouchableOpacity 
+                style={[styles.actionButton, { backgroundColor: colors.success + '20' }]}
+                onPress={() => navigation.navigate('Chat', { friendUid })}
+              >
+                <Ionicons name="chatbubble-outline" size={18} color={colors.success} />
+                <Text style={{ color: colors.success, marginLeft: 4 }}>Message</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: colors.warning + '20' }]}
+                onPress={() => Alert.alert('Challenge', 'Challenge your friend to a workout!')}
+              >
+                <Ionicons name="trophy-outline" size={18} color={colors.warning} />
+                <Text style={{ color: colors.warning, marginLeft: 4 }}>Challenge</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+          
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingTop: 200, paddingBottom: 20 }}
+            showsVerticalScrollIndicator={false}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: false }
+            )}
+            scrollEventThrottle={16}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+              />
+            }
+          >
+            {/* Comparison Stats Section */}
+            <View style={styles.section}>
+              <Title style={{ color: colors.text, marginBottom: 16 }}>Comparison Stats</Title>
+              <Card style={styles.comparisonCard}>
+                <View style={styles.comparisonRow}>
+                  <View style={styles.comparisonColumn}>
+                    <Text style={{ color: colors.textSecondary }}>Your Workouts</Text>
+                    <Heading style={{ color: colors.text, fontSize: 28 }}>
+                      {user?.firestoreSets?.length || 0}
+                    </Heading>
+                  </View>
+                  
+                  <View style={[styles.vsCircle, { backgroundColor: colors.primary + '20' }]}>
+                    <Text style={{ color: colors.primary, fontWeight: 'bold' }}>VS</Text>
+                  </View>
+                  
+                  <View style={styles.comparisonColumn}>
+                    <Text style={{ color: colors.textSecondary }}>Their Workouts</Text>
+                    <Heading style={{ color: colors.text, fontSize: 28 }}>
+                      {friendData.firestoreSets?.length || 0}
+                    </Heading>
+                  </View>
+                </View>
+                
+                <View style={styles.divider} />
+                
+                <View style={styles.comparisonRow}>
+                  <View style={styles.comparisonColumn}>
+                    <Text style={{ color: colors.textSecondary }}>Your Streak</Text>
+                    <Heading style={{ color: colors.text, fontSize: 28 }}>
+                      {user?.streak || 0}
+                    </Heading>
+                  </View>
+                  
+                  <View style={[styles.vsCircle, { backgroundColor: colors.primary + '20' }]}>
+                    <Text style={{ color: colors.primary, fontWeight: 'bold' }}>VS</Text>
+                  </View>
+                  
+                  <View style={styles.comparisonColumn}>
+                    <Text style={{ color: colors.textSecondary }}>Their Streak</Text>
+                    <Heading style={{ color: colors.text, fontSize: 28 }}>
+                      {friendData.streak || 0}
+                    </Heading>
+                  </View>
+                </View>
+              </Card>
+            </View>
+            
+            {/* Achievements Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Title style={{ color: colors.text }}>Achievements</Title>
+                <Text style={{ color: colors.primary }}>
+                  {achievements.length} Badges
+                </Text>
+              </View>
+              
+              {achievements.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.achievementsContainer}
+                >
+                  {achievements.map((achievement, index) => (
+                    <TouchableOpacity
+                      key={achievement.id}
+                      style={[styles.achievementCard, { backgroundColor: colors.backgroundSecondary }]}
+                      onPress={celebrateAchievement}
+                    >
+                      <View style={[styles.achievementIconCircle, { backgroundColor: achievement.color + '30' }]}>
+                        <Ionicons name={achievement.icon} size={24} color={achievement.color} />
+                      </View>
+                      <Text style={[styles.achievementTitle, { color: colors.text }]}>
+                        {achievement.title}
+                      </Text>
+                      <Caption style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                        {achievement.description}
+                      </Caption>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              ) : (
+                <Card style={styles.emptyStateCard}>
+                  <Ionicons name="trophy-outline" size={40} color={colors.textSecondary} />
+                  <Text style={{ color: colors.textSecondary, marginTop: 12, textAlign: 'center' }}>
+                    No achievements yet
+                  </Text>
+                </Card>
+              )}
+            </View>
+            
+            {/* Recent Workouts Section */}
+            <View style={styles.section}>
+              <Title style={{ color: colors.text, marginBottom: 16 }}>Recent Workouts</Title>
+              
+              {friendData.firestoreSets && friendData.firestoreSets.length > 0 ? (
+                <FlatList
+                  data={friendData.firestoreSets.slice(0, 5)}
+                  renderItem={renderWorkoutItem}
+                  keyExtractor={(item, index) => `workout-${index}`}
+                  scrollEnabled={false}
+                />
+              ) : (
+                <Card style={styles.emptyStateCard}>
+                  <Ionicons name="barbell-outline" size={40} color={colors.textSecondary} />
+                  <Text style={{ color: colors.textSecondary, marginTop: 12, textAlign: 'center' }}>
+                    No workouts logged yet
+                  </Text>
+                </Card>
+              )}
+            </View>
+            
+            {/* Weight Progress Section (if available) */}
+            {friendData.firestoreWeightLog && friendData.firestoreWeightLog.length > 0 && (
+              <View style={styles.section}>
+                <Title style={{ color: colors.text, marginBottom: 16 }}>Weight Progress</Title>
+                <Card style={styles.weightCard}>
+                  <FlatList
+                    data={friendData.firestoreWeightLog.slice(0, 3)}
+                    renderItem={renderWeightLogItem}
+                    keyExtractor={(item, index) => `weight-${index}`}
+                    scrollEnabled={false}
+                  />
+                </Card>
+              </View>
+            )}
+          </ScrollView>
+          
+          {/* Celebration Animation */}
+          {showCelebration && (
+            <View style={styles.celebrationOverlay}>
+              <LottieView
+                source={require('../assets/animations/confetti.json')}
+                autoPlay
+                loop={false}
+                style={styles.celebration}
+              />
+            </View>
+          )}
+        </>
+      ) : (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={60} color={colors.danger} />
+          <Text style={[styles.errorText, { color: colors.text }]}>
+            Friend profile not found
           </Text>
-        </View>
-      </Container>
-    )
-  }
-
-  return (
-    <Container style={{ backgroundColor: colors.background }}>
-      {/* Header */}
-      <Animated.View 
-        style={[
-          styles.header, 
-          { 
-            height: headerHeight,
-            backgroundColor: colors.backgroundSecondary
-          }
-        ]}
-      >
-        <View style={styles.profileInfo}>
-          {friendData?.profilePic ? (
-            <Image source={{ uri: friendData.profilePic }} style={styles.profilePic} />
-          ) : (
-            <View style={[styles.noPic, { backgroundColor: colors.primary + '30' }]}>
-              <Text style={{ color: colors.primary, fontSize: 24, fontWeight: 'bold' }}>
-                {friendData?.username?.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-          <Title style={[styles.username, { color: colors.text }]}>
-            {friendData?.username}
-          </Title>
-          <Caption style={{ color: colors.textSecondary }}>
-            {friendData?.firestoreSets?.length || 0} workouts · {friendData?.firestoreWeightLog?.length || 0} weigh-ins
-          </Caption>
-        </View>
-      </Animated.View>
-      
-      {/* Content */}
-      <Animated.ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-      >
-        {/* Achievements Section */}
-        {achievements.length > 0 && (
-          <View style={styles.section}>
-            <Subheading style={[styles.sectionTitle, { color: colors.text }]}>
-              Achievements
-            </Subheading>
-            <FlatList
-              data={achievements}
-              keyExtractor={(item) => item.id}
-              renderItem={renderAchievementItem}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.achievementsList}
-            />
-          </View>
-        )}
-        
-        {/* Recent Workouts */}
-        <View style={styles.section}>
-          <Subheading style={[styles.sectionTitle, { color: colors.text }]}>
-            Recent Workouts
-          </Subheading>
-          {friendData?.firestoreSets && friendData.firestoreSets.length > 0 ? (
-            <FlatList
-              data={friendData.firestoreSets.slice(0, 5)}
-              keyExtractor={(item, index) => `workout-${index}`}
-              renderItem={renderWorkoutItem}
-              scrollEnabled={false}
-            />
-          ) : (
-            <View style={[styles.emptyContainer, { backgroundColor: colors.backgroundSecondary }]}>
-              <Ionicons name="barbell-outline" size={40} color={colors.textTertiary} />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No workout data yet
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Weight Log */}
-        <View style={styles.section}>
-          <Subheading style={[styles.sectionTitle, { color: colors.text }]}>
-            Weight Log
-          </Subheading>
-          {friendData?.firestoreWeightLog && friendData.firestoreWeightLog.length > 0 ? (
-            <FlatList
-              data={friendData.firestoreWeightLog.slice(0, 5)}
-              keyExtractor={(item, index) => `weight-${index}`}
-              renderItem={renderWeightLogItem}
-              scrollEnabled={false}
-            />
-          ) : (
-            <View style={[styles.emptyContainer, { backgroundColor: colors.backgroundSecondary }]}>
-              <Ionicons name="trending-up" size={40} color={colors.textTertiary} />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No weight logs yet
-              </Text>
-            </View>
-          )}
-        </View>
-      </Animated.ScrollView>
-      
-      {/* Celebration animation */}
-      {showCelebration && (
-        <View style={styles.celebrationContainer}>
-          <LottieView
-            source={require('../../assets/animations/confetti.json')}
-            autoPlay
-            loop={false}
-            style={styles.celebration}
-          />
+          <Button 
+            style={{ marginTop: 20 }}
+            onPress={() => navigation.goBack()}
+          >
+            Go Back
+          </Button>
         </View>
       )}
     </Container>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
+  loadingContainer: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingTop: 190,
-    paddingHorizontal: 16,
-    paddingBottom: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     position: 'absolute',
@@ -437,61 +520,151 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
+    padding: 16,
     alignItems: 'center',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 40,
+    left: 16,
+    zIndex: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.2)',
     justifyContent: 'center',
-  },
-  profileInfo: {
     alignItems: 'center',
+  },
+  profileImageContainer: {
+    marginTop: 50,
+  },
+  profileImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#CCCCCC',
     justifyContent: 'center',
-  },
-  profilePic: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 12
-  },
-  noPic: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 12,
     alignItems: 'center',
-    justifyContent: 'center'
+    borderWidth: 3,
+    borderColor: '#fff',
   },
-  username: {
-    fontWeight: '600'
+  profileInitial: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  userInfo: {
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  userGoal: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+  },
+  socialActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginHorizontal: 8,
   },
   section: {
-    marginBottom: 24,
+    padding: 16,
+    marginTop: 8,
   },
-  sectionTitle: {
-    marginBottom: 12,
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  achievementsList: {
-    marginVertical: 8,
+  comparisonCard: {
+    padding: 16,
+  },
+  comparisonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 8,
+  },
+  comparisonColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  vsCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginVertical: 16,
+  },
+  achievementsContainer: {
+    paddingVertical: 8,
   },
   achievementCard: {
-    padding: 12,
-    borderRadius: 16,
+    width: 140,
+    padding: 16,
     marginRight: 12,
-    width: 160,
-    flexDirection: 'row',
+    borderRadius: 16,
     alignItems: 'center',
   },
   achievementIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
-    marginRight: 12,
-  },
-  achievementInfo: {
-    flex: 1,
+    alignItems: 'center',
+    marginBottom: 12,
   },
   achievementTitle: {
     fontWeight: '600',
     fontSize: 14,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  emptyStateCard: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weightCard: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  celebrationOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    pointerEvents: 'none',
+  },
+  celebration: {
+    width: '100%',
+    height: '100%',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    marginTop: 16,
+    textAlign: 'center',
   },
   workoutCard: {
     borderRadius: 12,
@@ -571,31 +744,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 4,
   },
-  emptyContainer: {
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    marginTop: 12,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-  },
-  celebrationContainer: {
-    ...StyleSheet.absoluteFillObject,
-    pointerEvents: 'none',
-    zIndex: 999,
-  },
-  celebration: {
-    width: '100%',
-    height: '100%',
-  }
-})
+});

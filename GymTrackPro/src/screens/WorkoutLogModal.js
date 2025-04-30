@@ -17,8 +17,11 @@ import {
   Dimensions
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { FontAwesome } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
+import { Colors as ThemeColors, Typography, Spacing, BorderRadius, createNeumorphism } from '../constants/Theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -52,6 +55,10 @@ const WorkoutLogModal = ({
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
+
+  // Theme
+  const theme = darkMode ? ThemeColors.dark : ThemeColors.light;
+  const neumorphism = createNeumorphism(darkMode);
 
   useEffect(() => {
     if (initialData) {
@@ -120,6 +127,9 @@ const WorkoutLogModal = ({
     // Clear error when user starts typing
     setErrors(prev => ({...prev, [field]: null}));
     
+    // Provide haptic feedback
+    Haptics.selectionAsync();
+    
     if (field === 'weight') {
       setWeight(value);
     } else if (field === 'reps') {
@@ -187,7 +197,7 @@ const WorkoutLogModal = ({
         <Animated.View 
           style={[
             styles.modalOverlay,
-            { opacity: fadeAnim }
+            { opacity: fadeAnim, backgroundColor: 'rgba(0,0,0,0.5)' }
           ]}
         >
           <KeyboardAvoidingView
@@ -198,174 +208,218 @@ const WorkoutLogModal = ({
               <Animated.View 
                 style={[
                   styles.modalContent, 
+                  neumorphism,
                   { 
-                    backgroundColor: cardColor,
+                    backgroundColor: darkMode ? ThemeColors.darkCardBackground : ThemeColors.lightCardBackground,
+                    opacity: fadeAnim,
                     transform: [
-                      { translateY: slideAnim.interpolate({
+                      { scale: scaleAnim },
+                      { 
+                        translateY: slideAnim.interpolate({
                           inputRange: [0, 1],
                           outputRange: [50, 0]
-                        })
-                      },
-                      { scale: scaleAnim }
-                    ]
+                        }) 
+                      }
+                    ] 
                   }
                 ]}
               >
-                <View style={styles.headerContainer}>
-                  <Text style={[styles.modalTitle, { color: textColor }]}>
-                    {initialData ? `Edit ${exerciseName} Set` : `Log ${exerciseName}`}
-                  </Text>
-                  <TouchableOpacity 
-                    style={styles.closeButton} 
-                    onPress={handleCancel}
-                    hitSlop={{top: 20, right: 20, bottom: 20, left: 20}}
+                {/* Timer Display */}
+                <View style={styles.headerSection}>
+                  <LinearGradient
+                    colors={[ThemeColors.primaryBlue, ThemeColors.primaryDarkBlue]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.headerGradient}
                   >
-                    <FontAwesome name="times" size={20} color={textColor} />
-                  </TouchableOpacity>
+                    <Text style={styles.modalTitle}>Log Workout</Text>
+                    <Text style={styles.exerciseName}>{exerciseName}</Text>
+                  </LinearGradient>
                 </View>
                 
-                {/* Date & Time Picker */}
-                <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>
-                    Date & Time
-                  </Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.datePickerButton,
-                      { borderColor: darkMode ? '#555' : '#E0E0E0', backgroundColor: darkMode ? 'rgba(70,70,70,0.2)' : 'rgba(240,240,240,0.5)' }
-                    ]}
-                    onPress={() => {
-                      setDatePickerVisibility(true);
-                      if (Platform.OS === 'ios') {
+                {/* Current Exercise Section */}
+                <View style={styles.formSection}>
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.inputLabel, { color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight }]}>
+                      Date & Time
+                    </Text>
+                    <TouchableOpacity 
+                      style={[
+                        styles.datePickerButton,
+                        { backgroundColor: darkMode ? ThemeColors.darkCardBackground : ThemeColors.lightCardBackground }
+                      ]}
+                      onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      }
-                    }}
-                  >
-                    <View style={styles.datePickerButtonContent}>
-                      <FontAwesome name="calendar" size={16} color={darkMode ? '#ccc' : '#666'} />
-                      <Text style={[styles.dateText, { color: textColor }]}>
-                        {formatDateTime(selectedDate)}
+                        setDatePickerVisibility(true);
+                      }}
+                    >
+                      <Ionicons name="calendar-outline" size={20} color={darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight} />
+                      <Text style={[styles.dateText, { color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight }]}>
+                        {selectedDate.toLocaleString()}
                       </Text>
+                      <Ionicons name="chevron-down" size={16} color={darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.inputRow}>
+                    <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                      <Text style={[styles.inputLabel, { color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight }]}>
+                        Weight
+                      </Text>
+                      <View style={styles.inputWithButtons}>
+                        <TouchableOpacity
+                          style={styles.inputButton}
+                          onPress={() => {
+                            const currentValue = parseFloat(weight) || 0;
+                            if (currentValue > 0) {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              setWeight((currentValue - 2.5).toString());
+                            }
+                          }}
+                        >
+                          <Ionicons name="remove" size={18} color={ThemeColors.primaryBlue} />
+                        </TouchableOpacity>
+                        
+                        <TextInput
+                          style={[
+                            styles.input,
+                            { 
+                              borderColor: errors.weight ? ThemeColors.accentDanger : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                              color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight 
+                            }
+                          ]}
+                          placeholder="0"
+                          placeholderTextColor={darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight}
+                          keyboardType="numeric"
+                          value={weight}
+                          onChangeText={(value) => handleInputChange('weight', value)}
+                        />
+                        
+                        <TouchableOpacity
+                          style={styles.inputButton}
+                          onPress={() => {
+                            const currentValue = parseFloat(weight) || 0;
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setWeight((currentValue + 2.5).toString());
+                          }}
+                        >
+                          <Ionicons name="add" size={18} color={ThemeColors.primaryBlue} />
+                        </TouchableOpacity>
+                      </View>
+                      {errors.weight && <Text style={styles.errorText}>{errors.weight}</Text>}
                     </View>
-                  </TouchableOpacity>
-                </View>
-                
-                {/* Reps & Weight */}
-                <View style={styles.setRepsWeightRow}>
-                  <View style={styles.smallFormGroup}>
-                    <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>
-                      Reps
+
+                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                      <Text style={[styles.inputLabel, { color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight }]}>
+                        Reps
+                      </Text>
+                      <View style={styles.inputWithButtons}>
+                        <TouchableOpacity
+                          style={styles.inputButton}
+                          onPress={() => {
+                            const currentValue = parseInt(reps) || 0;
+                            if (currentValue > 1) {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              setReps((currentValue - 1).toString());
+                            }
+                          }}
+                        >
+                          <Ionicons name="remove" size={18} color={ThemeColors.primaryBlue} />
+                        </TouchableOpacity>
+                        
+                        <TextInput
+                          style={[
+                            styles.input,
+                            { 
+                              borderColor: errors.reps ? ThemeColors.accentDanger : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                              color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight 
+                            }
+                          ]}
+                          placeholder="0"
+                          placeholderTextColor={darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight}
+                          keyboardType="numeric"
+                          value={reps}
+                          onChangeText={(value) => handleInputChange('reps', value)}
+                        />
+                        
+                        <TouchableOpacity
+                          style={styles.inputButton}
+                          onPress={() => {
+                            const currentValue = parseInt(reps) || 0;
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setReps((currentValue + 1).toString());
+                          }}
+                        >
+                          <Ionicons name="add" size={18} color={ThemeColors.primaryBlue} />
+                        </TouchableOpacity>
+                      </View>
+                      {errors.reps && <Text style={styles.errorText}>{errors.reps}</Text>}
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.inputLabel, { color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight }]}>
+                      Notes (optional)
                     </Text>
                     <TextInput
                       style={[
-                        styles.textInput,
-                        {
-                          color: textColor,
-                          borderColor: errors.reps ? '#FF6B6B' : darkMode ? '#555' : '#E0E0E0',
-                          backgroundColor: darkMode ? 'rgba(70,70,70,0.2)' : 'rgba(240,240,240,0.5)'
+                        styles.textArea,
+                        { 
+                          borderColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                          color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight,
+                          backgroundColor: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)'
                         }
                       ]}
-                      value={reps}
-                      onChangeText={(value) => handleInputChange('reps', value)}
-                      placeholder="0"
-                      placeholderTextColor={darkMode ? '#888' : '#999'}
-                      keyboardType="number-pad"
+                      placeholder="Add notes about this set..."
+                      placeholderTextColor={darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight}
+                      multiline={true}
+                      numberOfLines={3}
+                      textAlignVertical="top"
+                      value={notes}
+                      onChangeText={(value) => handleInputChange('notes', value)}
                     />
-                    {errors.reps && (
-                      <Text style={styles.errorText}>{errors.reps}</Text>
-                    )}
-                  </View>
-                  <View style={styles.smallFormGroupNoMargin}>
-                    <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>
-                      Weight
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.textInput,
-                        {
-                          color: textColor,
-                          borderColor: errors.weight ? '#FF6B6B' : darkMode ? '#555' : '#E0E0E0',
-                          backgroundColor: darkMode ? 'rgba(70,70,70,0.2)' : 'rgba(240,240,240,0.5)'
-                        }
-                      ]}
-                      value={weight}
-                      onChangeText={(value) => handleInputChange('weight', value)}
-                      placeholder="0.0"
-                      placeholderTextColor={darkMode ? '#888' : '#999'}
-                      keyboardType="decimal-pad"
-                    />
-                    {errors.weight && (
-                      <Text style={styles.errorText}>{errors.weight}</Text>
-                    )}
                   </View>
                 </View>
-                
-                {/* Notes */}
-                <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: darkMode ? '#ccc' : '#666' }]}>
-                    Notes
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      styles.notesInput,
-                      {
-                        color: textColor,
-                        borderColor: darkMode ? '#555' : '#E0E0E0',
-                        backgroundColor: darkMode ? 'rgba(70,70,70,0.2)' : 'rgba(240,240,240,0.5)'
-                      }
-                    ]}
-                    value={notes}
-                    onChangeText={(value) => handleInputChange('notes', value)}
-                    placeholder="Add notes about this set..."
-                    placeholderTextColor={darkMode ? '#888' : '#999'}
-                    multiline
-                  />
-                </View>
-                
-                {/* Buttons */}
-                <View style={styles.buttonRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.modalButton,
-                      { backgroundColor: darkMode ? '#444' : '#F0F0F0' }
-                    ]}
+
+                {/* Log Form Section */}
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity 
+                    style={[styles.button, styles.cancelButton]}
                     onPress={handleCancel}
                   >
-                    <Text style={[styles.cancelButtonText, { color: darkMode ? '#FFF' : '#333' }]}>
-                      Cancel
-                    </Text>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalButton, { 
-                      backgroundColor: '#007AFF',
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 3,
-                      elevation: 2,
-                    }]}
+                  
+                  <TouchableOpacity 
+                    style={[styles.button, styles.saveButton]}
                     onPress={handleSave}
-                    activeOpacity={0.8}
                   >
-                    <Text style={styles.saveButtonText}>
-                      {initialData ? 'Update' : 'Save'}
-                    </Text>
+                    <LinearGradient
+                      colors={[ThemeColors.primaryBlue, ThemeColors.primaryDarkBlue]}
+                      style={styles.saveButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Text style={styles.saveButtonText}>Save Set</Text>
+                    </LinearGradient>
                   </TouchableOpacity>
                 </View>
-                
+
+                {/* Date Picker Modal */}
                 <DateTimePickerModal
                   isVisible={isDatePickerVisible}
                   mode="datetime"
                   date={selectedDate}
                   onConfirm={(date) => {
-                    setSelectedDate(date);
                     setDatePickerVisibility(false);
-                    if (Platform.OS === 'ios') {
-                      Haptics.selectionAsync();
-                    }
+                    setSelectedDate(date);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                   }}
-                  onCancel={() => setDatePickerVisibility(false)}
+                  onCancel={() => {
+                    setDatePickerVisibility(false);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  themeVariant={darkMode ? 'dark' : 'light'}
                 />
               </Animated.View>
             </TouchableWithoutFeedback>
@@ -379,110 +433,148 @@ const WorkoutLogModal = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center'
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContainer: {
-    width: '90%',
-    maxWidth: 400,
-    padding: 16
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 20,
   },
   modalContent: {
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8
+    width: width - 40,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 6,
   },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  headerSection: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+  headerGradient: {
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
     alignItems: 'center',
-    marginBottom: 20
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    flex: 1
+    fontSize: Typography.sectionHeader,
+    fontWeight: Typography.bold,
+    color: '#FFF',
+    marginBottom: Spacing.xs,
   },
-  closeButton: {
-    padding: 5
+  exerciseName: {
+    fontSize: Typography.body,
+    fontWeight: Typography.medium,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
-  formGroup: {
-    marginBottom: 16
+  formSection: {
+    padding: Spacing.lg,
   },
-  label: {
-    fontSize: 15,
-    marginBottom: 8,
-    fontWeight: '500'
+  inputGroup: {
+    marginBottom: Spacing.md,
+  },
+  inputLabel: {
+    fontSize: Typography.caption,
+    fontWeight: Typography.medium,
+    marginBottom: 4,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  input: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    fontSize: Typography.body,
+    textAlign: 'center',
+  },
+  inputWithButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputButton: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.circle,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(10, 108, 255, 0.1)',
+    marginHorizontal: 4,
+  },
+  textArea: {
+    height: 80,
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: Typography.body,
   },
   datePickerButton: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12
-  },
-  datePickerButtonContent: {
     flexDirection: 'row',
-    alignItems: 'center'
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   dateText: {
-    marginLeft: 10,
-    fontSize: 16
-  },
-  textInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16
-  },
-  notesInput: {
-    height: 100,
-    textAlignVertical: 'top'
-  },
-  setRepsWeightRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16
-  },
-  smallFormGroup: {
     flex: 1,
-    marginRight: 12
+    fontSize: Typography.body,
+    marginLeft: Spacing.sm,
   },
-  smallFormGroupNoMargin: {
-    flex: 1
-  },
-  buttonRow: {
+  buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8
+    padding: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
   },
-  modalButton: {
+  button: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 14,
+    height: 48,
+    borderRadius: BorderRadius.md,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 6
+    overflow: 'hidden',
+  },
+  cancelButton: {
+    marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600'
+    color: ThemeColors.secondaryTextLight,
+    fontSize: Typography.button,
+    fontWeight: Typography.medium,
+  },
+  saveButton: {
+    marginLeft: Spacing.sm,
+  },
+  saveButtonGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   saveButtonText: {
     color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: Typography.button,
+    fontWeight: Typography.bold,
   },
   errorText: {
-    color: '#FF6B6B',
-    fontSize: 12,
+    color: ThemeColors.accentDanger,
+    fontSize: Typography.small,
     marginTop: 4,
-    marginLeft: 4
-  }
+  },
 });
 
 export default WorkoutLogModal;

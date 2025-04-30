@@ -12,7 +12,8 @@ import {
   RefreshControl,
   ScrollView,
   Image,
-  Text
+  Text,
+  Platform
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { ExerciseContext } from '../context/ExerciseContext';
@@ -20,6 +21,12 @@ import DatabaseService from '../services/DatabaseService';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { CalendarList } from 'react-native-calendars';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { AuthContext } from '../context/AuthContext';
+import moment from 'moment';
+import workoutCategories from '../data/workoutCategories';
 
 // Import our custom UI components
 import { Title, Heading, Subheading, Body, Caption } from '../components/ui/Text';
@@ -27,8 +34,12 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Container from '../components/ui/Container';
 import Colors from '../constants/Colors';
+import { CircleProgress, FadeIn, SlideIn } from '../components/ui';
+import { Colors as ThemeColors, Typography, Spacing, BorderRadius } from '../constants/Theme';
 
 const { width } = Dimensions.get('window');
+
+const CARD_WIDTH = (width - (Spacing.lg * 3)) / 2;
 
 const WorkoutScreen = () => {
   const navigation = useNavigation();
@@ -41,6 +52,8 @@ const WorkoutScreen = () => {
     getSuggestedWeight,
     getSuggestedReps
   } = useContext(ExerciseContext);
+  const { user } = useContext(AuthContext);
+  const tabBarHeight = useBottomTabBarHeight();
   
   const [workoutLists, setWorkoutLists] = useState([]);
   const [newListName, setNewListName] = useState('');
@@ -48,6 +61,13 @@ const WorkoutScreen = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [recentWorkouts, setRecentWorkouts] = useState([]);
+  const [currentWorkout, setCurrentWorkout] = useState(null);
+  const [customWorkouts, setCustomWorkouts] = useState([]);
+  const [suggestedWorkouts, setSuggestedWorkouts] = useState([]);
+  const [workoutHistory, setWorkoutHistory] = useState({});
+  const [markedDates, setMarkedDates] = useState({});
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'calendar'
+  const [isLoading, setIsLoading] = useState(true);
   
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -57,46 +77,17 @@ const WorkoutScreen = () => {
   const favoritesOpacity = useRef(new Animated.Value(0)).current;
   const favoritesScale = useRef(new Animated.Value(0)).current;
   
-  // Initialize a default colors object in case the import fails
-  const defaultColors = {
-    light: {
-      primary: '#007AFF',
-      secondary: '#5856D6',
-      background: '#F8F9FA',
-      backgroundSecondary: '#FFFFFF',
-      text: '#333333',
-      textSecondary: '#666666',
-      textTertiary: '#999999',
-      border: '#E0E0E0',
-      card: '#FFFFFF',
-      warning: '#FF9500',
-      success: '#28A745',
-      danger: '#FF3B30',
-      info: '#5AC8FA',
-      shadow: 'rgba(0,0,0,0.1)',
-    },
-    dark: {
-      primary: '#0A84FF',
-      secondary: '#5E5CE6',
-      background: '#1C1C1E',
-      backgroundSecondary: '#2C2C2E',
-      text: '#FFFFFF',
-      textSecondary: '#AAAAAA',
-      textTertiary: '#888888',
-      border: '#555555',
-      card: '#2C2C2E',
-      warning: '#FF9F0A',
-      success: '#33CF4D',
-      danger: '#FF453A',
-      info: '#64D2FF',
-      shadow: 'rgba(0,0,0,0.3)',
-    }
-  };
+  // Animation values
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
   
-  // Use the imported Colors if available, otherwise use the default
-  const colorScheme = Colors || defaultColors;
-  const colors = darkMode ? colorScheme.dark : colorScheme.light;
-
+  // Theme based on dark mode
+  const theme = darkMode ? ThemeColors.dark : ThemeColors.light;
+  
   // Load all workout lists on initial render
   useEffect(() => {
     loadAllWorkouts();
@@ -253,424 +244,451 @@ const WorkoutScreen = () => {
   
   // Get color by muscle category
   const getCategoryColor = (category) => {
-    const categoryColors = {
-      "Chest": "#FF9500",
-      "Back": "#5856D6",
-      "Arms": "#FF2D55",
-      "Shoulders": "#5AC8FA",
-      "Legs": "#4CD964",
-      "Core": "#FFCC00",
-      "Cardio": "#FF3B30",
-      "Full Body": "#007AFF"
-    };
-    
-    return categoryColors[category] || colors.primary;
+    const cat = workoutCategories.find(c => c.id === category);
+    return cat ? cat.color : Colors.primaryBlue;
   };
 
-  // Render each workout list item
-  const renderWorkoutList = ({ item, index }) => {
-    // Get initial 3 exercises for preview
-    const previewExercises = item.exercises
-      .slice(0, 3)
-      .map(exerciseId => getExerciseById(exerciseId))
-      .filter(Boolean);
+  // Load workouts from API/database
+  const loadWorkouts = async () => {
+    try {
+      setIsLoading(true);
       
-    const animationDelay = index * 100;
+      // Get current workout if exists
+      const current = await DatabaseService.getCurrentWorkout();
+      setCurrentWorkout(current);
+      
+      // Get custom workouts
+      const custom = await DatabaseService.getCustomWorkouts();
+      setCustomWorkouts(custom);
+      
+      // Get suggested workouts
+      const suggested = await DatabaseService.getSuggestedWorkouts();
+      setSuggestedWorkouts(suggested);
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error loading workouts:", error);
+      setIsLoading(false);
+    }
+  };
+  
+  // Load workout history
+  const loadWorkoutHistory = async () => {
+    try {
+      // Get workout history
+      const history = await DatabaseService.getWorkoutHistory();
+      setWorkoutHistory(history);
+      
+      // Format dates for calendar marking
+      const dates = {};
+      Object.keys(history).forEach(date => {
+        const workouts = history[date];
+        // Color intensity based on number of workouts that day
+        const intensity = Math.min(0.3 + (workouts.length * 0.2), 0.9);
+        
+        dates[date] = {
+          marked: true,
+          dotColor: Colors.primaryBlue,
+          selected: true,
+          selectedColor: `rgba(10, 108, 255, ${intensity})`,
+        };
+      });
+      
+      setMarkedDates(dates);
+    } catch (error) {
+      console.error("Error loading workout history:", error);
+    }
+  };
+  
+  // Navigate to workout detail
+  const navigateToWorkoutDetail = (workoutId) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('WorkoutDetail', { workoutId });
+  };
+  
+  // Start workout
+  const startWorkout = (workoutId) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate('WorkoutLog', { workoutId, isStarting: true });
+  };
+  
+  // Create new workout
+  const createNewWorkout = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('CustomWorkoutDetail', { isNew: true });
+  };
+  
+  // Calculate workout completion percentage
+  const calculateCompletion = (workout) => {
+    if (!workout || !workout.lastSession) return 0;
+    return workout.lastSession.completed / workout.lastSession.total * 100;
+  };
+  
+  // Format minutes as hours and minutes
+  const formatDuration = (minutes) => {
+    if (!minutes) return '0 min';
+    if (minutes < 60) return `${minutes} min`;
+    const hrs = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins ? `${hrs}h ${mins}m` : `${hrs}h`;
+  };
+  
+  // Render current workout card
+  const renderCurrentWorkout = () => {
+    if (!currentWorkout) return null;
+    
+    const completion = calculateCompletion(currentWorkout);
+    const categoryColor = getCategoryColor(currentWorkout.category);
     
     return (
-      <Animated.View
-        style={{
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        }}
-      >
-        <TouchableOpacity
-          style={[
-            styles.listCard,
-            { backgroundColor: colors.backgroundSecondary }
-          ]}
-          onPress={() => handleOpenList(item)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.listCardContent}>
-            <View style={styles.listCardHeader}>
-              <View>
-                <Text style={[styles.listCardTitle, { color: colors.text }]}>
-                  {item.name}
-                </Text>
-                <Text style={[styles.listCardSubtitle, { color: colors.textSecondary }]}>
-                  {item.exercises.length} {item.exercises.length === 1 ? 'exercise' : 'exercises'}
-                </Text>
-              </View>
-              <View style={[styles.workoutListIconContainer, { backgroundColor: colors.primary + '20' }]}>
-                <Ionicons name="list" size={18} color={colors.primary} />
-              </View>
-            </View>
+      <FadeIn delay={100} duration={600}>
+        <View style={styles.sectionContainer}>
+          <Text variant="sectionHeader" style={styles.sectionTitle}>Current Routine</Text>
+          
+          <Card style={styles.currentWorkoutCard}>
+            <View style={[styles.categoryIndicator, { backgroundColor: categoryColor }]} />
             
-            {item.exercises.length > 0 && (
-              <View style={styles.exercisePreview}>
-                {previewExercises.map(exercise => {
-                  if (!exercise) return null;
-                  const categoryColor = getCategoryColor(exercise.category);
-                  
-                  return (
-                    <View 
-                      key={exercise.id} 
-                      style={[
-                        styles.exerciseChip,
-                        { backgroundColor: categoryColor + '20' }
-                      ]}
-                    >
-                      <Text 
-                        style={[
-                          styles.exerciseChipText, 
-                          { color: categoryColor }
-                        ]}
-                      >
-                        {exercise.name}
-                      </Text>
-                    </View>
-                  );
-                })}
-                
-                {item.exercises.length > 3 && (
-                  <View style={[styles.moreChip, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
-                    <Text style={[styles.moreChipText, { color: colors.textSecondary }]}>
-                      +{item.exercises.length - 3} more
+            <View style={styles.workoutCardContent}>
+              <View style={styles.workoutCardHeader}>
+                <View style={styles.workoutTitleContainer}>
+                  <Ionicons 
+                    name={workoutCategories.find(c => c.id === currentWorkout.category)?.icon || 'barbell-outline'} 
+                    size={24} 
+                    color={categoryColor} 
+                    style={styles.workoutIcon} 
+                  />
+                  <View>
+                    <Text variant="cardTitle" style={styles.workoutTitle}>{currentWorkout.name}</Text>
+                    <Text variant="caption" style={styles.workoutSubtitle}>
+                      {currentWorkout.exercises.length} exercises • {formatDuration(currentWorkout.duration)}
                     </Text>
                   </View>
-                )}
+                </View>
+                
+                <CircleProgress 
+                  percentage={completion} 
+                  size={50} 
+                  strokeWidth={5} 
+                  progressColor={categoryColor} 
+                />
               </View>
-            )}
-            
-            <View style={styles.listCardFooter}>
-              <TouchableOpacity 
-                style={[styles.startButton, { backgroundColor: colors.primary }]}
-                onPress={() => handleOpenList(item)}
-              >
-                <Text style={styles.startButtonText}>Start Workout</Text>
-                <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
+              
+              <View style={styles.workoutCardFooter}>
+                <Button 
+                  title="Continue" 
+                  type="primary" 
+                  size="small"
+                  icon="play" 
+                  onPress={() => startWorkout(currentWorkout.id)} 
+                />
+                
+                <TouchableOpacity 
+                  style={styles.detailsButton}
+                  onPress={() => navigateToWorkoutDetail(currentWorkout.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text variant="caption" style={styles.detailsText}>Details</Text>
+                  <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
+          </Card>
+        </View>
+      </FadeIn>
     );
   };
   
-  // Render each favorite exercise item
-  const renderFavoriteExercise = ({ item, index }) => {
-    const suggestions = getNextWorkoutSuggestions(item.id);
+  // Render custom workout card
+  const renderWorkoutCard = ({ item, index }) => {
     const categoryColor = getCategoryColor(item.category);
     
     return (
-      <TouchableOpacity 
-        style={[
-          styles.favoriteCard,
-          { backgroundColor: colors.backgroundSecondary }
-        ]}
-        onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: item.id })}
-        activeOpacity={0.7}
-      >
-        <View style={styles.favoriteCardHeader}>
-          <View style={styles.favoriteInfo}>
-            <Text 
-              style={[styles.favoriteTitle, { color: colors.text }]}
-              numberOfLines={1}
-            >
-              {item.name}
-            </Text>
-            <View style={styles.favoriteSubInfo}>
-              <View style={[styles.categoryBadge, { backgroundColor: categoryColor + '30' }]}>
-                <Text style={[styles.categoryText, { color: categoryColor }]}>
-                  {item.category}
-                </Text>
-              </View>
-              <Ionicons name="star" size={16} color={colors.warning} style={{ marginLeft: 8 }} />
+      <SlideIn direction="up" delay={100 + (index * 50)} duration={500}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => navigateToWorkoutDetail(item.id)}
+          style={[styles.workoutCard, { width: CARD_WIDTH }]}
+        >
+          <View style={[styles.categoryIndicator, { backgroundColor: categoryColor }]} />
+          
+          <View style={styles.cardIconContainer}>
+            <View style={[styles.cardIconBackground, { backgroundColor: `${categoryColor}20` }]}>
+              <Ionicons name={workoutCategories.find(c => c.id === item.category)?.icon || 'barbell-outline'} size={24} color={categoryColor} />
             </View>
           </View>
           
-          <TouchableOpacity
-            style={[styles.quickLogButton, { backgroundColor: colors.success + '20' }]}
-            onPress={() => navigation.navigate('ExerciseDetail', { 
-              exerciseId: item.id,
-              logWorkout: true 
-            })}
-          >
-            <Ionicons name="add-circle" size={18} color={colors.success} />
-            <Text style={[styles.quickLogText, { color: colors.success }]}>Log</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {suggestions && (
-          <View style={styles.suggestionContainer}>
-            <Text style={[styles.suggestionTitle, { color: colors.textSecondary }]}>
-              Suggested for next workout:
+          <Text variant="cardTitle" numberOfLines={1} style={styles.cardTitle}>{item.name}</Text>
+          
+          <Text variant="caption" style={styles.cardSubtitle}>
+            {item.exercises.length} exercises
+          </Text>
+          
+          <View style={styles.cardFooter}>
+            <Text variant="small" style={styles.cardDuration}>
+              <Ionicons name="time-outline" size={12} color={theme.textSecondary} />
+              {' '}{formatDuration(item.duration)}
             </Text>
             
-            <View style={styles.suggestionDetails}>
-              {suggestions.weight && (
-                <View style={styles.suggestionItem}>
-                  <Ionicons name="barbell-outline" size={14} color={colors.primary} />
-                  <Text style={[styles.suggestionText, { color: colors.text }]}>
-                    {suggestions.weight} kg
-                  </Text>
-                </View>
-              )}
-              
-              {suggestions.reps && (
-                <View style={styles.suggestionItem}>
-                  <Ionicons name="repeat-outline" size={14} color={colors.primary} />
-                  <Text style={[styles.suggestionText, { color: colors.text }]}>
-                    {suggestions.reps.min}-{suggestions.reps.max} reps
-                  </Text>
-                </View>
-              )}
-            </View>
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                startWorkout(item.id);
+              }}
+              style={styles.startButton}
+            >
+              <Ionicons name="play" size={16} color={Colors.primaryBlue} />
+            </TouchableOpacity>
           </View>
-        )}
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </SlideIn>
     );
   };
   
-  // Render recent workout item
-  const renderRecentWorkout = ({ item, index }) => {
-    const exercise = getExerciseById(item.exerciseId);
-    if (!exercise) return null;
-    
-    const date = new Date(item.date);
-    const formattedDate = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
-    const categoryColor = getCategoryColor(exercise.category);
+  // Render suggested workout card
+  const renderSuggestedWorkout = ({ item, index }) => {
+    const categoryColor = getCategoryColor(item.category);
     
     return (
-      <TouchableOpacity 
-        style={[styles.recentWorkoutItem, { backgroundColor: colors.backgroundSecondary }]}
-        onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: exercise.id })}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.recentWorkoutIcon, { backgroundColor: categoryColor + '20' }]}>
-          <Ionicons name="barbell-outline" size={18} color={categoryColor} />
-        </View>
-        
-        <View style={styles.recentWorkoutInfo}>
-          <Text style={[styles.recentWorkoutName, { color: colors.text }]} numberOfLines={1}>
-            {exercise.name}
-          </Text>
-          <View style={styles.recentWorkoutDetails}>
-            <Text style={[styles.recentWorkoutData, { color: colors.textSecondary }]}>
-              {item.sets}×{item.reps} • {item.weight} kg
-            </Text>
-            <Text style={[styles.recentWorkoutDate, { color: colors.textTertiary }]}>
-              {formattedDate}
-            </Text>
+      <SlideIn direction="up" delay={200 + (index * 50)} duration={500}>
+        <Card style={styles.suggestedCard}>
+          <View style={[styles.categoryIndicator, { backgroundColor: categoryColor }]} />
+          
+          <View style={styles.suggestedCardContent}>
+            <View style={styles.suggestedCardHeader}>
+              <Ionicons name={workoutCategories.find(c => c.id === item.category)?.icon || 'barbell-outline'} size={24} color={categoryColor} style={styles.workoutIcon} />
+              
+              <View style={styles.suggestedTitleContainer}>
+                <Text variant="cardTitle" style={styles.workoutTitle}>{item.name}</Text>
+                <Text variant="caption" style={styles.workoutSubtitle}>
+                  {item.reason}
+                </Text>
+              </View>
+            </View>
+            
+            <Button 
+              title="Try This" 
+              type="secondary" 
+              size="small"
+              onPress={() => startWorkout(item.id)} 
+            />
           </View>
-        </View>
-      </TouchableOpacity>
+        </Card>
+      </SlideIn>
     );
+  };
+  
+  // Render workout history calendar
+  const renderWorkoutHistory = () => {
+    if (viewMode === 'calendar') {
+      return (
+        <FadeIn delay={300} duration={600}>
+          <View style={styles.calendarContainer}>
+            <CalendarList
+              markedDates={markedDates}
+              markingType={'period'}
+              theme={{
+                calendarBackground: theme.card,
+                textSectionTitleColor: theme.textSecondary,
+                selectedDayBackgroundColor: Colors.primaryBlue,
+                selectedDayTextColor: '#ffffff',
+                todayTextColor: Colors.primaryBlue,
+                dayTextColor: theme.text,
+                textDisabledColor: theme.textSecondary,
+                monthTextColor: theme.text,
+                indicatorColor: Colors.primaryBlue,
+                arrowColor: Colors.primaryBlue,
+              }}
+              horizontal={true}
+              pagingEnabled={true}
+              hideExtraDays={false}
+              onDayPress={(day) => {
+                if (workoutHistory[day.dateString]) {
+                  navigation.navigate('WorkoutHistory', { date: day.dateString });
+                }
+              }}
+            />
+          </View>
+        </FadeIn>
+      );
+    }
+    
+    return null;
   };
 
   return (
-    <Container dark={darkMode} style={{ backgroundColor: colors.background }}>
-      <ScrollView
-        contentContainerStyle={styles.container}
+    <Container dark={darkMode} style={{ backgroundColor: theme.background }}>
+      {/* Header with sticky title */}
+      <Animated.View 
+        style={[
+          styles.headerContainer,
+          { opacity: headerOpacity, backgroundColor: theme.background }
+        ]}
+      >
+        <Text variant="pageTitle" style={styles.headerTitle}>Workouts</Text>
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={createNewWorkout}
+          activeOpacity={0.7}
+        >
+          <LinearGradient
+            colors={[Colors.primaryBlue, Colors.primaryDarkBlue]}
+            style={styles.createButtonGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons name="add" size={24} color="#FFF" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
+      
+      {/* Main Scroll Content */}
+      <Animated.ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: tabBarHeight + Spacing.lg }
+        ]}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={Colors.primaryBlue}
+            colors={[Colors.primaryBlue]}
           />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Animated.View 
-            style={[
-              styles.headerContent,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }
-            ]}
+        {/* Page Title */}
+        <View style={styles.titleContainer}>
+          <Text variant="pageTitle" style={styles.pageTitle}>Workouts</Text>
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={createNewWorkout}
+            activeOpacity={0.7}
           >
-            <Title style={[styles.screenTitle, { color: colors.text }]}>My Workouts</Title>
-            
-            <TouchableOpacity 
-              style={[styles.headerButton, { backgroundColor: colors.backgroundSecondary }]}
-              onPress={() => navigation.navigate('Exercises')}
+            <LinearGradient
+              colors={[Colors.primaryBlue, Colors.primaryDarkBlue]}
+              style={styles.createButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
             >
-              <Ionicons name="search-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-          </Animated.View>
+              <Ionicons name="add" size={24} color="#FFF" />
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
         
-        {/* Create new workout list */}
-        <Animated.View
-          style={[
-            styles.createWorkoutCard,
-            { 
-              backgroundColor: colors.backgroundSecondary,
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }]
-            }
-          ]}
-        >
-          <View style={styles.createWorkoutHeader}>
-            <Text style={[styles.createWorkoutTitle, { color: colors.text }]}>
-              Create Workout Plan
-            </Text>
-            <Ionicons name="add-circle" size={22} color={colors.primary} />
-          </View>
-          
-          <Text style={[styles.createWorkoutSubtitle, { color: colors.textSecondary }]}>
-            Build a custom workout routine and track your progress
-          </Text>
-          
-          <View style={styles.createRow}>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.background + '80',
-                  borderColor: colors.border,
-                  color: colors.text
-                }
-              ]}
-              placeholder="e.g. Chest and Triceps"
-              placeholderTextColor={colors.textTertiary}
-              value={newListName}
-              onChangeText={setNewListName}
-            />
-            
-            <TouchableOpacity
-              style={[
-                styles.createButton,
-                { backgroundColor: colors.primary },
-                (!newListName.trim() || loading) && { opacity: 0.6 }
-              ]}
-              onPress={handleCreateList}
-              disabled={!newListName.trim() || loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.createButtonText}>Create</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
+        {/* Current Workout Section */}
+        {renderCurrentWorkout()}
         
-        {/* Recent Workouts Section */}
-        {recentWorkouts.length > 0 && (
-          <Animated.View
-            style={{
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }]
-            }}
-          >
+        {/* Custom Workouts Section */}
+        <FadeIn delay={200} duration={600}>
+          <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Recent Workouts
-              </Text>
-              <TouchableOpacity>
-                <Text style={[styles.sectionAction, { color: colors.primary }]}>
-                  See All
-                </Text>
+              <Text variant="sectionHeader" style={styles.sectionTitle}>My Routines</Text>
+              <TouchableOpacity
+                onPress={createNewWorkout}
+                activeOpacity={0.7}
+                style={styles.textButton}
+              >
+                <Text variant="caption" style={styles.textButtonLabel}>Create New</Text>
+                <Ionicons name="add-circle-outline" size={16} color={Colors.primaryBlue} />
               </TouchableOpacity>
             </View>
             
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.recentWorkoutsContainer}
-            >
-              {recentWorkouts.map((workout, index) => (
-                <View key={index} style={{ marginRight: 12 }}>
-                  {renderRecentWorkout({ item: workout, index })}
-                </View>
-              ))}
-            </ScrollView>
-          </Animated.View>
-        )}
-        
-        {/* Workout Lists Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            My Workout Plans
-          </Text>
-          {workoutLists.length > 0 && (
-            <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>
-              {workoutLists.length} {workoutLists.length === 1 ? 'plan' : 'plans'}
-            </Text>
-          )}
-        </View>
-        
-        {loading || globalLoading ? (
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-        ) : workoutLists.length > 0 ? (
-          <View style={styles.workoutListsGrid}>
-            {workoutLists.map((item, index) => (
-              <View key={item.id} style={styles.workoutListItem}>
-                {renderWorkoutList({ item, index })}
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View style={[styles.emptyStateCard, { backgroundColor: colors.backgroundSecondary }]}>
-            <Ionicons 
-              name="list-outline" 
-              size={48} 
-              color={colors.textTertiary} 
-              style={styles.emptyIcon}
-            />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No workout plans yet
-            </Text>
-            <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
-              Create your first workout plan above
-            </Text>
-          </View>
-        )}
-        
-        {/* Favorites Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Heading style={{ color: colors.text }}>Favorite Exercises</Heading>
-            <TouchableOpacity onPress={() => setShowFavorites(!showFavorites)}>
-              <Ionicons
-                name={showFavorites ? 'chevron-up' : 'chevron-down'}
-                size={22}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-          
-          {/* Animated favorites content */}
-          <Animated.View style={{
-            opacity: favoritesOpacity,
-            transform: [{ scaleY: favoritesScale }],
-            overflow: 'hidden'
-          }}>
-            {favoriteExercises.length > 0 ? (
+            {customWorkouts.length > 0 ? (
               <FlatList
-                data={favoriteExercises}
-                renderItem={renderFavoriteExercise}
-                keyExtractor={(item) => item.id}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.favoritesContainer}
+                data={customWorkouts}
+                renderItem={renderWorkoutCard}
+                keyExtractor={item => item.id}
+                horizontal={false}
+                numColumns={2}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.workoutCardsContainer}
+                columnWrapperStyle={styles.columnWrapper}
+                scrollEnabled={false}
               />
             ) : (
-              <View style={styles.emptyFavorites}>
-                <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                  No favorite exercises yet. Add some from the Exercises tab.
+              <Card style={styles.emptyStateCard}>
+                <Ionicons name="fitness-outline" size={40} color={theme.textSecondary} style={styles.emptyStateIcon} />
+                <Text variant="body" style={styles.emptyStateText}>
+                  You haven't created any workout routines yet
                 </Text>
-              </View>
+                <Button
+                  title="Create Your First Workout"
+                  onPress={createNewWorkout}
+                  type="primary"
+                  icon="add-circle-outline"
+                  style={styles.emptyStateButton}
+                />
+              </Card>
             )}
-          </Animated.View>
-        </View>
-      </ScrollView>
+          </View>
+        </FadeIn>
+        
+        {/* Suggested Workouts Section */}
+        {suggestedWorkouts.length > 0 && (
+          <FadeIn delay={300} duration={600}>
+            <View style={styles.sectionContainer}>
+              <Text variant="sectionHeader" style={styles.sectionTitle}>Suggested For You</Text>
+              
+              <FlatList
+                data={suggestedWorkouts}
+                renderItem={renderSuggestedWorkout}
+                keyExtractor={item => item.id}
+                horizontal={false}
+                showsVerticalScrollIndicator={false}
+                scrollEnabled={false}
+                contentContainerStyle={styles.suggestedCardsContainer}
+              />
+            </View>
+          </FadeIn>
+        )}
+        
+        {/* Workout History Section */}
+        <FadeIn delay={400} duration={600}>
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text variant="sectionHeader" style={styles.sectionTitle}>Workout History</Text>
+              
+              <View style={styles.viewModeToggle}>
+                <TouchableOpacity
+                  onPress={() => setViewMode('grid')}
+                  style={[
+                    styles.viewModeButton,
+                    viewMode === 'grid' && styles.viewModeButtonActive
+                  ]}
+                >
+                  <Ionicons 
+                    name="grid-outline" 
+                    size={18} 
+                    color={viewMode === 'grid' ? Colors.primaryBlue : theme.textSecondary} 
+                  />
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  onPress={() => setViewMode('calendar')}
+                  style={[
+                    styles.viewModeButton,
+                    viewMode === 'calendar' && styles.viewModeButtonActive
+                  ]}
+                >
+                  <Ionicons 
+                    name="calendar-outline" 
+                    size={18} 
+                    color={viewMode === 'calendar' ? Colors.primaryBlue : theme.textSecondary} 
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            {renderWorkoutHistory()}
+          </View>
+        </FadeIn>
+      </Animated.ScrollView>
     </Container>
   );
 };
@@ -678,316 +696,249 @@ const WorkoutScreen = () => {
 export default WorkoutScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    paddingBottom: 40
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8
-  },
-  headerContent: {
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'ios' ? 90 : 60,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  headerButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 40 : 0,
+    paddingHorizontal: Spacing.lg,
+    zIndex: 10,
   },
-  screenTitle: {
-    fontSize: 28,
-    fontWeight: 'bold'
+  headerTitle: {
+    fontWeight: Typography.bold,
   },
-  createWorkoutCard: {
-    margin: 16,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5
+  scrollContent: {
+    paddingTop: Spacing.lg,
   },
-  createWorkoutHeader: {
+  titleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
-  createWorkoutTitle: {
-    fontSize: 18,
-    fontWeight: '600'
-  },
-  createWorkoutSubtitle: {
-    fontSize: 14,
-    marginBottom: 16
-  },
-  createRow: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  input: {
-    flex: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    marginRight: 12
+  pageTitle: {
+    fontWeight: Typography.bold,
   },
   createButton: {
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'center'
   },
-  createButtonText: {
-    color: '#FFF',
-    fontWeight: '600',
-    fontSize: 16
+  createButtonGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionContainer: {
+    marginBottom: Spacing.xl,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 12
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600'
+    fontWeight: Typography.semibold,
   },
-  sectionCount: {
-    fontSize: 14
-  },
-  sectionAction: {
-    fontSize: 14,
-    fontWeight: '500'
-  },
-  workoutListsGrid: {
-    paddingHorizontal: 16
-  },
-  workoutListItem: {
-    marginBottom: 16
-  },
-  listCard: {
-    borderRadius: 16,
-    overflow: 'hidden'
-  },
-  listCardContent: {
-    padding: 16
-  },
-  listCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  workoutListIconContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  listCardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4
-  },
-  listCardSubtitle: {
-    fontSize: 14
-  },
-  exercisePreview: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 12,
-    marginBottom: 16
-  },
-  exerciseChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginRight: 8,
-    marginBottom: 8
-  },
-  exerciseChipText: {
-    fontSize: 13,
-    fontWeight: '500'
-  },
-  moreChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1
-  },
-  moreChipText: {
-    fontSize: 13
-  },
-  listCardFooter: {
-    alignItems: 'flex-start'
-  },
-  startButton: {
+  textButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8
   },
-  startButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14
+  textButtonLabel: {
+    color: Colors.primaryBlue,
+    marginRight: 4,
   },
-  favoritesContainer: {
-    paddingHorizontal: 16
-  },
-  favoriteCard: {
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2.22,
-    elevation: 2
-  },
-  favoriteCardHeader: {
+  currentWorkoutCard: {
+    marginHorizontal: Spacing.lg,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12
+    overflow: 'hidden',
   },
-  favoriteInfo: {
+  categoryIndicator: {
+    width: 4,
+    height: '100%',
+  },
+  workoutCardContent: {
     flex: 1,
-    marginRight: 12
+    padding: Spacing.lg,
   },
-  favoriteTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 6
-  },
-  favoriteSubInfo: {
+  workoutCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center'
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
   },
-  categoryBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6
-  },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: '500'
-  },
-  quickLogButton: {
+  workoutTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8
+    flex: 1,
   },
-  quickLogText: {
-    marginLeft: 4,
-    fontWeight: '600'
+  workoutIcon: {
+    marginRight: Spacing.sm,
   },
-  suggestionContainer: {
-    marginTop: 4
+  workoutTitle: {
+    fontWeight: Typography.semibold,
   },
-  suggestionTitle: {
-    fontSize: 13,
-    marginBottom: 8
+  workoutSubtitle: {
+    color: (props) => props.theme.textSecondary,
+    marginTop: 2,
   },
-  suggestionDetails: {
+  workoutCardFooter: {
     flexDirection: 'row',
-    alignItems: 'center'
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  suggestionItem: {
+  detailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
   },
-  suggestionText: {
-    marginLeft: 6,
-    fontSize: 14,
-    fontWeight: '500'
+  detailsText: {
+    color: (props) => props.theme.textSecondary,
+    marginRight: 2,
   },
-  emptyStateCard: {
-    margin: 16,
-    padding: 24,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center'
+  workoutCardsContainer: {
+    paddingHorizontal: Spacing.lg,
   },
-  emptyIcon: {
-    marginBottom: 16
+  columnWrapper: {
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
   },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '500',
-    textAlign: 'center',
-    marginBottom: 4
+  workoutCard: {
+    backgroundColor: (props) => props.theme.card,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    padding: Spacing.md,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  emptySubtext: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16
+  cardIconContainer: {
+    marginBottom: Spacing.sm,
   },
-  emptyFavorites: {
-    padding: 16,
-    alignItems: 'center'
-  },
-  recentWorkoutsContainer: {
-    paddingLeft: 16,
-    paddingRight: 4
-  },
-  recentWorkoutItem: {
-    width: 240,
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  recentWorkoutIcon: {
+  cardIconBackground: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
+    borderRadius: 12,
     justifyContent: 'center',
-    marginRight: 12
+    alignItems: 'center',
   },
-  recentWorkoutInfo: {
-    flex: 1
+  cardTitle: {
+    fontWeight: Typography.semibold,
   },
-  recentWorkoutName: {
-    fontSize: 15,
-    fontWeight: '500',
-    marginBottom: 4
+  cardSubtitle: {
+    color: (props) => props.theme.textSecondary,
+    marginTop: 2,
   },
-  recentWorkoutDetails: {
+  cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginTop: Spacing.sm,
   },
-  recentWorkoutData: {
-    fontSize: 13
+  cardDuration: {
+    color: (props) => props.theme.textSecondary,
   },
-  recentWorkoutDate: {
-    fontSize: 12
+  startButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: (props) => `${Colors.primaryBlue}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  loader: {
-    marginVertical: 24
-  }
+  emptyStateCard: {
+    marginHorizontal: Spacing.lg,
+    padding: Spacing.lg,
+    alignItems: 'center',
+  },
+  emptyStateIcon: {
+    marginBottom: Spacing.md,
+  },
+  emptyStateText: {
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+    color: (props) => props.theme.textSecondary,
+  },
+  emptyStateButton: {
+    marginTop: Spacing.md,
+  },
+  suggestedCardsContainer: {
+    paddingHorizontal: Spacing.lg,
+  },
+  suggestedCard: {
+    marginBottom: Spacing.md,
+    flexDirection: 'row',
+    overflow: 'hidden',
+  },
+  suggestedCardContent: {
+    flex: 1,
+    padding: Spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  suggestedCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: Spacing.md,
+  },
+  suggestedTitleContainer: {
+    flex: 1,
+    marginLeft: Spacing.sm,
+  },
+  viewModeToggle: {
+    flexDirection: 'row',
+    borderRadius: BorderRadius.md,
+    backgroundColor: (props) => props.theme === ThemeColors.dark 
+      ? 'rgba(255,255,255,0.1)' 
+      : 'rgba(0,0,0,0.05)',
+    padding: 2,
+  },
+  viewModeButton: {
+    padding: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  viewModeButtonActive: {
+    backgroundColor: (props) => props.theme === ThemeColors.dark 
+      ? 'rgba(255,255,255,0.15)' 
+      : 'rgba(255,255,255,0.9)',
+  },
+  calendarContainer: {
+    marginTop: Spacing.md,
+    backgroundColor: (props) => props.theme.card,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
 });

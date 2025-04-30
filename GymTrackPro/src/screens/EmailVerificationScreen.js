@@ -24,6 +24,7 @@ import Animated, {
   FadeIn,
   FadeOut
 } from 'react-native-reanimated';
+import { Colors as ThemeColors, Typography, Spacing, BorderRadius, createNeumorphism } from '../constants/Theme';
 
 function EmailVerificationScreen({ navigation }) {
   const { user, logout } = useContext(AuthContext);
@@ -136,11 +137,13 @@ function EmailVerificationScreen({ navigation }) {
   
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0062CC" />
+      <StatusBar barStyle="light-content" backgroundColor={ThemeColors.primaryDarkBlue} />
       
       <LinearGradient
-        colors={['#0062CC', '#0096FF']}
+        colors={[ThemeColors.primaryDarkBlue, ThemeColors.primaryBlue]}
         style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       />
       
       <Animated.View
@@ -170,52 +173,80 @@ function EmailVerificationScreen({ navigation }) {
           You need to verify your email before you can use all features of the app.
         </Text>
         
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={handleRefreshStatus}
-          activeOpacity={0.8}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <>
-              <Ionicons name="refresh" size={24} color="#FFF" style={styles.buttonIcon} />
-              <Text style={styles.buttonText}>Check Verification Status</Text>
-            </>
-          )}
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.resendButton,
-            resendCooldown > 0 && { opacity: 0.6 }
-          ]}
-          onPress={handleResendVerification}
-          activeOpacity={resendCooldown > 0 ? 0.6 : 0.8}
-          disabled={resendCooldown > 0}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <>
-              <Ionicons name="mail" size={20} color="#FFF" style={styles.buttonIcon} />
-              <Text style={styles.buttonText}>
-                {resendCooldown > 0 
-                  ? `Resend Email (${resendCooldown}s)` 
-                  : 'Resend Verification Email'}
+        <View style={styles.cardContainer}>
+          <View style={[styles.card, createNeumorphism(false, 8)]}>
+            <View style={styles.statusSection}>
+              <View style={[styles.statusIndicator, {
+                backgroundColor: 'rgba(255, 170, 43, 0.2)',
+                borderColor: ThemeColors.accentWarning
+              }]}>
+                <Ionicons name="time-outline" size={24} color={ThemeColors.accentWarning} />
+              </View>
+              <Text style={styles.statusTitle}>Pending Verification</Text>
+              <Text style={styles.statusMessage}>
+                Your email verification is pending. Check your inbox or spam folder.
               </Text>
-            </>
-          )}
-        </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={handleRefreshStatus}
+              activeOpacity={0.8}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="refresh" size={22} color="#FFF" style={styles.buttonIcon} />
+                  <Text style={styles.buttonText}>Check Verification Status</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            
+            <View style={styles.divider} />
+            
+            <View style={styles.actionSection}>
+              <Text style={styles.actionTitle}>Didn't receive the email?</Text>
+              
+              <TouchableOpacity
+                style={[
+                  styles.resendButton,
+                  resendCooldown > 0 && { opacity: 0.6 }
+                ]}
+                onPress={handleResendVerification}
+                activeOpacity={resendCooldown > 0 ? 0.6 : 0.8}
+                disabled={resendCooldown > 0 || isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color={ThemeColors.primaryBlue} size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="mail-outline" size={20} color={ThemeColors.primaryBlue} style={styles.buttonIcon} />
+                    <Text style={styles.resendButtonText}>
+                      {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Email'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.loginButton}
+                onPress={handleContinueToLogin}
+                activeOpacity={0.8}
+                disabled={isLoading}
+              >
+                <Text style={styles.loginButtonText}>Back to Login</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
         
-        <TouchableOpacity
-          style={styles.loginButton}
-          onPress={handleContinueToLogin}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.loginButtonText}>Return to Login</Text>
-        </TouchableOpacity>
+        <View style={styles.helpContainer}>
+          <Text style={styles.helpText}>
+            If you're having trouble with verification, contact our support team for assistance.
+          </Text>
+        </View>
       </Animated.View>
     </SafeAreaView>
   );
@@ -228,82 +259,151 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.lg,
   },
   iconContainer: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
-    marginBottom: 24,
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+    marginTop: Spacing.xl,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: Typography.title,
+    fontWeight: Typography.bold,
     color: '#FFF',
-    marginBottom: 16,
+    marginBottom: Spacing.sm,
     textAlign: 'center',
   },
   message: {
-    fontSize: 16,
+    fontSize: Typography.body,
     color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 24,
     textAlign: 'center',
-    lineHeight: 24,
+    marginBottom: Spacing.md,
   },
   emailText: {
-    fontWeight: 'bold',
+    fontWeight: Typography.bold,
+    color: '#FFF',
   },
   instructions: {
-    fontSize: 14,
+    fontSize: Typography.caption,
     color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 36,
     textAlign: 'center',
+    marginBottom: Spacing.xl,
     lineHeight: 20,
+    maxWidth: 320,
+  },
+  cardContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
+  },
+  card: {
+    width: '100%',
+    backgroundColor: '#FFF',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    alignItems: 'center',
+  },
+  statusSection: {
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  statusIndicator: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    borderWidth: 2,
+  },
+  statusTitle: {
+    fontSize: Typography.sectionHeader,
+    fontWeight: Typography.semibold,
+    color: ThemeColors.primaryTextLight,
+    marginBottom: Spacing.xs,
+  },
+  statusMessage: {
+    fontSize: Typography.caption,
+    color: ThemeColors.secondaryTextLight,
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
   },
   refreshButton: {
-    backgroundColor: '#4CD964',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    backgroundColor: ThemeColors.primaryBlue,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
     width: '100%',
-    maxWidth: 320,
-  },
-  resendButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 32,
-    width: '100%',
-    maxWidth: 320,
-  },
-  buttonIcon: {
-    marginRight: 8,
   },
   buttonText: {
     color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: Typography.button,
+    fontWeight: Typography.semibold,
+  },
+  buttonIcon: {
+    marginRight: Spacing.xs,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    width: '100%',
+    marginVertical: Spacing.lg,
+  },
+  actionSection: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  actionTitle: {
+    fontSize: Typography.body,
+    fontWeight: Typography.medium,
+    color: ThemeColors.secondaryTextLight,
+    marginBottom: Spacing.md,
+  },
+  resendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10, 108, 255, 0.1)',
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    width: '100%',
+    marginBottom: Spacing.md,
+  },
+  resendButtonText: {
+    color: ThemeColors.primaryBlue,
+    fontSize: Typography.button,
+    fontWeight: Typography.semibold,
   },
   loginButton: {
-    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.sm,
+    width: '100%',
   },
   loginButtonText: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 16,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
+    color: ThemeColors.secondaryTextLight,
+    fontSize: Typography.caption,
+    fontWeight: Typography.medium,
+  },
+  helpContainer: {
+    width: '100%',
+    maxWidth: 320,
+    marginTop: 'auto',
+  },
+  helpText: {
+    fontSize: Typography.small,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 
