@@ -20,7 +20,7 @@ import SocialScreen from '../screens/SocialScreen';
 // Icons and styling
 import { Ionicons } from '@expo/vector-icons';
 import { ExerciseContext } from '../context/ExerciseContext';
-import Colors from '../../constants/Colors';
+import Colors from '../constants/Colors';
 
 const Tab = createBottomTabNavigator();
 

@@ -40,9 +40,11 @@ import { useNavigation } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BlurView } from 'expo-blur'
-import Colors from '../../constants/Colors'
-import Container from '../../components/ui/Container'
-import { Title, Heading, Subheading, Body, Caption } from '../../components/ui/Text'
+import Colors from '../constants/Colors'
+import Container from '../components/ui/Container'
+import { Title, Heading, Subheading, Body, Caption } from '../components/ui/Text'
+import Button from '../components/ui/Button'
+import Card from '../components/ui/Card'
 
 const { width } = Dimensions.get('window');
 

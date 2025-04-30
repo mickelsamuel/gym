@@ -2,15 +2,11 @@
   "name": "gymtrackpro",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start --dev-client",
-    "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "start": "expo start",
     "web": "expo start --web",
     "test": "jest --watchAll",
     "lint": "expo lint",
-    "setup-firebase": "npm install @react-native-firebase/app @react-native-firebase/auth @react-native-firebase/firestore @react-native-firebase/analytics",
-    "postinstall": "npx pod-install && npx expo prebuild --clean"
+    "setup-firebase": "npm install @react-native-firebase/app @react-native-firebase/auth @react-native-firebase/firestore @react-native-firebase/analytics"
   },
   "jest": {
     "preset": "jest-expo"

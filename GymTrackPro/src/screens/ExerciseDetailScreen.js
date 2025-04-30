@@ -25,9 +25,9 @@ import WorkoutLogModal from './WorkoutLogModal';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import Colors from '../../constants/Colors';
-import { Title, Heading, Subheading, Body, Caption } from '../../components/ui/Text';
-import Container from '../../components/ui/Container';
+import Colors from '../constants/Colors';
+import { Title, Heading, Subheading, Body, Caption } from '../components/ui/Text';
+import Container from '../components/ui/Container';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function ExerciseDetailScreen() {

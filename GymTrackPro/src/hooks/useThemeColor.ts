@@ -3,8 +3,8 @@
  * https://docs.expo.dev/guides/color-schemes/
  */
 
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import Colors from '../constants/Colors';
+import { useColorScheme } from './useColorScheme';
 
 // Define a type for our color scheme
 type ColorScheme = {

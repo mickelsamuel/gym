@@ -28,9 +28,9 @@ import { AuthContext } from '../context/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Colors from '../../constants/Colors';
-import Container from '../../components/ui/Container';
-import { Title, Heading, Subheading, Body, Caption } from '../../components/ui/Text';
+import Colors from '../constants/Colors';
+import Container from '../components/ui/Container';
+import { Title, Heading, Subheading, Body, Caption } from '../components/ui/Text';
 import { CalendarList } from 'react-native-calendars';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -42,6 +42,8 @@ import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage'
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();

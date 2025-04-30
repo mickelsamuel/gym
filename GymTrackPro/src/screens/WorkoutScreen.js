@@ -22,11 +22,11 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Import our custom UI components
-import { Title, Heading, Subheading, Body, Caption } from '../../components/ui/Text';
-import Button from '../../components/ui/Button';
-import Card from '../../components/ui/Card';
-import Container from '../../components/ui/Container';
-import Colors from '../../constants/Colors';
+import { Title, Heading, Subheading, Body, Caption } from '../components/ui/Text';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
+import Container from '../components/ui/Container';
+import Colors from '../constants/Colors';
 
 const { width } = Dimensions.get('window');
 

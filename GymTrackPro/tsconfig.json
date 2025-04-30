@@ -15,7 +15,6 @@
       "./src/types"
     ],
     "types": [
-      "jest",
       "node"
     ]
   },

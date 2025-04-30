@@ -25,11 +25,12 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { ExerciseContext } from '../context/ExerciseContext';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
-import Colors from '../../constants/Colors';
-import CustomSkeletonLoader, { SkeletonItem } from '../../components/CustomSkeletonLoader';
-import Container from '../../components/ui/Container';
-import { Title, Heading, Subheading, Body, Caption } from '../../components/ui/Text';
-import Button from '../../components/ui/Button';
+import Colors from '../constants/Colors';
+import CustomSkeletonLoader, { SkeletonItem } from '../components/CustomSkeletonLoader';
+import Container from '../components/ui/Container';
+import { Title, Heading, Subheading, Body, Caption } from '../components/ui/Text';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
 
 // -----------------------------------------------------------------------------
 // Use only the following broader muscle groups
