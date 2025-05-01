@@ -17,10 +17,10 @@ import { Theme, Typography, BorderRadius, Animation, createElevation } from '../
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
-interface ButtonProps {
+export interface ButtonProps {
   title: string;
-  onPress: () => void;
-  type?: 'primary' | 'secondary' | 'tertiary' | 'danger' | 'success';
+  onPress?: () => void;
+  type?: 'primary' | 'secondary' | 'tertiary' | 'danger' | 'success' | 'disabled';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
@@ -38,7 +38,7 @@ interface ButtonProps {
  */
 export default function Button({
   title,
-  onPress,
+  onPress = () => {},
   type = 'primary',
   size = 'medium',
   disabled = false,
@@ -94,7 +94,7 @@ export default function Button({
   
   // Determine button background colors based on type
   const getButtonBackground = () => {
-    if (disabled) return { backgroundColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' };
+    if (disabled || type === 'disabled') return { backgroundColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' };
     
     switch (type) {
       case 'primary':
@@ -150,7 +150,7 @@ export default function Button({
   
   // Determine text color based on button type
   const getTextColor = () => {
-    if (disabled) return darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)';
+    if (disabled || type === 'disabled') return darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)';
     
     switch (type) {
       case 'primary':
@@ -186,7 +186,7 @@ export default function Button({
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.7}
-      disabled={disabled || loading}
+      disabled={disabled || loading || type === 'disabled'}
       testID={testID}
       style={[
         styles.button,
@@ -195,7 +195,7 @@ export default function Button({
           height: getButtonHeight(),
           width: getButtonWidth(),
           borderRadius: getButtonBorderRadius(),
-          ...(!disabled && type !== 'tertiary' && type !== 'secondary' && createElevation(1, darkMode)),
+          ...(!disabled && type !== 'tertiary' && type !== 'secondary' && type !== 'disabled' && createElevation(1, darkMode)),
         },
         style
       ]}
@@ -253,17 +253,16 @@ const styles = StyleSheet.create({
   button: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
     overflow: 'hidden',
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
   },
   text: {
     textAlign: 'center',
-    letterSpacing: 0.3,
   },
   leftIcon: {
     marginRight: 8,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text as RNText, TextStyle, StyleSheet, Platform } from 'react-native';
+import { Text as RNText, TextStyle, StyleSheet, Platform, StyleProp } from 'react-native';
 import { useExercise } from '../../context/ExerciseContext';
 import { Theme, Typography } from '../../constants/Theme';
 
@@ -17,7 +17,7 @@ export type TextVariant =
 export interface TextProps {
   children: React.ReactNode;
   variant?: TextVariant;
-  style?: TextStyle;
+  style?: StyleProp<TextStyle>;
   color?: string;
   centered?: boolean;
   numberOfLines?: number;

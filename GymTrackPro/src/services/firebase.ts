@@ -1,10 +1,11 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, FirebaseApp } from 'firebase/app';
 import {
   initializeAuth,
-  getReactNativePersistence
+  Auth,
+  browserLocalPersistence
 } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getAnalytics, isSupported } from 'firebase/analytics';
+import { getFirestore, connectFirestoreEmulator, Firestore } from 'firebase/firestore';
+import { getAnalytics, isSupported, Analytics } from 'firebase/analytics';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -20,16 +21,18 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app;
-let auth;
-let db;
-let analytics = null;
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let analytics: Analytics | null = null;
 
 try {
   app = initializeApp(firebaseConfig);
   
+  // Initialize auth with appropriate persistence
+  // Using a simplified approach for TypeScript compatibility
   auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+    persistence: browserLocalPersistence
   });
   
   db = getFirestore(app);
@@ -42,10 +45,11 @@ try {
   console.log('Firebase core services initialized successfully');
 } catch (error) {
   console.error('Error initializing Firebase:', error);
+  throw error; // Re-throw to prevent using uninitialized services
 }
 
 // Only initialize analytics on web platforms
-const initializeAnalytics = async () => {
+const initializeAnalytics = async (): Promise<void> => {
   try {
     // Check if Analytics is supported in current environment
     if (Platform.OS === 'web' && await isSupported()) {
@@ -89,4 +93,4 @@ service cloud.firestore {
     // }
   }
 }
-*/
+*/ 

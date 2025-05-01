@@ -204,8 +204,6 @@ export function LinearProgress({
   withShadow = false,
   maxValue = 100,
   valueSuffix = '',
-  showAnimation = true,
-  animationDuration = 1000,
 }: LinearProgressProps) {
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
@@ -231,16 +229,12 @@ export function LinearProgress({
   
   // Animate progress on mount
   useEffect(() => {
-    if (showAnimation) {
-      Animated.timing(animatedWidth, {
-        toValue: normalizedProgress,
-        duration: animationDuration,
-        useNativeDriver: false,
-      }).start();
-    } else {
-      animatedWidth.setValue(normalizedProgress);
-    }
-  }, [normalizedProgress, showAnimation, animationDuration]);
+    Animated.timing(animatedWidth, {
+      toValue: normalizedProgress,
+      duration: 1000,
+      useNativeDriver: false,
+    }).start();
+  }, [normalizedProgress]);
   
   // Calculate border radius based on height and rounded prop
   const borderRadius = rounded ? height / 2 : BorderRadius.xs;
