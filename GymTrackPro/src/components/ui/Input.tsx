@@ -1,152 +1,155 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   TextInput,
   StyleSheet,
-  ViewStyle,
-  TextStyle,
   TouchableOpacity,
-  Animated,
+  TextStyle,
+  ViewStyle,
+  TextInputProps,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useExercise } from '../../context/ExerciseContext';
-import { Theme, Typography, BorderRadius, Spacing } from '../../constants/Theme';
+import { Theme, Typography, BorderRadius, Spacing, createElevation } from '../../constants/Theme';
 import Text from './Text';
 
-type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
-
-interface InputProps {
-  value: string;
-  onChangeText: (text: string) => void;
-  placeholder?: string;
+interface InputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
+  iconLeft?: string;
+  iconRight?: string;
+  onIconRightPress?: () => void;
   error?: string;
-  secureTextEntry?: boolean;
-  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad' | 'number-pad';
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-  autoCorrect?: boolean;
-  icon?: IoniconsName;
-  iconPosition?: 'left' | 'right';
-  clearButton?: boolean;
-  style?: ViewStyle;
-  inputStyle?: TextStyle;
+  helper?: string;
   containerStyle?: ViewStyle;
-  onSubmitEditing?: () => void;
-  returnKeyType?: 'done' | 'go' | 'next' | 'search' | 'send';
+  inputStyle?: TextStyle;
+  rounded?: boolean;
+  variant?: 'filled' | 'outlined';
+  touched?: boolean;
+  onBlur?: () => void;
+  onFocus?: () => void;
   testID?: string;
-  multiline?: boolean;
-  numberOfLines?: number;
 }
 
 /**
  * Input component following the GymTrackPro design system
  */
 export default function Input({
-  value,
-  onChangeText,
-  placeholder,
   label,
+  iconLeft,
+  iconRight,
+  onIconRightPress,
   error,
-  secureTextEntry = false,
-  keyboardType = 'default',
-  autoCapitalize = 'none',
-  autoCorrect = false,
-  icon,
-  iconPosition = 'left',
-  clearButton = false,
-  style,
-  inputStyle,
+  helper,
   containerStyle,
-  onSubmitEditing,
-  returnKeyType,
+  inputStyle,
+  rounded = false,
+  variant = 'filled',
+  secureTextEntry = false,
+  touched,
+  onBlur,
+  onFocus,
   testID,
-  multiline = false,
-  numberOfLines = 1,
+  ...props
 }: InputProps) {
-  const [isFocused, setIsFocused] = useState(false);
-  const [isSecureVisible, setIsSecureVisible] = useState(!secureTextEntry);
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
   
-  const animatedLabelValue = useRef(new Animated.Value(value ? 1 : 0)).current;
+  const [isFocused, setIsFocused] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   
-  // Animation for floating label
-  const animateLabel = (toValue: number) => {
-    Animated.timing(animatedLabelValue, {
-      toValue,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  };
-  
+  // Handle focus event
   const handleFocus = () => {
     setIsFocused(true);
-    animateLabel(1);
+    if (onFocus) onFocus();
   };
   
+  // Handle blur event
   const handleBlur = () => {
     setIsFocused(false);
-    if (!value) {
-      animateLabel(0);
-    }
+    if (onBlur) onBlur();
   };
   
-  // Animated styles for label
-  const labelStyle = {
-    top: animatedLabelValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [14, -10]
-    }),
-    fontSize: animatedLabelValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [Typography.body, Typography.caption]
-    }),
-    color: animatedLabelValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [colors.textSecondary, isFocused ? colors.primary : colors.textSecondary]
-    }),
+  // Toggle password visibility
+  const togglePasswordVisibility = () => {
+    setIsPasswordVisible(!isPasswordVisible);
   };
   
-  // Background color changes based on state (focus/error)
+  // Determine if there is an error
+  const hasError = touched && error ? true : false;
+  
+  // Get background color based on variant, state, and theme
   const getBackgroundColor = () => {
-    if (error) return darkMode ? 'rgba(255, 78, 100, 0.1)' : 'rgba(255, 78, 100, 0.05)';
-    return darkMode 
-      ? 'rgba(255, 255, 255, 0.05)' 
-      : 'rgba(0, 0, 0, 0.03)';
+    if (variant === 'outlined') {
+      return 'transparent';
+    }
+    
+    if (darkMode) {
+      return isFocused ? 'rgba(255, 255, 255, 0.07)' : 'rgba(255, 255, 255, 0.04)';
+    }
+    
+    return isFocused ? 'rgba(0, 0, 0, 0.04)' : 'rgba(0, 0, 0, 0.02)';
   };
   
-  // Border color changes based on state (focus/error)
-  const getBorderColor = () => {
-    if (error) return colors.danger;
+  // Get border styles based on variant, focus state, and error
+  const getBorderStyles = () => {
+    if (variant === 'outlined') {
+      const borderColor = hasError 
+        ? colors.danger 
+        : (isFocused ? colors.primary : colors.border);
+        
+      return {
+        borderWidth: 1.5,
+        borderColor,
+      };
+    }
+    
+    return {
+      borderWidth: 0,
+      borderBottomWidth: 2,
+      borderBottomColor: hasError 
+        ? colors.danger 
+        : (isFocused ? colors.primary : 'transparent'),
+    };
+  };
+  
+  // Get text color based on theme
+  const getTextColor = () => {
+    return darkMode ? colors.text : colors.text;
+  };
+  
+  // Get placeholder color based on theme
+  const getPlaceholderColor = () => {
+    return darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)';
+  };
+  
+  // Get icon color based on focus state and theme
+  const getIconColor = () => {
+    if (hasError) return colors.danger;
     if (isFocused) return colors.primary;
-    return 'transparent';
+    return darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)';
   };
   
-  const toggleSecureEntry = () => {
-    setIsSecureVisible(!isSecureVisible);
-  };
+  // Determine whether to show password toggle icon
+  const showPasswordIcon = secureTextEntry && !iconRight;
   
-  const handleClearText = () => {
-    onChangeText('');
+  // Get password icon based on visibility
+  const getPasswordIcon = () => {
+    return isPasswordVisible ? 'eye-off-outline' : 'eye-outline';
   };
   
   return (
     <View style={[styles.container, containerStyle]}>
       {label && (
-        <Animated.Text
-          style={[
-            styles.label,
-            {
-              left: icon && iconPosition === 'left' ? 40 : 12,
-              backgroundColor: colors.background,
-              paddingHorizontal: 4,
-            },
-            labelStyle
-          ]}
+        <Text
+          variant="caption"
+          style={{ 
+            ...styles.label,
+            color: hasError ? colors.danger : colors.textSecondary 
+          }}
         >
           {label}
-        </Animated.Text>
+        </Text>
       )}
       
       <View
@@ -154,98 +157,64 @@ export default function Input({
           styles.inputContainer,
           {
             backgroundColor: getBackgroundColor(),
-            borderColor: getBorderColor(),
-            borderRadius: BorderRadius.md,
-            paddingVertical: multiline ? 12 : 0,
+            borderRadius: rounded ? 100 : BorderRadius.md,
+            ...getBorderStyles(),
           },
-          style
+          isFocused && !hasError && variant === 'filled' && createElevation(1, darkMode),
         ]}
       >
-        {icon && iconPosition === 'left' && (
+        {iconLeft && (
           <Ionicons
-            name={icon}
-            size={20}
-            color={isFocused ? colors.primary : colors.textSecondary}
-            style={styles.leftIcon}
+            name={iconLeft as any}
+            size={18}
+            color={getIconColor()}
+            style={styles.iconLeft}
           />
         )}
         
         <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.textSecondary}
-          secureTextEntry={secureTextEntry && !isSecureVisible}
-          keyboardType={keyboardType}
-          autoCapitalize={autoCapitalize}
-          autoCorrect={autoCorrect}
           style={[
             styles.input,
             {
-              color: colors.text,
-              fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'Roboto',
-              fontSize: Typography.body,
-              height: multiline ? undefined : 48,
-              textAlignVertical: multiline ? 'top' : 'center',
-              paddingLeft: icon && iconPosition === 'left' ? 0 : 12,
-              paddingRight: (secureTextEntry || clearButton || (icon && iconPosition === 'right')) ? 40 : 12,
+              color: getTextColor(),
+              paddingLeft: iconLeft ? 8 : 16,
+              paddingRight: (iconRight || showPasswordIcon) ? 8 : 16,
             },
-            inputStyle
+            inputStyle,
           ]}
+          selectionColor={colors.primary}
+          placeholderTextColor={getPlaceholderColor()}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          onSubmitEditing={onSubmitEditing}
-          returnKeyType={returnKeyType}
+          secureTextEntry={secureTextEntry && !isPasswordVisible}
           testID={testID}
-          multiline={multiline}
-          numberOfLines={multiline ? numberOfLines : 1}
+          {...props}
         />
         
-        {icon && iconPosition === 'right' && !secureTextEntry && !clearButton && (
-          <Ionicons
-            name={icon}
-            size={20}
-            color={isFocused ? colors.primary : colors.textSecondary}
-            style={styles.rightIcon}
-          />
-        )}
-        
-        {secureTextEntry && (
+        {(showPasswordIcon || iconRight) && (
           <TouchableOpacity
-            onPress={toggleSecureEntry}
-            style={styles.rightIcon}
+            onPress={showPasswordIcon ? togglePasswordVisibility : onIconRightPress}
+            style={styles.iconRight}
             activeOpacity={0.7}
           >
             <Ionicons
-              name={isSecureVisible ? 'eye-off' : 'eye'}
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-        )}
-        
-        {clearButton && value.length > 0 && !secureTextEntry && (
-          <TouchableOpacity
-            onPress={handleClearText}
-            style={styles.rightIcon}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name="close-circle"
-              size={20}
-              color={colors.textSecondary}
+              name={(showPasswordIcon ? getPasswordIcon() : iconRight) as any}
+              size={18}
+              color={getIconColor()}
             />
           </TouchableOpacity>
         )}
       </View>
       
-      {error && (
+      {(hasError || helper) && (
         <Text
-          variant="small"
-          color={colors.danger}
-          style={styles.errorText}
+          variant="tiny"
+          style={{ 
+            ...styles.helperText,
+            color: hasError ? colors.danger : colors.textTertiary 
+          }}
         >
-          {error}
+          {hasError ? error : helper}
         </Text>
       )}
     </View>
@@ -254,36 +223,33 @@ export default function Input({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
     width: '100%',
+  },
+  label: {
+    marginBottom: 4,
+    marginLeft: 4,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    borderWidth: 2,
+    overflow: 'hidden',
   },
   input: {
     flex: 1,
-    padding: 0,
+    paddingVertical: 12,
+    fontSize: Typography.body,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
   },
-  label: {
-    position: 'absolute',
-    zIndex: 1,
-    paddingHorizontal: 4,
-    marginLeft: -4,
+  iconLeft: {
+    marginLeft: 16,
   },
-  leftIcon: {
-    paddingLeft: 12,
-    paddingRight: 8,
+  iconRight: {
+    padding: 8,
+    marginRight: 8,
   },
-  rightIcon: {
-    position: 'absolute',
-    right: 12,
-    padding: 4,
-  },
-  errorText: {
+  helperText: {
     marginTop: 4,
-    marginLeft: 12,
+    marginLeft: 4,
   },
 }); 

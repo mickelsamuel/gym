@@ -1,286 +1,329 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
+  Animated,
   ViewStyle,
   TextStyle,
-  Animated,
-  Easing,
+  Text as RNText,
   Platform,
 } from 'react-native';
-import Svg, { Circle, G, LinearGradient as SvgLinearGradient, Stop, Defs } from 'react-native-svg';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useExercise } from '../../context/ExerciseContext';
-import { Theme, Animation, createShadow } from '../../constants/Theme';
+import { Theme, BorderRadius, Typography, createElevation } from '../../constants/Theme';
+import Svg, { Circle, G, Rect } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import Text from './Text';
 
-interface CircleProgressProps {
+// Common props for progress components
+interface CommonProgressProps {
   progress: number; // 0 to 1
-  size?: number;
-  strokeWidth?: number;
-  showPercentage?: boolean;
-  customLabel?: string;
-  animate?: boolean;
-  animationDuration?: number;
+  color?: string;
   style?: ViewStyle;
-  textStyle?: TextStyle;
-  gradientColors?: [string, string];
+  testID?: string;
+  showAnimation?: boolean;
+  animationDuration?: number;
 }
 
-interface LinearProgressProps {
-  progress: number; // 0 to 1
+// Props specific to circle progress
+interface CircleProgressProps extends CommonProgressProps {
+  size?: number;
+  strokeWidth?: number;
+  showValue?: boolean;
+  valueFormat?: 'percent' | 'number' | 'none';
+  valuePrefix?: string;
+  valueSuffix?: string;
+  maxValue?: number;
+  label?: string;
+  valueStyle?: TextStyle;
+  animateOnMount?: boolean;
+}
+
+// Props specific to linear progress
+interface LinearProgressProps extends CommonProgressProps {
   height?: number;
-  animate?: boolean;
-  animationDuration?: number;
-  style?: ViewStyle;
-  gradientColors?: [string, string];
+  backgroundColor?: string;
+  label?: string;
   showLabel?: boolean;
+  showValue?: boolean;
+  valueFormat?: 'percent' | 'number' | 'none';
+  rounded?: boolean;
+  withShadow?: boolean;
+  maxValue?: number;
+  valueSuffix?: string;
 }
 
 /**
- * Circular progress indicator with animation and percentage display
- * Follows the Neumorphic Fitness design approach
+ * CircleProgress component - displays a circular progress indicator
  */
-export const CircleProgress = ({
+export function CircleProgress({
   progress,
-  size = 120,
+  size = 100,
   strokeWidth = 10,
-  showPercentage = true,
-  customLabel,
-  animate = true,
-  animationDuration = 1000,
+  color,
   style,
-  textStyle,
-  gradientColors,
-}: CircleProgressProps) => {
+  testID,
+  showValue = true,
+  valueFormat = 'percent',
+  valuePrefix = '',
+  valueSuffix = '',
+  maxValue = 100,
+  label,
+  valueStyle,
+  showAnimation = true,
+  animationDuration = 1000,
+  animateOnMount = true,
+}: CircleProgressProps) {
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
-  
-  // Use default gradient colors if not provided
-  const defaultGradientColors: [string, string] = gradientColors || [colors.primary, colors.secondary];
+  const progressColor = color || colors.primary;
   
   // Animation value
-  const animatedValue = React.useRef(new Animated.Value(0)).current;
-  const animatedProgress = React.useRef(new Animated.Value(0)).current;
+  const animatedProgress = useRef(new Animated.Value(0)).current;
   
-  // Calculate SVG properties
+  // Calculate dimensions
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
-  const center = size / 2;
+  const halfSize = size / 2;
   
-  // Run animation on mount and when progress changes
+  // Ensure progress is between 0 and 1
+  const normalizedProgress = Math.min(Math.max(progress, 0), 1);
+  
+  // Animate progress on mount
   useEffect(() => {
-    if (animate) {
+    if (showAnimation) {
       Animated.timing(animatedProgress, {
-        toValue: progress,
+        toValue: normalizedProgress,
         duration: animationDuration,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
     } else {
-      animatedProgress.setValue(progress);
+      animatedProgress.setValue(normalizedProgress);
     }
-  }, [progress, animate, animationDuration]);
+  }, [normalizedProgress, showAnimation, animationDuration]);
   
-  // Interpolate the stroke-dashoffset based on progress
+  // Format value display
+  const formatValue = () => {
+    if (valueFormat === 'none') return '';
+    
+    if (valueFormat === 'percent') {
+      return `${valuePrefix}${Math.round(normalizedProgress * 100)}${valueSuffix || '%'}`;
+    }
+    
+    return `${valuePrefix}${Math.round(normalizedProgress * maxValue)}${valueSuffix}`;
+  };
+  
+  // Map animated value to stroke dashoffset
   const strokeDashoffset = animatedProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [circumference, 0],
-    extrapolate: 'clamp',
   });
   
-  // Format the percentage text
-  const getPercentageText = () => {
-    if (customLabel) return customLabel;
-    return `${Math.round(progress * 100)}%`;
+  // Combine text styles
+  const combinedValueStyle: TextStyle = {
+    fontWeight: '700',
+    color: progressColor,
+    textAlign: 'center',
+    ...(valueStyle || {}),
   };
   
   return (
-    <View style={[styles.circleContainer, { width: size, height: size }, style]}>
-      <Svg width={size} height={size}>
-        <Defs>
-          <SvgLinearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={defaultGradientColors[0]} />
-            <Stop offset="1" stopColor={defaultGradientColors[1]} />
-          </SvgLinearGradient>
-        </Defs>
-        
-        {/* Track Circle - subtle background */}
-        <Circle
-          cx={center}
-          cy={center}
-          r={radius}
-          stroke={darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-          strokeLinecap="round"
-        />
-        
-        {/* Progress Circle with clean rounded line caps */}
-        <G rotation="-90" origin={`${center}, ${center}`}>
-          <AnimatedCircle
-            cx={center}
-            cy={center}
+    <View style={[styles.circleContainer, style]} testID={testID}>
+      <Svg height={size} width={size} style={styles.svg}>
+        <G rotation="-90" origin={`${halfSize}, ${halfSize}`}>
+          {/* Background Circle */}
+          <Circle
+            cx={halfSize}
+            cy={halfSize}
             r={radius}
-            stroke="url(#grad)"
             strokeWidth={strokeWidth}
+            stroke={darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}
+            fill="none"
+          />
+          
+          {/* Progress Circle */}
+          <AnimatedCircle
+            cx={halfSize}
+            cy={halfSize}
+            r={radius}
+            strokeWidth={strokeWidth}
+            stroke={progressColor}
+            fill="none"
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
-            fill="transparent"
           />
         </G>
       </Svg>
       
-      {/* Percentage Text */}
-      {showPercentage && (
-        <View style={styles.percentageContainer}>
+      {/* Value display */}
+      {showValue && (
+        <View style={styles.valueContainer}>
           <Text
-            variant="cardTitle"
-            weight="semibold"
-            centered
-            style={{
-              color: colors.text,
-              ...textStyle as object
-            }}
+            variant="body"
+            style={combinedValueStyle}
           >
-            {getPercentageText()}
+            {formatValue()}
           </Text>
+          
+          {label && (
+            <Text
+              variant="caption"
+              style={{ 
+                color: colors.textSecondary,
+                textAlign: 'center',
+                marginTop: 2,
+              } as TextStyle}
+            >
+              {label}
+            </Text>
+          )}
         </View>
       )}
     </View>
   );
-};
+}
 
-// Animated component for the circle
+// Animated Circle component
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /**
- * Linear progress bar with animation and gradient
- * Follows the Neumorphic Fitness design approach
+ * LinearProgress component - displays a horizontal progress bar
  */
-export const LinearProgress = ({
+export function LinearProgress({
   progress,
+  color,
   height = 8,
-  animate = true,
-  animationDuration = 500,
+  backgroundColor,
   style,
-  gradientColors,
+  testID,
+  label,
   showLabel = false,
-}: LinearProgressProps) => {
+  showValue = false,
+  valueFormat = 'percent',
+  rounded = true,
+  withShadow = false,
+  maxValue = 100,
+  valueSuffix = '',
+  showAnimation = true,
+  animationDuration = 1000,
+}: LinearProgressProps) {
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
-  
-  // Use default gradient colors if not provided
-  const defaultGradientColors: [string, string] = gradientColors || [colors.primary, colors.secondary];
+  const progressColor = color || colors.primary;
+  const bgColor = backgroundColor || (darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)');
   
   // Animation value
-  const animatedWidth = React.useRef(new Animated.Value(0)).current;
+  const animatedWidth = useRef(new Animated.Value(0)).current;
   
-  // Run animation on mount and when progress changes
+  // Ensure progress is between 0 and 1
+  const normalizedProgress = Math.min(Math.max(progress, 0), 1);
+  
+  // Format value display
+  const formatValue = () => {
+    if (valueFormat === 'none') return '';
+    
+    if (valueFormat === 'percent') {
+      return `${Math.round(normalizedProgress * 100)}${valueSuffix || '%'}`;
+    }
+    
+    return `${Math.round(normalizedProgress * maxValue)}${valueSuffix}`;
+  };
+  
+  // Animate progress on mount
   useEffect(() => {
-    if (animate) {
+    if (showAnimation) {
       Animated.timing(animatedWidth, {
-        toValue: progress,
+        toValue: normalizedProgress,
         duration: animationDuration,
-        easing: Easing.inOut(Easing.ease),
         useNativeDriver: false,
       }).start();
     } else {
-      animatedWidth.setValue(progress);
+      animatedWidth.setValue(normalizedProgress);
     }
-  }, [progress, animate, animationDuration]);
+  }, [normalizedProgress, showAnimation, animationDuration]);
   
-  // Width style based on progress
-  const progressStyle = {
-    width: animatedWidth.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['0%', '100%'],
-      extrapolate: 'clamp',
-    }),
-  };
-  
-  // Calculate the percentage for the label
-  const percentage = Math.round(progress * 100);
+  // Calculate border radius based on height and rounded prop
+  const borderRadius = rounded ? height / 2 : BorderRadius.xs;
   
   return (
-    <View style={{ width: '100%' }}>
+    <View style={[styles.linearContainer, style]} testID={testID}>
+      {(showLabel && label) && (
+        <View style={styles.labelContainer}>
+          <Text
+            variant="caption"
+            style={{ color: colors.text } as TextStyle}
+          >
+            {label}
+          </Text>
+          {showValue && (
+            <Text
+              variant="caption"
+              style={{ color: colors.textSecondary } as TextStyle}
+            >
+              {formatValue()}
+            </Text>
+          )}
+        </View>
+      )}
+      
       <View
         style={[
-          styles.linearContainer,
-          { 
-            height, 
-            backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
-            borderRadius: height / 2  // More rounded corners
+          styles.track,
+          {
+            height,
+            backgroundColor: bgColor,
+            borderRadius,
           },
-          style,
+          withShadow && createElevation(1, darkMode),
         ]}
       >
         <Animated.View
           style={[
-            styles.linearProgress,
-            progressStyle,
-            { 
-              height,
-              borderRadius: height / 2  // Match container radius
-            },
-            Platform.OS === 'ios' ? {
-              shadowColor: defaultGradientColors[0],
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 0.5,
-              shadowRadius: 4,
-            } : {
-              elevation: 2,
+            styles.bar,
+            {
+              backgroundColor: progressColor,
+              borderRadius,
+              width: animatedWidth.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', '100%'],
+              }),
             },
           ]}
-        >
-          <LinearGradient
-            colors={defaultGradientColors}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFillObject}
-          />
-        </Animated.View>
+        />
       </View>
-      
-      {/* Optional percentage label */}
-      {showLabel && (
-        <Text
-          variant="caption"
-          style={{
-            textAlign: 'right',
-            marginTop: 4,
-            marginRight: 4,
-            color: colors.textSecondary
-          }}
-        >
-          {`${percentage}%`}
-        </Text>
-      )}
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
+  // Circle Progress styles
   circleContainer: {
-    justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    justifyContent: 'center',
   },
-  percentageContainer: {
+  svg: {
+    transform: [{ rotateZ: '90deg' }],
+  },
+  valueContainer: {
     position: 'absolute',
-    justifyContent: 'center',
     alignItems: 'center',
-    width: '100%',
-    height: '100%',
+    justifyContent: 'center',
   },
+  
+  // Linear Progress styles
   linearContainer: {
     width: '100%',
-    borderRadius: 4,
-    overflow: 'hidden',
   },
-  linearProgress: {
-    borderRadius: 4,
+  labelContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  track: {
     overflow: 'hidden',
+    width: '100%',
+  },
+  bar: {
+    height: '100%',
   },
 }); 

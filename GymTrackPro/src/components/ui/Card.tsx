@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useExercise } from '../../context/ExerciseContext';
-import { Colors, Theme, BorderRadius, createNeumorphism, createShadow } from '../../constants/Theme';
+import { Colors, Theme, BorderRadius, createElevation } from '../../constants/Theme';
 
 interface CardProps {
   children: ReactNode;
@@ -16,9 +16,9 @@ interface CardProps {
   onPress?: () => void;
   disabled?: boolean;
   testID?: string;
-  category?: 'workout' | 'achievement' | 'default';
+  category?: 'workout' | 'achievement' | 'social' | 'stats' | 'default';
+  elevation?: 0 | 1 | 2 | 3 | 4;
   compact?: boolean;
-  neumorphic?: boolean;
   accentColor?: string;
   gradientColors?: [string, string];  // Fixed to expect exactly two colors
 }
@@ -33,8 +33,8 @@ export default function Card({
   disabled = false,
   testID,
   category = 'default',
+  elevation = 2,
   compact = false,
-  neumorphic = true,
   accentColor,
   gradientColors,
 }: CardProps) {
@@ -49,15 +49,28 @@ export default function Card({
       case 'workout':
         return {
           ...baseStyles,
-          borderLeftWidth: 4,
+          borderLeftWidth: 3,
           borderLeftColor: accentColor || colors.primary,
         };
       case 'achievement':
         return {
           ...baseStyles,
           borderRadius: BorderRadius.lg,
-          shadowColor: accentColor || colors.primary,
-          shadowOpacity: darkMode ? 0.4 : 0.15,
+        };
+      case 'social':
+        return {
+          ...baseStyles,
+          borderRadius: BorderRadius.md,
+          borderColor: colors.border,
+          borderWidth: darkMode ? 1 : 0,
+        };
+      case 'stats':
+        return {
+          ...baseStyles,
+          borderRadius: BorderRadius.lg,
+          borderColor: colors.border,
+          borderWidth: 1,
+          backgroundColor: darkMode ? 'rgba(30, 34, 53, 0.5)' : 'rgba(255, 255, 255, 0.8)',
         };
       default:
         return baseStyles;
@@ -66,26 +79,32 @@ export default function Card({
   
   // Get padding based on compact prop
   const getPadding = () => {
-    return compact ? 16 : 20;
+    return compact ? 12 : 16;
   };
   
-  // Apply neumorphic styles or regular shadow
-  const getShadowStyles = () => {
-    if (!neumorphic) {
-      return createShadow(4, colors.shadow);
+  // Apply elevation styles based on level
+  const getElevationStyles = () => {
+    if (category === 'stats') {
+      return {};
     }
     
-    return createNeumorphism(darkMode ? false : true, 4);
+    return createElevation(elevation, darkMode);
   };
+  
+  const cardBackground = category === 'achievement' && gradientColors 
+    ? 'transparent' 
+    : (category === 'stats' 
+      ? (darkMode ? 'rgba(30, 34, 53, 0.5)' : 'rgba(255, 255, 255, 0.8)') 
+      : colors.card);
   
   const cardStyles = [
     styles.card,
     {
-      backgroundColor: category === 'achievement' && gradientColors ? 'transparent' : colors.card,
+      backgroundColor: cardBackground,
       borderRadius: BorderRadius.lg,
       padding: getPadding(),
     },
-    getShadowStyles(),
+    getElevationStyles(),
     getCategoryStyles(),
     style,
   ];
@@ -98,7 +117,7 @@ export default function Card({
             colors={gradientColors}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
+            style={[StyleSheet.absoluteFillObject, { borderRadius: BorderRadius.lg }]}
           />
           {children}
         </>
@@ -111,7 +130,7 @@ export default function Card({
   if (onPress) {
     return (
       <TouchableOpacity
-        activeOpacity={0.9}
+        activeOpacity={0.7}
         onPress={onPress}
         disabled={disabled}
         testID={testID}
@@ -134,17 +153,5 @@ const styles = StyleSheet.create({
     width: '100%',
     marginVertical: 8,
     overflow: 'hidden',
-    // Add more prominent shadow for depth
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
   },
 }); 

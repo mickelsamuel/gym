@@ -1,17 +1,16 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   Platform,
   Dimensions,
-  Animated,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useExercise } from '../../context/ExerciseContext';
-import { Theme, Typography, BorderRadius, createShadow } from '../../constants/Theme';
+import { Theme, Typography, BorderRadius, createElevation } from '../../constants/Theme';
 import Text from './Text';
 
 const { width } = Dimensions.get('window');
@@ -24,7 +23,7 @@ interface TabBarProps {
 
 /**
  * Custom TabBar component for the bottom navigation
- * Follows the neumorphic design with frosted glass effect
+ * Modern design with frosted glass effect
  */
 export default function TabBar({ state, descriptors, navigation }: TabBarProps) {
   const { darkMode } = useExercise();
@@ -40,7 +39,7 @@ export default function TabBar({ state, descriptors, navigation }: TabBarProps) 
     
     // Provide haptic feedback
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     
     if (!isFocused && !event.defaultPrevented) {
@@ -53,14 +52,14 @@ export default function TabBar({ state, descriptors, navigation }: TabBarProps) 
       styles.container,
       {
         backgroundColor: Platform.OS === 'ios' ? 'transparent' : colors.tabBar,
-        ...createShadow(8, colors.shadow),
+        ...createElevation(3, darkMode),
       }
     ]}>
       {/* Frosted glass effect for iOS */}
       {Platform.OS === 'ios' && (
         <BlurView
           tint={darkMode ? 'dark' : 'light'}
-          intensity={90}
+          intensity={darkMode ? 70 : 80}
           style={StyleSheet.absoluteFill}
         />
       )}
@@ -94,6 +93,32 @@ export default function TabBar({ state, descriptors, navigation }: TabBarProps) 
               iconName = isFocused ? 'ellipse' : 'ellipse-outline';
           }
           
+          // Get tab color based on focused state
+          let tabColor;
+          if (isFocused) {
+            switch (index) {
+              case 0: // Home
+                tabColor = colors.primary;
+                break;
+              case 1: // Exercises
+                tabColor = colors.secondary;
+                break;
+              case 2: // Workouts
+                tabColor = colors.accent1;
+                break;
+              case 3: // Social
+                tabColor = colors.accent2;
+                break;
+              case 4: // Profile
+                tabColor = colors.primary;
+                break;
+              default:
+                tabColor = colors.primary;
+            }
+          } else {
+            tabColor = colors.tabBarInactive;
+          }
+          
           return (
             <TouchableOpacity
               key={index}
@@ -103,41 +128,42 @@ export default function TabBar({ state, descriptors, navigation }: TabBarProps) 
               style={styles.tab}
               activeOpacity={0.7}
             >
-              {/* Pill-shaped indicator for selected tab */}
+              {/* Indicator for selected tab */}
               {isFocused && (
-                <View style={[
-                  styles.activeIndicator,
-                  { 
-                    backgroundColor: darkMode ? 'rgba(10, 108, 255, 0.15)' : 'rgba(10, 108, 255, 0.08)',
-                    borderRadius: 20,  // Make it more pill-shaped
-                  }
-                ]} />
+                <View 
+                  style={[
+                    styles.activeIndicator,
+                    { 
+                      backgroundColor: darkMode 
+                        ? `${tabColor}30` // 30% opacity version of the color
+                        : `${tabColor}15`, // 15% opacity version of the color
+                    }
+                  ]} 
+                />
               )}
               
-              <View 
-                style={[
-                  styles.iconContainer,
-                  isFocused && { transform: [{ scale: 1.1 }] } // Subtle scale on focus
-                ]}
-              >
+              <View style={styles.iconContainer}>
                 <Ionicons
                   name={iconName as any}
                   size={24}
-                  color={isFocused ? colors.primary : colors.tabBarInactive}
-                  style={styles.icon}
+                  color={tabColor}
+                  style={[
+                    styles.icon,
+                    isFocused && { transform: [{ scale: 1.1 }] }
+                  ]}
                 />
+                
+                <Text
+                  style={{
+                    color: tabColor,
+                    fontSize: Typography.caption,
+                    fontWeight: isFocused ? '600' : '500',
+                    marginTop: 4,
+                  }}
+                >
+                  {label}
+                </Text>
               </View>
-              
-              <Text
-                variant="small"
-                style={{
-                  color: isFocused ? colors.primary : colors.tabBarInactive,
-                  fontWeight: isFocused ? '600' : '400',
-                  marginTop: 4,
-                }}
-              >
-                {label}
-              </Text>
             </TouchableOpacity>
           );
         })}
@@ -152,9 +178,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 85,
+    height: 83,
     paddingBottom: Platform.OS === 'ios' ? 20 : 0,
     borderTopWidth: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -165,18 +194,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingVertical: 8,
   },
   activeIndicator: {
     position: 'absolute',
-    top: 6,
-    width: '70%',  // Narrower for more pill-like appearance
-    height: '80%',
-    borderRadius: BorderRadius.xl, // More rounded corners
+    top: 8,
+    width: '80%',
+    height: '85%',
+    borderRadius: BorderRadius.pill,
   },
   iconContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
   },
   icon: {
     marginBottom: 2,

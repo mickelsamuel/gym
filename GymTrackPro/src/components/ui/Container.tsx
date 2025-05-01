@@ -3,10 +3,10 @@ import {
   View,
   StyleSheet,
   ViewStyle,
-  StatusBar,
-  SafeAreaView,
   ScrollView,
-  KeyboardAvoidingView,
+  RefreshControl,
+  SafeAreaView,
+  StatusBar,
   Platform,
 } from 'react-native';
 import { useExercise } from '../../context/ExerciseContext';
@@ -16,106 +16,119 @@ interface ContainerProps {
   children: ReactNode;
   style?: ViewStyle;
   scrollable?: boolean;
+  refreshing?: boolean;
+  onRefresh?: () => void;
+  bottomInset?: boolean;
+  topInset?: boolean;
+  fullWidth?: boolean;
+  backgroundColor?: string;
   paddingHorizontal?: number;
-  paddingVertical?: number;
-  avoidKeyboard?: boolean;
   testID?: string;
   contentContainerStyle?: ViewStyle;
 }
 
 /**
  * Container component following the GymTrackPro design system
+ * Provides consistent padding and layout across the app
  */
 export default function Container({
   children,
   style,
   scrollable = false,
-  paddingHorizontal = Spacing.md,
-  paddingVertical = Spacing.md,
-  avoidKeyboard = true,
+  refreshing = false,
+  onRefresh,
+  bottomInset = true,
+  topInset = true,
+  fullWidth = false,
+  backgroundColor,
+  paddingHorizontal,
   testID,
   contentContainerStyle,
 }: ContainerProps) {
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
   
-  // Base container style
-  const containerStyle = [
+  // Determine background color
+  const bgColor = backgroundColor || colors.background;
+  
+  // Determine horizontal padding
+  const hPadding = paddingHorizontal !== undefined 
+    ? paddingHorizontal 
+    : (fullWidth ? 0 : Spacing.md);
+  
+  // Base container styles
+  const containerStyles = [
     styles.container,
     {
-      backgroundColor: colors.background,
-      paddingHorizontal,
-      paddingVertical,
+      backgroundColor: bgColor,
+      paddingTop: topInset ? (Platform.OS === 'ios' ? 10 : StatusBar.currentHeight || 10) : 0,
+      paddingBottom: bottomInset ? (Platform.OS === 'ios' ? 34 : 16) : 0,
     },
     style,
   ];
   
-  // Determine status bar style based on theme
-  const barStyle = darkMode ? 'light-content' : 'dark-content';
+  // Content styles for scrollable container
+  const contentStyles = [
+    styles.content,
+    {
+      paddingHorizontal: hPadding,
+      paddingBottom: scrollable ? Spacing.lg : 0,
+    },
+    contentContainerStyle,
+  ];
   
-  // Content to be rendered
-  const content = (
-    <>
-      <StatusBar barStyle={barStyle} backgroundColor={colors.background} />
-      {scrollable ? (
+  // Render scrollable container
+  if (scrollable) {
+    return (
+      <SafeAreaView style={[containerStyles, { paddingTop: 0 }]} testID={testID}>
+        <StatusBar 
+          barStyle={darkMode ? 'light-content' : 'dark-content'} 
+          backgroundColor={bgColor} 
+          translucent={true}
+        />
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingHorizontal, paddingVertical },
-            contentContainerStyle,
-          ]}
+          contentContainerStyle={contentStyles}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          refreshControl={onRefresh ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary, colors.secondary]}
+              progressBackgroundColor={colors.card}
+            />
+          ) : undefined}
         >
           {children}
         </ScrollView>
-      ) : (
-        <View style={[containerStyle, contentContainerStyle]}>
-          {children}
-        </View>
-      )}
-    </>
-  );
-  
-  if (avoidKeyboard) {
-    return (
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-          {content}
-        </SafeAreaView>
-      </KeyboardAvoidingView>
+      </SafeAreaView>
     );
   }
   
+  // Render regular container
   return (
-    <SafeAreaView 
-      testID={testID}
-      style={[styles.safeArea, { backgroundColor: colors.background }]}
-    >
-      {content}
+    <SafeAreaView style={containerStyles} testID={testID}>
+      <StatusBar 
+        barStyle={darkMode ? 'light-content' : 'dark-content'} 
+        backgroundColor={bgColor} 
+        translucent={true}
+      />
+      <View style={contentStyles}>
+        {children}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
   container: {
-    flex: 1,
-  },
-  keyboardAvoid: {
     flex: 1,
   },
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
+  content: {
+    flex: 1,
   },
 }); 

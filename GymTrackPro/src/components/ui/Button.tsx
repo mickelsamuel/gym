@@ -13,14 +13,14 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useExercise } from '../../context/ExerciseContext';
-import { Theme, Typography, BorderRadius, Animation, createShadow } from '../../constants/Theme';
+import { Theme, Typography, BorderRadius, Animation, createElevation } from '../../constants/Theme';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  type?: 'primary' | 'secondary' | 'tertiary' | 'danger';
+  type?: 'primary' | 'secondary' | 'tertiary' | 'danger' | 'success';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
@@ -30,10 +30,11 @@ interface ButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   testID?: string;
+  rounded?: boolean;
 }
 
 /**
- * Button component following the GymTrackPro design system
+ * Button component following the modern GymTrackPro design system
  */
 export default function Button({
   title,
@@ -48,6 +49,7 @@ export default function Button({
   style,
   textStyle,
   testID,
+  rounded = false,
 }: ButtonProps) {
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
@@ -56,7 +58,7 @@ export default function Button({
   const handlePress = () => {
     if (!disabled && !loading) {
       if (Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
       onPress();
     }
@@ -66,8 +68,8 @@ export default function Button({
   const getButtonHeight = () => {
     switch (size) {
       case 'small': return 36;
-      case 'large': return 56;
-      default: return 48;
+      case 'large': return 54;
+      default: return 46;
     }
   };
 
@@ -75,6 +77,19 @@ export default function Button({
   const getButtonWidth = () => {
     if (fullWidth) return '100%';
     return null;
+  };
+  
+  // Determine button border radius
+  const getButtonBorderRadius = () => {
+    if (rounded) {
+      return getButtonHeight() / 2; // Fully rounded corners
+    }
+    
+    switch (size) {
+      case 'small': return BorderRadius.sm;
+      case 'large': return BorderRadius.lg;
+      default: return BorderRadius.md;
+    }
   };
   
   // Determine button background colors based on type
@@ -97,7 +112,7 @@ export default function Button({
       case 'secondary':
         return {
           backgroundColor: 'transparent',
-          borderWidth: 2,
+          borderWidth: 1.5,
           borderColor: colors.primary,
         };
       case 'tertiary':
@@ -108,7 +123,19 @@ export default function Button({
         return {
           element: (
             <LinearGradient
-              colors={[colors.danger, '#FF2D50']}
+              colors={[colors.danger, '#FF3B58']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          ),
+          backgroundColor: 'transparent',
+        };
+      case 'success':
+        return {
+          element: (
+            <LinearGradient
+              colors={[colors.success, '#2BB894']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
@@ -128,6 +155,7 @@ export default function Button({
     switch (type) {
       case 'primary':
       case 'danger':
+      case 'success':
         return '#FFFFFF';
       case 'secondary':
         return colors.primary;
@@ -143,11 +171,11 @@ export default function Button({
     switch (size) {
       case 'small': return Typography.caption;
       case 'large': return Typography.body;
-      default: return Typography.button;
+      default: return Typography.bodySmall;
     }
   };
   
-  // Get font weight as a valid string
+  // Get font weight
   const getFontWeight = () => {
     return type === 'tertiary' ? '500' : '600';
   };
@@ -157,7 +185,7 @@ export default function Button({
   return (
     <TouchableOpacity
       onPress={handlePress}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
       disabled={disabled || loading}
       testID={testID}
       style={[
@@ -166,8 +194,8 @@ export default function Button({
         {
           height: getButtonHeight(),
           width: getButtonWidth(),
-          borderRadius: type === 'tertiary' ? 0 : BorderRadius.md,
-          ...(!disabled && !background.element && type !== 'tertiary' && type !== 'secondary' && createShadow(4)),
+          borderRadius: getButtonBorderRadius(),
+          ...(!disabled && type !== 'tertiary' && type !== 'secondary' && createElevation(1, darkMode)),
         },
         style
       ]}
@@ -185,7 +213,7 @@ export default function Button({
             {icon && iconPosition === 'left' && (
               <Ionicons 
                 name={icon} 
-                size={size === 'small' ? 16 : 20} 
+                size={size === 'small' ? 14 : 18} 
                 color={getTextColor()} 
                 style={styles.leftIcon} 
               />
@@ -198,7 +226,7 @@ export default function Button({
                   color: getTextColor(),
                   fontSize: getFontSize(),
                   fontWeight: getFontWeight(),
-                  fontFamily: Platform.OS === 'ios' ? 'SF Pro Rounded' : 'sans-serif-medium',
+                  fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif-medium',
                 },
                 textStyle
               ]}
@@ -209,7 +237,7 @@ export default function Button({
             {icon && iconPosition === 'right' && (
               <Ionicons 
                 name={icon} 
-                size={size === 'small' ? 16 : 20} 
+                size={size === 'small' ? 14 : 18} 
                 color={getTextColor()} 
                 style={styles.rightIcon} 
               />
@@ -235,6 +263,7 @@ const styles = StyleSheet.create({
   },
   text: {
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
   leftIcon: {
     marginRight: 8,

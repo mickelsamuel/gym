@@ -1,193 +1,184 @@
-import React, { ReactNode } from 'react';
-import {
-  Text as RNText,
-  TextStyle,
-  StyleSheet,
-  TextProps as RNTextProps,
-  Platform,
-} from 'react-native';
+import React from 'react';
+import { Text as RNText, TextStyle, StyleSheet, Platform } from 'react-native';
 import { useExercise } from '../../context/ExerciseContext';
 import { Theme, Typography } from '../../constants/Theme';
 
 export type TextVariant = 
-  | 'title'       // Page Title: 28px / Bold
-  | 'sectionHeader' // Section Header: 22px / Semibold
-  | 'cardTitle'   // Card Title: 18px / Semibold
-  | 'body'        // Body Text: 16px / Regular
-  | 'button'      // Button Text: 16px / Medium
-  | 'caption'     // Caption: 14px / Regular
-  | 'small';      // Small Text: 12px / Regular
+  | 'heading1' 
+  | 'heading2' 
+  | 'heading3' 
+  | 'title' 
+  | 'subtitle' 
+  | 'body' 
+  | 'bodySmall' 
+  | 'caption' 
+  | 'tiny';
 
-export interface TextProps extends RNTextProps {
-  children: ReactNode;
+export interface TextProps {
+  children: React.ReactNode;
   variant?: TextVariant;
-  weight?: 'regular' | 'medium' | 'semibold' | 'bold';
+  style?: TextStyle;
   color?: string;
   centered?: boolean;
-  style?: TextStyle;
-  animated?: boolean;
+  numberOfLines?: number;
+  selectable?: boolean;
+  testID?: string;
+  onPress?: () => void;
 }
 
 /**
  * Text component following the GymTrackPro design system
  */
-export const Text = ({
+export default function Text({
   children,
   variant = 'body',
-  weight,
+  style,
   color,
   centered = false,
-  style,
-  ...props
-}: TextProps) => {
+  numberOfLines,
+  selectable = false,
+  testID,
+  onPress,
+}: TextProps) {
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
   
-  // Get font size based on variant
-  const getFontSize = () => {
-    switch (variant) {
-      case 'title': return Typography.title;
-      case 'sectionHeader': return Typography.sectionHeader;
-      case 'cardTitle': return Typography.cardTitle;
-      case 'body': return Typography.body;
-      case 'button': return Typography.button;
-      case 'caption': return Typography.caption;
-      case 'small': return Typography.small;
-      default: return Typography.body;
-    }
-  };
-  
-  // Get font weight based on variant and weight prop
-  const getFontWeight = (): TextStyle['fontWeight'] => {
-    // Weight prop overrides default variant weight
-    if (weight) {
-      switch (weight) {
-        case 'regular': return '400';
-        case 'medium': return '500';
-        case 'semibold': return '600';
-        case 'bold': return '700';
-      }
-    }
+  // Get style based on variant
+  const getVariantStyle = (): TextStyle => {
+    const baseStyle: TextStyle = {
+      color: color || colors.text,
+      textAlign: centered ? 'center' : undefined,
+    };
     
-    // Default weights for variants
     switch (variant) {
-      case 'title': return '700';
-      case 'sectionHeader':
-      case 'cardTitle': return '600';
-      case 'button': return '500';
-      default: return '400';
+      case 'heading1':
+        return {
+          ...baseStyle,
+          fontSize: Typography.heading1,
+          fontWeight: '700',
+          letterSpacing: -0.5,
+          lineHeight: Typography.heading1 * 1.2,
+          fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif',
+        };
+      case 'heading2':
+        return {
+          ...baseStyle,
+          fontSize: Typography.heading2,
+          fontWeight: '700',
+          letterSpacing: -0.3,
+          lineHeight: Typography.heading2 * 1.2,
+          fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif',
+        };
+      case 'heading3':
+        return {
+          ...baseStyle,
+          fontSize: Typography.heading3,
+          fontWeight: '600',
+          letterSpacing: -0.2,
+          lineHeight: Typography.heading3 * 1.2,
+          fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif',
+        };
+      case 'title':
+        return {
+          ...baseStyle,
+          fontSize: Typography.title,
+          fontWeight: '600',
+          letterSpacing: -0.1,
+          lineHeight: Typography.title * 1.3,
+          fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif-medium',
+        };
+      case 'subtitle':
+        return {
+          ...baseStyle,
+          fontSize: Typography.subtitle,
+          fontWeight: '500',
+          lineHeight: Typography.subtitle * 1.3,
+          fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif-medium',
+        };
+      case 'body':
+        return {
+          ...baseStyle,
+          fontSize: Typography.body,
+          fontWeight: '400',
+          lineHeight: Typography.body * 1.5,
+          fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+        };
+      case 'bodySmall':
+        return {
+          ...baseStyle,
+          fontSize: Typography.bodySmall,
+          fontWeight: '400',
+          lineHeight: Typography.bodySmall * 1.5,
+          fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+        };
+      case 'caption':
+        return {
+          ...baseStyle,
+          fontSize: Typography.caption,
+          fontWeight: '500',
+          lineHeight: Typography.caption * 1.4,
+          fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+          color: color || colors.textSecondary,
+        };
+      case 'tiny':
+        return {
+          ...baseStyle,
+          fontSize: Typography.tiny,
+          fontWeight: '500',
+          lineHeight: Typography.tiny * 1.3,
+          fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+          color: color || colors.textTertiary,
+          letterSpacing: 0.2,
+        };
+      default:
+        return baseStyle;
     }
-  };
-  
-  // Get font family
-  const getFontFamily = () => {
-    // Use rounded fonts for buttons on iOS
-    if (variant === 'button' && Platform.OS === 'ios') {
-      return 'SF Pro Rounded';
-    }
-    
-    return Platform.OS === 'ios' ? 'SF Pro Display' : 'Roboto';
   };
   
   return (
     <RNText
-      style={[
-        styles.text,
-        {
-          color: color || colors.text,
-          fontSize: getFontSize(),
-          fontWeight: getFontWeight(),
-          fontFamily: getFontFamily(),
-          textAlign: centered ? 'center' : 'left',
-        },
-        style,
-      ]}
-      {...props}
+      style={[getVariantStyle(), style]}
+      numberOfLines={numberOfLines}
+      selectable={selectable}
+      testID={testID}
+      onPress={onPress}
     >
       {children}
     </RNText>
   );
-};
+}
 
 /**
- * Title component - Largest heading
+ * Title component - Convenience wrapper for Text with 'heading1' variant
  */
-export const Title = ({ style, children, ...props }: TextProps) => {
-  return (
-    <Text 
-      variant="title"
-      style={style}
-      {...props}
-    >
-      {children}
-    </Text>
-  );
-};
+export function Title(props: Omit<TextProps, 'variant'>) {
+  return <Text {...props} variant="heading1" />;
+}
 
 /**
- * Heading component - Second level heading
+ * Heading component - Convenience wrapper for Text with 'heading2' variant
  */
-export const Heading = ({ style, children, ...props }: TextProps) => {
-  return (
-    <Text 
-      variant="sectionHeader"
-      style={style}
-      {...props}
-    >
-      {children}
-    </Text>
-  );
-};
+export function Heading(props: Omit<TextProps, 'variant'>) {
+  return <Text {...props} variant="heading2" />;
+}
 
 /**
- * Body component - Regular paragraph text
+ * Subheading component - Convenience wrapper for Text with 'heading3' variant
  */
-export const Body = ({ style, children, ...props }: TextProps) => {
-  return (
-    <Text 
-      variant="body"
-      style={style}
-      {...props}
-    >
-      {children}
-    </Text>
-  );
-};
+export function Subheading(props: Omit<TextProps, 'variant'>) {
+  return <Text {...props} variant="heading3" />;
+}
 
 /**
- * Subheading component - Third level heading
+ * Body component - Convenience wrapper for Text with 'body' variant
  */
-export const Subheading = ({ style, children, ...props }: TextProps) => {
-  return (
-    <Text 
-      variant="cardTitle"
-      style={style}
-      {...props}
-    >
-      {children}
-    </Text>
-  );
-};
+export function Body(props: Omit<TextProps, 'variant'>) {
+  return <Text {...props} variant="body" />;
+}
 
 /**
- * Caption component - Small supportive text
+ * Caption component - Convenience wrapper for Text with 'caption' variant
  */
-export const Caption = ({ style, children, ...props }: TextProps) => {
-  return (
-    <Text 
-      variant="caption"
-      style={style}
-      {...props}
-    >
-      {children}
-    </Text>
-  );
-};
-
-const styles = StyleSheet.create({
-  text: {
-    letterSpacing: 0.1,
-  },
-});
-
-export default Text; 
+export function Caption(props: Omit<TextProps, 'variant'>) {
+  return <Text {...props} variant="caption" />;
+} 
