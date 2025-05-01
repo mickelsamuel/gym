@@ -24,7 +24,7 @@ export type RootStackParamList = {
   CustomWorkoutDetailScreen: { listId: string };
   
   // Exercise related screens
-  ExerciseDetail: { exerciseId: string };
+  ExerciseDetail: { exerciseId: string; logWorkout?: boolean };
   ExercisesScreen: undefined;
   AddExerciseScreen: { listId: string };
   

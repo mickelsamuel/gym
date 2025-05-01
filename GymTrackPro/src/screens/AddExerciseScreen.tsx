@@ -1,7 +1,6 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   FlatList,
@@ -11,40 +10,83 @@ import {
   TouchableWithoutFeedback,
   ActivityIndicator,
   Animated,
-  StatusBar
+  StatusBar,
+  ListRenderItemInfo
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DatabaseService from '../services/DatabaseService';
 import { ExerciseContext } from '../context/ExerciseContext';
-import { Colors as ThemeColors, Typography, Spacing, BorderRadius, createNeumorphism } from '../constants/Theme';
-import { BlurView } from 'expo-blur';
+import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
+import { RootStackParamList } from '../navigation/NavigationTypes';
+import { Text } from '../components/ui';
+import { Exercise } from '../types/data';
 
-const AddExerciseScreen = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
+// Define types
+interface MuscleGroup {
+  id: string;
+  name: string;
+}
+
+interface WorkoutList {
+  id: string;
+  name: string;
+  exercises: string[];
+  createdBy?: string;
+  isPublic?: boolean;
+  lastUpdated?: string;
+}
+
+// Extended Exercise interface with muscle properties
+interface ExtendedExercise extends Exercise {
+  primaryMuscles?: string[];
+}
+
+// Define navigation and route prop types
+type AddExerciseScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AddExerciseScreen'>;
+type AddExerciseScreenRouteProp = RouteProp<RootStackParamList, 'AddExerciseScreen'>;
+
+const AddExerciseScreen: React.FC = () => {
+  const navigation = useNavigation<AddExerciseScreenNavigationProp>();
+  const route = useRoute<AddExerciseScreenRouteProp>();
   const insets = useSafeAreaInsets();
   const { listId } = route.params;
   const { getAllExercises, favorites, addFavorite, darkMode } = useContext(ExerciseContext);
   
   // State
-  const [selectedExercises, setSelectedExercises] = useState([]);
-  const [workoutList, setWorkoutList] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
+  const [workoutList, setWorkoutList] = useState<WorkoutList | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [filterCategory, setFilterCategory] = useState<string>('all');
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   
   // Theme
-  const theme = darkMode ? ThemeColors.dark : ThemeColors.light;
-  const neumorphism = createNeumorphism(!darkMode, 4);
+  const theme = darkMode ? Theme.dark : Theme.light;
+  
+  // Custom neumorphism style for card effects
+  const neumorphism = !darkMode ? {
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)'
+  } : {
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.03)'
+  };
 
   useEffect(() => {
     async function loadWorkout() {
@@ -80,12 +122,12 @@ const AddExerciseScreen = () => {
       }
     }
     loadWorkout();
-  }, [listId]);
+  }, [listId, navigation]);
 
-  const allExercises = getAllExercises();
+  const allExercises = getAllExercises() as ExtendedExercise[];
   
   // Define muscle groups for filtering
-  const muscleGroups = [
+  const muscleGroups: MuscleGroup[] = [
     { id: 'all', name: 'All' },
     { id: 'chest', name: 'Chest' },
     { id: 'back', name: 'Back' },
@@ -111,7 +153,7 @@ const AddExerciseScreen = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const toggleSelection = (exerciseId) => {
+  const toggleSelection = (exerciseId: string): void => {
     Haptics.selectionAsync();
     
     if (selectedExercises.includes(exerciseId)) {
@@ -126,7 +168,7 @@ const AddExerciseScreen = () => {
     }
   };
 
-  const handleDone = async () => {
+  const handleDone = async (): Promise<void> => {
     if (selectedExercises.length === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('No Selection', 'Please select at least one exercise.');
@@ -164,12 +206,12 @@ const AddExerciseScreen = () => {
     }
   };
 
-  const renderCategoryPill = ({ item }) => (
+  const renderCategoryPill = ({ item }: ListRenderItemInfo<MuscleGroup>) => (
     <TouchableOpacity
       style={[
         styles.categoryPill,
         filterCategory === item.id && styles.categoryPillSelected,
-        { backgroundColor: darkMode ? ThemeColors.darkCardBackground : ThemeColors.lightCardBackground }
+        { backgroundColor: darkMode ? theme.card : theme.card }
       ]}
       onPress={() => {
         Haptics.selectionAsync();
@@ -177,12 +219,13 @@ const AddExerciseScreen = () => {
       }}
     >
       <Text 
+        variant="caption"
         style={[
           styles.categoryPillText,
-          filterCategory === item.id && styles.categoryPillTextSelected,
-          { color: filterCategory === item.id ? 
-            ThemeColors.primaryBlue : 
-            (darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight) 
+          { 
+            color: filterCategory === item.id ? 
+              theme.primary : theme.textSecondary,
+            fontWeight: filterCategory === item.id ? "600" : "400"
           }
         ]}
       >
@@ -191,7 +234,7 @@ const AddExerciseScreen = () => {
     </TouchableOpacity>
   );
 
-  const renderExerciseItem = ({ item, index }) => {
+  const renderExerciseItem = ({ item }: ListRenderItemInfo<ExtendedExercise>) => {
     const isSelected = selectedExercises.includes(item.id);
     const isAlreadyInWorkout = workoutList && workoutList.exercises.includes(item.id);
     
@@ -213,37 +256,50 @@ const AddExerciseScreen = () => {
             styles.exerciseCard,
             neumorphism,
             { 
-              backgroundColor: darkMode ? ThemeColors.darkCardBackground : ThemeColors.lightCardBackground,
-              borderColor: isSelected ? ThemeColors.primaryBlue : 'transparent',
+              backgroundColor: theme.card,
+              borderColor: isSelected ? theme.primary : 'transparent',
               borderWidth: isSelected ? 2 : 0,
             }
           ]}
           onPress={() => toggleSelection(item.id)}
-          disabled={isAlreadyInWorkout}
+          disabled={Boolean(isAlreadyInWorkout)}
           activeOpacity={0.7}
         >
           <View style={styles.exerciseCardContent}>
             <View style={styles.exerciseInfo}>
               <View style={styles.exerciseHeader}>
                 <Text 
+                  variant="body"
                   style={[
                     styles.exerciseName, 
-                    { color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight }
+                    { color: theme.text, fontWeight: "600" }
                   ]}
                 >
                   {item.name}
                 </Text>
                 {isAlreadyInWorkout && (
-                  <View style={styles.alreadyAddedBadge}>
-                    <Text style={styles.alreadyAddedText}>Added</Text>
+                  <View style={[
+                    styles.alreadyAddedBadge,
+                    { backgroundColor: `${theme.success}30` }
+                  ]}>
+                    <Text 
+                      variant="caption"
+                      style={[
+                        styles.alreadyAddedText,
+                        { color: theme.success }
+                      ]}
+                    >
+                      Added
+                    </Text>
                   </View>
                 )}
               </View>
               
               <Text 
+                variant="caption"
                 style={[
                   styles.muscleGroups, 
-                  { color: darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight }
+                  { color: theme.textSecondary }
                 ]}
               >
                 {item.primaryMuscles?.join(', ')}
@@ -253,12 +309,12 @@ const AddExerciseScreen = () => {
             <View style={[
               styles.selectionCircle, 
               { 
-                borderColor: isSelected ? ThemeColors.primaryBlue : 
-                  (darkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)')
+                borderColor: isSelected ? theme.primary : 
+                  ((darkMode || false) ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)')
               }
             ]}>
               {isSelected && (
-                <Ionicons name="checkmark" size={16} color={ThemeColors.primaryBlue} />
+                <Ionicons name="checkmark" size={16} color={theme.primary} />
               )}
             </View>
           </View>
@@ -270,14 +326,18 @@ const AddExerciseScreen = () => {
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { 
-        backgroundColor: darkMode ? ThemeColors.darkBackground : ThemeColors.lightBackground,
+        backgroundColor: theme.background,
         paddingTop: insets.top 
       }]}>
-        <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} />
-        <ActivityIndicator size="large" color={ThemeColors.primaryBlue} />
-        <Text style={[styles.loadingText, { 
-          color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight 
-        }]}>
+        <StatusBar barStyle={(darkMode || false) ? "light-content" : "dark-content"} />
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text 
+          variant="body"
+          style={{ 
+            color: theme.textSecondary,
+            marginTop: Spacing.md
+          }}
+        >
           Loading exercises...
         </Text>
       </View>
@@ -287,10 +347,10 @@ const AddExerciseScreen = () => {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={[styles.container, { 
-        backgroundColor: darkMode ? ThemeColors.darkBackground : ThemeColors.lightBackground,
+        backgroundColor: theme.background,
         paddingTop: insets.top 
       }]}>
-        <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} />
+        <StatusBar barStyle={(darkMode || false) ? "light-content" : "dark-content"} />
         
         <View style={styles.header}>
           <TouchableOpacity
@@ -303,19 +363,21 @@ const AddExerciseScreen = () => {
             <Ionicons 
               name="arrow-back" 
               size={24} 
-              color={darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight} 
+              color={theme.text} 
             />
           </TouchableOpacity>
           
           <View style={styles.titleContainer}>
-            <Text style={[styles.screenTitle, { 
-              color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight 
-            }]}>
+            <Text 
+              variant="title"
+              style={{ color: theme.text }}
+            >
               Add Exercises
             </Text>
-            <Text style={[styles.workoutName, { 
-              color: darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight 
-            }]}>
+            <Text 
+              variant="caption"
+              style={{ color: theme.textSecondary }}
+            >
               {workoutList?.name || 'Workout'}
             </Text>
           </View>
@@ -331,9 +393,15 @@ const AddExerciseScreen = () => {
             disabled={selectedExercises.length === 0 || submitting}
           >
             {submitting ? (
-              <ActivityIndicator size="small" color={ThemeColors.primaryBlue} />
+              <ActivityIndicator size="small" color={theme.primary} />
             ) : (
-              <Text style={[styles.doneButtonText, { color: ThemeColors.primaryBlue }]}>
+              <Text 
+                variant="body"
+                style={{ 
+                  color: theme.primary,
+                  fontWeight: "600" 
+                }}
+              >
                 Done
               </Text>
             )}
@@ -350,20 +418,20 @@ const AddExerciseScreen = () => {
           ]}
         >
           <View style={[styles.searchContainer, neumorphism, { 
-            backgroundColor: darkMode ? ThemeColors.darkCardBackground : ThemeColors.lightCardBackground 
+            backgroundColor: theme.card
           }]}>
             <Ionicons 
               name="search" 
               size={20} 
-              color={darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight} 
+              color={theme.textSecondary} 
               style={styles.searchIcon} 
             />
             <TextInput
               style={[styles.searchInput, { 
-                color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight 
+                color: theme.text
               }]}
               placeholder="Search exercises..."
-              placeholderTextColor={darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight}
+              placeholderTextColor={theme.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
@@ -383,13 +451,20 @@ const AddExerciseScreen = () => {
           </View>
           
           <View style={styles.resultsHeader}>
-            <Text style={[styles.resultsText, { 
-              color: darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight 
-            }]}>
+            <Text 
+              variant="caption"
+              style={{ color: theme.textSecondary }}
+            >
               {filteredExercises.length} {filteredExercises.length === 1 ? 'exercise' : 'exercises'} found
             </Text>
             {selectedExercises.length > 0 && (
-              <Text style={[styles.selectedCountText, { color: ThemeColors.primaryBlue }]}>
+              <Text 
+                variant="caption"
+                style={{ 
+                  color: theme.primary,
+                  fontWeight: "600" 
+                }}
+              >
                 {selectedExercises.length} selected
               </Text>
             )}
@@ -398,7 +473,7 @@ const AddExerciseScreen = () => {
           <FlatList
             data={filteredExercises}
             renderItem={renderExerciseItem}
-            keyExtractor={item => item.id.toString()}
+            keyExtractor={item => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.exercisesList}
             ListEmptyComponent={
@@ -406,16 +481,25 @@ const AddExerciseScreen = () => {
                 <Ionicons
                   name="barbell-outline"
                   size={60}
-                  color={darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight}
+                  color={theme.textSecondary}
                 />
-                <Text style={[styles.emptyStateText, { 
-                  color: darkMode ? ThemeColors.primaryTextDark : ThemeColors.primaryTextLight 
-                }]}>
+                <Text 
+                  variant="title"
+                  style={{ 
+                    color: theme.text,
+                    marginTop: Spacing.md,
+                    marginBottom: Spacing.sm 
+                  }}
+                >
                   No exercises found
                 </Text>
-                <Text style={[styles.emptyStateSubtext, { 
-                  color: darkMode ? ThemeColors.secondaryTextDark : ThemeColors.secondaryTextLight 
-                }]}>
+                <Text 
+                  variant="body"
+                  style={{ 
+                    color: theme.textSecondary,
+                    textAlign: 'center'
+                  }}
+                >
                   Try a different search term or category
                 </Text>
               </View>
@@ -436,7 +520,7 @@ const AddExerciseScreen = () => {
               disabled={submitting}
             >
               <LinearGradient
-                colors={[ThemeColors.primaryBlue, ThemeColors.primaryDarkBlue]}
+                colors={[theme.primary, theme.primary]}
                 style={styles.buttonGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -445,7 +529,10 @@ const AddExerciseScreen = () => {
                   <ActivityIndicator size="small" color="#FFF" />
                 ) : (
                   <>
-                    <Text style={styles.floatingButtonText}>
+                    <Text 
+                      variant="body"
+                      style={styles.floatingButtonText}
+                    >
                       Add {selectedExercises.length} {selectedExercises.length === 1 ? 'Exercise' : 'Exercises'}
                     </Text>
                     <Ionicons name="arrow-forward" size={20} color="#FFF" />
@@ -469,10 +556,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    marginTop: Spacing.md,
-    fontSize: Typography.body,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -491,20 +574,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.md,
   },
-  screenTitle: {
-    fontSize: Typography.sectionHeader,
-    fontWeight: Typography.bold,
-  },
-  workoutName: {
-    fontSize: Typography.caption,
-    marginTop: 2,
-  },
   doneButton: {
-    padding: Spacing.sm,
-  },
-  doneButtonText: {
-    fontSize: Typography.body,
-    fontWeight: Typography.semibold,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: BorderRadius.pill,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   contentContainer: {
     flex: 1,
@@ -514,42 +589,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    height: 48,
+    paddingHorizontal: Spacing.sm,
     marginBottom: Spacing.md,
   },
   searchIcon: {
-    marginRight: Spacing.sm,
+    padding: Spacing.sm,
   },
   searchInput: {
     flex: 1,
-    height: '100%',
-    fontSize: Typography.body,
+    height: 45,
+    fontSize: 16,
   },
   categoriesContainer: {
     marginBottom: Spacing.md,
   },
   categoriesList: {
-    paddingRight: Spacing.md,
+    paddingVertical: Spacing.xs,
   },
   categoryPill: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.xl,
-    marginRight: Spacing.xs,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.pill,
+    marginRight: Spacing.sm,
   },
   categoryPillSelected: {
-    backgroundColor: 'rgba(10, 108, 255, 0.1)',
-    borderColor: ThemeColors.primaryBlue,
+    borderWidth: 1,
   },
   categoryPillText: {
-    fontSize: Typography.caption,
-    fontWeight: Typography.medium,
-  },
-  categoryPillTextSelected: {
-    fontWeight: Typography.semibold,
+    fontSize: 14,
   },
   resultsHeader: {
     flexDirection: 'row',
@@ -557,25 +624,24 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   resultsText: {
-    fontSize: Typography.small,
+    fontSize: 14,
   },
   selectedCountText: {
-    fontSize: Typography.small,
-    fontWeight: Typography.semibold,
+    fontSize: 14,
+    fontWeight: '600',
   },
   exercisesList: {
-    paddingBottom: Spacing.xxl * 2,
+    paddingBottom: 100,
   },
   exerciseCard: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.md,
     marginBottom: Spacing.md,
     overflow: 'hidden',
   },
   exerciseCardContent: {
+    padding: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: Spacing.md,
   },
   exerciseInfo: {
     flex: 1,
@@ -586,23 +652,19 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   exerciseName: {
-    fontSize: Typography.body,
-    fontWeight: Typography.semibold,
+    fontSize: 16,
     marginRight: Spacing.sm,
   },
+  muscleGroups: {
+    fontSize: 14,
+  },
   alreadyAddedBadge: {
-    backgroundColor: 'rgba(46, 203, 112, 0.1)',
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.pill,
   },
   alreadyAddedText: {
-    fontSize: Typography.small,
-    color: ThemeColors.accentSuccess,
-    fontWeight: Typography.medium,
-  },
-  muscleGroups: {
-    fontSize: Typography.small,
+    fontSize: 12,
   },
   selectionCircle: {
     width: 24,
@@ -611,51 +673,46 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: Spacing.sm,
   },
   emptyState: {
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
-    paddingVertical: Spacing.xxl,
+    alignItems: 'center',
+    paddingTop: 100,
+    paddingHorizontal: Spacing.lg,
   },
   emptyStateText: {
-    fontSize: Typography.sectionHeader,
-    fontWeight: Typography.semibold,
+    fontSize: 18,
+    fontWeight: '600',
     marginTop: Spacing.md,
-    marginBottom: Spacing.xs,
+    marginBottom: 8,
   },
   emptyStateSubtext: {
-    fontSize: Typography.body,
+    fontSize: 14,
     textAlign: 'center',
   },
   floatingButtonContainer: {
     position: 'absolute',
-    bottom: Spacing.lg,
-    left: Spacing.lg,
-    right: Spacing.lg,
-    alignItems: 'center',
+    bottom: 20,
+    left: 20,
+    right: 20,
   },
   floatingButton: {
-    width: '100%',
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
   },
   buttonGradient: {
+    padding: Spacing.md,
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: Spacing.md,
   },
   floatingButtonText: {
     color: '#FFF',
-    fontSize: Typography.button,
-    fontWeight: Typography.semibold,
-    marginRight: Spacing.sm,
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
 
-export default AddExerciseScreen;
+export default AddExerciseScreen; 
