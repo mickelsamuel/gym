@@ -1,25 +1,30 @@
-import React, { createContext, useState, useEffect, useContext, type ReactNode, useRef } from 'react';
-import { Alert } from 'react-native';
-import { auth, db, type FirebaseUser } from '../services/firebase';
-import {
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
+import { Platform, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth, firebaseAuth, db } from '../services/firebase';
+import { 
   onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  type User,
-  signOut,
-  sendPasswordResetEmail,
-  updatePassword,
-  updateEmail,
+  User,
   EmailAuthProvider,
   reauthenticateWithCredential,
-  getAuth
-} from 'firebase/auth';  
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, getDocs, deleteDoc } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NetworkState } from '../services/NetworkState';
+  sendEmailVerification
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  serverTimestamp
+} from 'firebase/firestore';
+import DatabaseService from '../services/DatabaseService';
+import { NetworkState, useNetworkState } from '../services/NetworkState';
+import { StorageKeys, FIREBASE_COLLECTIONS } from '../constants';
+import { isValidEmail, isValidPassword, isValidUsername } from '../utils/sanitize';
 
+// Define the Auth context interface
 export const AuthContext = createContext();
 
+// Custom hook to use the Auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -28,892 +33,637 @@ export const useAuth = () => {
   return context;
 };
 
+// Auth Provider component
+export const AuthProvider = ({ children }) => {
+  // User state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  
+  // Auth state
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Network state
+  const { isConnected, isInternetReachable } = useNetworkState();
+  const isOnline = isConnected && isInternetReachable;
+  
+  // Storage initialization state
+  const [storageInitialized, setStorageInitialized] = useState(false);
+  
+  // Auth state listener reference
+  const authListenerUnsubscribe = useRef(null);
 
-type UserData = {
-  email: string,
-  password: string,
-  username: string,
-  age: number,
-  weight: number,
-  height: number,
-type UserProfile = {
-  uid: string;
-  email: string;
-  username: string;
-  age: number | null;
-  height: number | null;
-  weight: number | null;
-  joinedDate: string;
-  createdAt: any;
-  lastLogin: any;
-  friends: string[];
-  firestoreWeightLog: any[];
-  firestoreSets: any[];
-  fitnessGoal: string | null;
-  isOfflineData?: boolean;
-  error?: string;
-};
+  // Initialize and check auth state on mount
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        // Initialize storage
+        await initializeStorage();
+        
+        // Setup auth state listener
+        authListenerUnsubscribe.current = onAuthStateChanged(auth, async (user) => {
+          setCurrentUser(user);
+          setIsLoggedIn(!!user);
+          
+          if (user) {
+            // Fetch user profile when authenticated
+            const profileResponse = await DatabaseService.getProfile(user.uid, isOnline);
+            if (profileResponse.success && profileResponse.data) {
+              setUserProfile(profileResponse.data);
+            } else {
+              // Create minimal profile if not found
+              const minimalProfile = {
+                uid: user.uid,
+                email: user.email,
+                username: user.displayName || user.email.split('@')[0],
+                joinDate: new Date().toISOString()
+              };
+              setUserProfile(minimalProfile);
+              
+              // Save minimal profile to database
+              await DatabaseService.saveProfile(minimalProfile, isOnline);
+            }
+          } else {
+            setUserProfile(null);
+          }
+          
+          setIsLoading(false);
+        });
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        setError(error.message);
+        setIsLoading(false);
+      }
+    };
+    
+    initAuth();
+    
+    // Cleanup auth listener on unmount
+    return () => {
+      if (authListenerUnsubscribe.current) {
+        authListenerUnsubscribe.current();
+      }
+    };
+  }, [isOnline]);
+  
+  // Initialize and migrate AsyncStorage on mount
+  const initializeStorage = async () => {
+    try {
+      // Check for app version/storage version
+      const storageVersion = await AsyncStorage.getItem('storage_version');
+      
+      if (storageVersion !== '1.0') {
+        // For first installs or upgrades, clean up old data format
+        console.log('Initializing storage or upgrading from version:', storageVersion || 'none');
+        await migrateStorage();
+        
+        // Set new storage version
+        await AsyncStorage.setItem('storage_version', '1.0');
+      }
+      
+      setStorageInitialized(true);
+    } catch (error) {
+      console.error('Storage initialization error:', error);
+    }
+  };
 
-
-  // Clear all AsyncStorage data related to a user
-  const clearUserDataFromStorage = async (user: User | null) => {
+  // Migrate AsyncStorage from old format to new format
+  const migrateStorage = async () => {
     try {
       const keys = await AsyncStorage.getAllKeys();
-      const userDataKeys = keys.filter(key => {
-        if (key === 'profile') {
-          return true;
+      
+      // List of keys to inspect
+      const keysToCheck = keys.filter(key => 
+        !key.startsWith('storage_version') && 
+        !key.startsWith('RN_')
+      );
+      
+      for (const key of keysToCheck) {
+        try {
+          // Read the stored value
+          const value = await AsyncStorage.getItem(key);
+          
+          // Check if it's a JSON object
+          try {
+            const parsed = JSON.parse(value);
+            
+            // Handle specific migrations for known key formats
+            if (key === 'profile') {
+              // For profile data, ensure it has the new format with lastUpdated
+              if (!parsed.lastUpdated) {
+                console.log('Migrating profile data to new format');
+                
+                // Convert to new minimal format
+                const newProfile = {
+                  uid: parsed.firebaseUid || parsed.uid,
+                  email: parsed.email || '',
+                  username: parsed.username || '',
+                  lastUpdated: new Date().toISOString()
+                };
+                
+                await AsyncStorage.setItem(StorageKeys.PROFILE, JSON.stringify(newProfile));
+              }
+            } else if (key.startsWith('workout_')) {
+              // Workouts are now stored in WORKOUT_HISTORY
+              const workouts = await AsyncStorage.getItem(StorageKeys.WORKOUT_HISTORY);
+              const parsedWorkouts = workouts ? JSON.parse(workouts) : [];
+              
+              if (parsed.id && !parsedWorkouts.find(w => w.id === parsed.id)) {
+                parsedWorkouts.push(parsed);
+                await AsyncStorage.setItem(StorageKeys.WORKOUT_HISTORY, JSON.stringify(parsedWorkouts));
+              }
+              
+              // Remove old workout item
+              await AsyncStorage.removeItem(key);
+            } else if (key.startsWith('weight_')) {
+              // Weight logs are now stored in DAILY_WEIGHT_LOG
+              const weightLogs = await AsyncStorage.getItem(StorageKeys.DAILY_WEIGHT_LOG);
+              const parsedLogs = weightLogs ? JSON.parse(weightLogs) : [];
+              
+              if (parsed.date && !parsedLogs.find(log => log.date === parsed.date && log.userId === parsed.userId)) {
+                parsedLogs.push(parsed);
+                await AsyncStorage.setItem(StorageKeys.DAILY_WEIGHT_LOG, JSON.stringify(parsedLogs));
+              }
+              
+              // Remove old weight log item
+              await AsyncStorage.removeItem(key);
+            }
+          } catch (parseError) {
+            // Not a JSON object, skip
+          }
+        } catch (itemError) {
+          console.warn(`Error processing storage key ${key}:`, itemError);
         }
-        if (key.startsWith('loggedInUser') || key === 'rememberMe') {
-          return true;
-        }
-        if (user && key.startsWith('user_' + user.uid) || key.startsWith('weight_' + user.uid) || key.startsWith('workout_' + user.uid)) {
-          return true;
-        }
-        return false;
-      });
-
-      if (userDataKeys.length > 0) {
-        await AsyncStorage.multiRemove(userDataKeys);
-        console.log('Cleared user data from AsyncStorage');
       }
+      
+      console.log('Storage migration completed');
+    } catch (error) {
+      console.error('Storage migration error:', error);
+    }
+  };
+  
+  // Clear user data from AsyncStorage
+  const clearUserDataFromStorage = async () => {
+    try {
+      await AsyncStorage.removeItem(StorageKeys.PROFILE);
+      await AsyncStorage.setItem(StorageKeys.DAILY_WEIGHT_LOG, JSON.stringify([]));
+      await AsyncStorage.setItem(StorageKeys.WORKOUT_HISTORY, JSON.stringify([]));
+      await AsyncStorage.setItem(StorageKeys.WORKOUT_PLANS, JSON.stringify([]));
     } catch (error) {
       console.error('Error clearing user data from storage:', error);
     }
   };
-
-  // Delete user data from Firestore
-  const deleteUserData = async (userId: string, deleteUserDocument: boolean = true): Promise<void> => {
-    try {
-      if (deleteUserDocument) {
-        // Delete user document
-        await deleteDoc(doc(db, 'users', userId));
-      }
-      // Generic deletion for all subcollections
-      const userDocRef = doc(db, 'users', userId);
-      const subcollections = ['weightLog', 'workoutHistory'];
-      for (const subcollectionName of subcollections) {
-        const subcollectionRef = collection(userDocRef, subcollectionName);
-        const subcollectionSnapshot = await getDocs(subcollectionRef);
-        await Promise.all(subcollectionSnapshot.docs.map(docSnap => deleteDoc(docSnap.ref)));
-      }
-
-      console.log('All user data deleted from Firestore');
-    } catch (error) {
-      console.error('Error deleting user data from Firestore:', error);
-      throw error;
-    }
-  };
-
-
-    // Initialize and migrate AsyncStorage on mount
-    const initializeStorage = async () => {
-      try {
-        // Check for app version/storage version
-        const storageVersion = await AsyncStorage.getItem('storage_version');
-        
-        if (storageVersion !== '1.0') {
-          // For first installs or upgrades, clean up old data format
-          console.log('Initializing storage or upgrading from version:', storageVersion || 'none');
-          await migrateStorage();
-          
-          // Set new storage version
-          await AsyncStorage.setItem('storage_version', '1.0');
-        }
-        
-        setStorageInitialized(true);
-      } catch (error) {
-        console.error('Storage initialization error:', error);
-      }
-    };
   
-    // Migrate AsyncStorage from old format to new format
-    const migrateStorage = async () => {
-      try {
-        const keys = await AsyncStorage.getAllKeys();
-        
-        // List of keys to inspect
-        const keysToCheck = keys.filter(key => 
-          !key.startsWith('storage_version') && 
-          !key.startsWith('RN_')
-        );
-        
-        for (const key of keysToCheck) {
-          try {
-            // Read the stored value
-            const value = await AsyncStorage.getItem(key);
-            
-            // Check if it's a JSON object
-            try {
-              const parsed = JSON.parse(value);
-              
-              // Handle specific migrations for known key formats
-              if (key === 'profile') {
-
-                // For profile data, ensure it has the new format with lastUpdated
-                if (!parsed.lastUpdated) {
-                  console.log('Migrating profile data to new format');
-                  
-                  // Convert to new minimal format
-                  const newProfile = {
-                    firebaseUid: parsed.firebaseUid || parsed.uid,
-                    email: parsed.email || '',
-                    username: parsed.username || '',
-                    lastUpdated: new Date().toISOString()
-                  };
-                  
-                  await AsyncStorage.setItem('profile', JSON.stringify(newProfile));
-                }
-              } else if (key.startsWith('workout_')) {
-                // Workouts are now stored only on Firestore, remove local copies
-                await AsyncStorage.removeItem(key);
-              } else if (key.startsWith('weight_')) {
-                // Weight logs are now stored only on Firestore, remove local copies
-                await AsyncStorage.removeItem(key);
-              }
-            } catch (parseError) {
-              // Not a JSON object, skip
-            }
-          } catch (itemError) {
-            console.warn(`Error processing storage key ${key}:`, itemError);
-          }
-        }
-        
-        console.log('Storage migration completed');
-      } catch (error) {
-        console.error('Storage migration error:', error);
-      }
-    };
-
-
-    const fetchOnlineUserProfile = async (userId) => {
-      const userDocRef = doc(db, 'users', userId);
-      const userDocSnap = await getDoc(userDocRef);
-      
-      if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        setUserProfile(userData);
-        
-        // Store minimal profile info in AsyncStorage for offline access only
-        await AsyncStorage.setItem(
-          'profile',
-          JSON.stringify({
-            firebaseUid: userId,
-            email: userData.email || auth.currentUser?.email || '',
-            username: userData.username || auth.currentUser?.displayName || '',
-            lastUpdated: new Date().toISOString()
-          })
-        );
-        
-        return userData;
-      } else {
-        return await createNewUserProfile(userId);
-      }
-    };
-    
-      const createNewUserProfile = async (userId) => {
-        const userDocRef = doc(db, 'users', userId);
-        // If no Firestore data, create a new user document
-        const newUserData = {
-          uid: userId,
-          email: auth.currentUser?.email || '',
-          username: auth.currentUser?.displayName || '',
-          age: null,
-          height: null,
-          weight: null,
-          joinedDate: new Date().toISOString(),
-          createdAt: serverTimestamp(),
-          lastLogin: serverTimestamp(),
-          friends: [],
-          firestoreWeightLog: [],
-          firestoreSets: [],
-          fitnessGoal: null
-        };
-        
-        // Create the document
-        await setDoc(userDocRef, newUserData);
-        
-        setUserProfile(newUserData);
-        
-        // Store minimal profile info in AsyncStorage for offline access
-        await AsyncStorage.setItem(
-          'profile',
-          JSON.stringify({
-            firebaseUid: userId,
-            email: newUserData.email,
-            username: newUserData.username,
-            lastUpdated: new Date().toISOString()
-          })
-        );
-        
-        return newUserData;
-      };
-    
-      const fetchOfflineUserProfile = async (userId) => {
-        const profileJSON = await AsyncStorage.getItem('profile');
-        if (profileJSON) {
-          try {
-            const profile = JSON.parse(profileJSON);
-            if (profile.firebaseUid === userId) {
-              // Add a flag to indicate this is offline data
-              const offlineProfile = {
-                ...profile,
-                isOfflineData: true
-              };
-              
-              setUserProfile(offlineProfile);
-              return offlineProfile;
-            }
-          } catch (parseError) {
-            console.warn('Error parsing cached profile:', parseError);
-          }
-        }
-
-type UserData = {
-    email: string,
-    password: string,
-    username: string,
-    age: number,
-    weight: number,
-    height: number,
-};
-
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  useEffect(() => {
-    const networkStateListener = NetworkState.addListener(state => {
-      setIsOnline(state.isConnected);
-    });
-    
-    NetworkState.init();
-    
-    return () => {
-      networkStateListener.remove();
-    };
-  }, []);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isOnline, setIsOnline] = useState<boolean>(true);
-  const [emailVerified, setEmailVerified] = useState<boolean>(false);
-  const [storageInitialized, setStorageInitialized] = useState<boolean>(false);
-  const lastNetworkStatus = useRef<boolean | null>(null);
-
-  
-  useEffect(() => {
-    // Listen for auth state changes
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        let isNewUser = false;
-      try {
-        if (firebaseUser) {
-          setUser(firebaseUser);
-          setEmailVerified(firebaseUser.emailVerified);
-          
-          // Ensure we're not using stale cached data by refreshing Firebase user
-          try {
-              await firebaseUser.reload();
-            // Re-check email verification status after reload
-            setEmailVerified(firebaseUser.emailVerified);
-            if(lastNetworkStatus.current === false && isOnline){
-               try {
-                    await fetchUserProfile(firebaseUser.uid, true);
-                    console.log("Refetched user data after network connection was reestablished");
-                } catch (refetchError) {
-                   console.error('Error refetching user profile after network connection:', refetchError);
-               }
-            }
-          } catch (reloadError) {
-            console.warn('Error refreshing user data:', reloadError);
-            // Continue with the existing user data
-          }
-          
-          // Get the user's profile data from Firestore
-          try {
-             const userDocRef = doc(db, 'users', firebaseUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
-            isNewUser = !userDocSnap.exists();
-            const userData = await fetchUserProfile(firebaseUser.uid, isNewUser, true);
-            
-            // Store user UID for "Remember Me"
-            await AsyncStorage.setItem('loggedInUser', firebaseUser.uid);
-            
-            // Update Firestore with last login timestamp if we're online
-            if (isOnline && userData && !userData.isOfflineData) {
-              try {
-                const userDocRef = doc(db, 'users', firebaseUser.uid);
-                await updateDoc(userDocRef, {
-                  lastLogin: serverTimestamp()
-                });
-              } catch (updateError) {
-                console.warn('Error updating last login time:', updateError);
-                // Continue without updating last login
-              }
-            }
-          } catch (profileError) {
-            console.error('Error fetching user profile:', profileError);
-            // Create minimal profile from auth data
-            setUserProfile({
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              emailVerified: firebaseUser.emailVerified,
-              displayName: firebaseUser.displayName,
-              isOfflineData: true
-            });
-          }
-          
-          // If email is not verified, log a message
-          if (!firebaseUser.emailVerified) {
-            console.log('Email not verified. Please check your email and verify your account.');
-          }
-        } else {
-          setUser(null);
-          setUserProfile(null);
-          setEmailVerified(false);
-          await AsyncStorage.removeItem('loggedInUser');
-        }
-      } catch (err) {
-        console.error('Auth state change error:', err);
-        setError(err.message);
-        setUser(null);
-        setUserProfile(null);
-        setEmailVerified(false);
-      } finally {
-        setLoading(false);
-      }
-      lastNetworkStatus.current = isOnline;
-    });
-    
-
-    return () => unsubscribe();
-  }, [isOnline]);
-  
-  // Fetch user profile data from Firestore
-  const fetchUserProfile = async (userId, isNewUser, isOnline) => {
-    try {
-        // Only try to fetch from Firestore if we're online or it's a new user
-      if (isOnline || isNewUser) {
-        return await fetchOnlineUserProfile(userId);
-      } else {
-        // Offline mode - try to get cached profile
-        const offlineProfile = await fetchOfflineUserProfile(userId);
-        if(offlineProfile){
-            return offlineProfile
-        }
-         // Create a minimal offline profile
-        const offlineProfile = {
-          uid: userId,
-          email: auth.currentUser?.email || '',
-          noOfflineData: true,
-          username: auth.currentUser?.displayName || '',
-          isOfflineData: true
-         };
-        
-        setUserProfile(offlineProfile);
-        return offlineProfile;
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      
-      // Create a minimal profile with auth data
-      const fallbackProfile = {
-        uid: userId,
-        email: auth.currentUser?.email || '',
-        username: auth.currentUser?.displayName || '',
-        noOfflineData: true,
-        isOfflineData: true,
-        error: error.message
-      };
-      
-      setUserProfile(fallbackProfile);
-      return fallbackProfile;
-    }
-  };
-
-  //Register a new user with email & password
+  // Register a new user
   const register = async ({ email, password, username, age, weight, height }) => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      // First, clear any existing data for this account
-      await clearUserDataFromStorage();
+      setIsLoading(true);
+      setError(null);
       
-      // 1) Create the user in Firebase Auth
-      const result = await createUserWithEmailAndPassword(auth, email, password);
-      const { uid } = result.user;
+      // Validate inputs
+      if (!email || !password || !username) {
+        throw new Error('Email, password, and username are required');
+      }
       
-      //Send email verification
-      try {
-        if (!result.user.emailVerified)
-            console.warn("The email verification has not been completed");
-        await sendEmailVerification(result.user);
-        console.log('Verification email sent');
-      } catch (verifyError) {
-        console.warn('Error sending verification email:', verifyError);
+      if (!isValidEmail(email)) {
+        throw new Error('Please enter a valid email address');
       }
-
-      // 2) Ensure any existing document for this user is cleaned up
-      try {
-        const userDocRef = doc(db, 'users', uid);
-        const userDocSnap = await getDoc(userDocRef);
-        
-        // If a document exists for this user (from a previous account), delete subcollections
-        if (userDocSnap.exists()) {
-          await deleteUserData(uid);
-          console.log('Cleaned up existing user data for new account');
-        }
-      } catch (cleanupError) {
-        console.warn('Error cleaning up existing user data:', cleanupError);
+      
+      if (!isValidPassword(password)) {
+        throw new Error('Password must be at least 8 characters with at least one uppercase letter, one lowercase letter, and one number');
       }
-
-      // 3) Create a fresh document in Firestore "users" collection
-      const userData = {
-        uid,
-        email,
-        username,
-        age: age || null,
-        height: height || null,
-        weight: weight || null,
-        joinedDate: new Date().toISOString(),
-        createdAt: serverTimestamp(),
-        lastLogin: serverTimestamp(),
-        emailVerified: result.user.emailVerified,
-        friends: [],
-        friendRequests: [],
-        profilePic: '',
-        firestoreSets: [],
-        firestoreWeightLog: [],
-        settings: {
-          unitSystem: 'metric', // 'metric' or 'imperial'
-          notifications: true,
-          darkMode: false,
-          privacyLevel: 'friends-only', // 'public', 'friends-only', 'private'
-        }
+      
+      if (!isValidUsername(username)) {
+        throw new Error('Username must be 3-20 characters and can only contain letters, numbers, and underscores');
+      }
+      
+      // Check network connection
+      if (!isOnline) {
+        throw new Error('Cannot register while offline');
+      }
+      
+      // Register user with Firebase Auth
+      const user = await firebaseAuth.register(email, password);
+      
+      // Create user profile
+      const userProfile = {
+        uid: user.uid,
+        email: email,
+        username: username,
+        age: age ? parseInt(age) : null,
+        height: height ? parseFloat(height) : null,
+        weight: weight ? parseFloat(weight) : null,
+        joinDate: new Date().toISOString()
       };
       
-      await setDoc(doc(db, 'users', uid), userData);
-
-      // 4) Store minimal Firebase UID and profile info in AsyncStorage
-      await AsyncStorage.setItem(
-        'profile',
-        JSON.stringify({
-          firebaseUid: uid,
-          email,
-          username,
-          lastUpdated: new Date().toISOString()
-        })
-      );
+      // Save profile to Firestore and local storage
+      await DatabaseService.saveProfile(userProfile, isOnline);
       
-      setUserProfile(userData);
+      // Send verification email
+      await sendEmailVerification(user);
       
-      // Alert the user to verify their email
-      if (!result.user.emailVerified)
-      Alert.alert(
-        'Registration Successful',
-        'Please check your email to verify your account.',
-        [{ text: 'OK' }]
-      );
+      setCurrentUser(user);
+      setUserProfile(userProfile);
+      setIsLoggedIn(true);
       
-      return result.user;
-    } catch (err) {
-      console.error('Registration error:', err);
-      setError(err.message);
+      return { success: true, user };
+    } catch (error) {
+      console.error('Registration error:', error);
       
-      let errorMessage = 'Registration failed.';
-      if (err.code === 'auth/email-already-in-use') {
-        errorMessage = `This email is already in use. Please use a different email. Details: ${err.message}`;
-      } else if (err.code === 'auth/invalid-email') {
-        errorMessage = `Please enter a valid email address. Details: ${err.message}`;
-      } else if (err.code === 'auth/weak-password') {
-        errorMessage = `Password is too weak. Please use a stronger password. Details: ${err.message}`;
-      } else {
-        errorMessage = `An unexpected error occurred during registration. Please try again later. Details: ${err.message}`;
+      let errorMessage = 'Registration failed. Please try again.';
+      
+      // Handle specific Firebase error codes
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Please use a different email or try logging in.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please use a stronger password.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address format.';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
       
-      Alert.alert('Registration Failed', errorMessage);
-      throw err;
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
-
-      setLoading(false);
+      setIsLoading(false);
     }
   };
-
-  // Sign in existing user
+  
+  // Login with email and password
   const login = async (email, password, rememberMe = true) => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      // Clear any existing data before login
-      await clearUserDataFromStorage();
+      setIsLoading(true);
+      setError(null);
       
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      
-      // Check if email is verified
-      if (!result.user.emailVerified) {
-        
-         setError('Please verify your email before logging in.');
-        throw new Error('Please verify your email before logging in.');
-
+      // Validate inputs
+      if (!email || !password) {
+        throw new Error('Email and password are required');
       }
       
+      if (!isValidEmail(email)) {
+        throw new Error('Please enter a valid email address');
+      }
+      
+      // Check network connection
+      if (!isOnline) {
+        throw new Error('Cannot login while offline');
+      }
+      
+      // Sign in with Firebase Auth
+      const user = await firebaseAuth.login(email, password);
+      
+      // Save login state for remember me
       if (rememberMe) {
-       await AsyncStorage.setItem('loggedInUser', result.user.uid);
         await AsyncStorage.setItem('rememberMe', 'true');
+        await AsyncStorage.setItem('userEmail', email);
       } else {
         await AsyncStorage.removeItem('rememberMe');
-      
-      // Fetch fresh profile data from server
-      await fetchUserProfile(result.user.uid);
-      
-      return result.user;
-    } catch (err) {
-      console.error('Login error:', err);
-      setError(err.message);
-      
-      let errorMessage = 'Login failed. Please check your credentials.';
-      
-      if (err.code === 'auth/user-not-found') {
-        errorMessage = `User not found. Please check your credentials and try again. Details: ${err.message}`;
-      } else if (err.code === 'auth/wrong-password') {
-        errorMessage = `Invalid password. Please check your credentials and try again. Details: ${err.message}`;
-      } else if (err.code === 'auth/too-many-requests') {
-        errorMessage = `Too many failed login attempts. Please try again later. Details: ${err.message}`;
-      } else if (err.code === 'auth/user-disabled') {
-        errorMessage = `This account has been disabled. Please contact support. Details: ${err.message}`;
+        await AsyncStorage.removeItem('userEmail');
       }
       
-      Alert.alert('Authentication Failed', errorMessage);
-      throw err;
+      // Update user's last login timestamp
+      if (user && isOnline) {
+        try {
+          const userDocRef = doc(db, FIREBASE_COLLECTIONS.USERS, user.uid);
+          await updateDoc(userDocRef, {
+            lastLogin: serverTimestamp(),
+            lastActive: serverTimestamp()
+          });
+        } catch (firestoreError) {
+          console.warn('Failed to update last login time:', firestoreError);
+        }
+      }
+      
+      // Fetch user profile
+      if (user) {
+        const profileResponse = await DatabaseService.getProfile(user.uid, isOnline);
+        if (profileResponse.success && profileResponse.data) {
+          setUserProfile(profileResponse.data);
+        }
+      }
+      
+      setCurrentUser(user);
+      setIsLoggedIn(true);
+      
+      return { success: true, user };
+    } catch (error) {
+      console.error('Login error:', error);
+      
+      let errorMessage = 'Login failed. Please check your credentials and try again.';
+      
+      // Handle specific Firebase error codes
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        errorMessage = 'Invalid email or password.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many unsuccessful login attempts. Please try again later.';
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
-
-  // Log out user
+  
+  // Logout the current user
   const logout = async () => {
-    setLoading(true);
     try {
-      await signOut(auth);
+      setIsLoading(true);
       
-      // Clear all user-related data
-      await clearUserDataFromStorage();
+      // Sign out from Firebase Auth
+      await firebaseAuth.logout();
       
+      // Clear user data from state
+      setCurrentUser(null);
       setUserProfile(null);
-    } catch (err) {
-      console.error('Logout error:', err);
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Delete account and all associated data
-  const deleteAccount = async (password) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      if (!user) throw new Error('You must be logged in to delete your account');
+      setIsLoggedIn(false);
       
-      // Re-authenticate user before deletion
-      const credential = EmailAuthProvider.credential(user.email, password);
-      await reauthenticateWithCredential(user, credential);
-      
-      // Delete user data from Firestore
-      await deleteUserData(user.uid);
-      
-      // Delete user from Firebase Authentication
-      await user.delete();
-      
-      // Clear local storage
+      // Clear sensitive data from storage
       await clearUserDataFromStorage();
       
-      Alert.alert('Account Deleted', 'Your account and all associated data have been permanently deleted.');
-      
-      // State will be cleaned up by the auth state change listener
-    } catch (err) {
-      console.error('Account deletion error:', err);
-      setError(err.message);
-      
-      let errorMessage = 'Failed to delete account.';
-      if (err.code === 'auth/wrong-password') {
-        errorMessage = `Incorrect password. Please try again. Details: ${err.message}`;
-      }
-      
-      Alert.alert('Account Deletion Failed', errorMessage);
-      throw err;
+      return { success: true };
+    } catch (error) {
+      console.error('Logout error:', error);
+      setError('Failed to log out. Please try again.');
+      return { success: false, error: error.message };
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
-
-
-  // Reset password
+  
+  // Reset password for an email
   const resetPassword = async (email) => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      await sendPasswordResetEmail(auth, email);
-      Alert.alert(
-        'Password Reset Email Sent',
-        'Check your email for instructions to reset your password.'
-
-      );
-    } catch (err) {
-      console.error('Password reset error:', err);
-      setError(err.message);
+      setIsLoading(true);
+      setError(null);
       
-      let errorMessage = 'Failed to send password reset email.';
-      
-      if (err.code === 'auth/user-not-found') {
-        errorMessage = `No account found with this email address. Details: ${err.message}`;
-      } else if (err.code === 'auth/invalid-email') {
-        errorMessage = `Please enter a valid email address. Details: ${err.message}`;
+      // Validate input
+      if (!email || !isValidEmail(email)) {
+        throw new Error('Please enter a valid email address');
       }
       
-      Alert.alert('Password Reset Failed', errorMessage);
-      throw err;
+      // Check network connection
+      if (!isOnline) {
+        throw new Error('Cannot reset password while offline');
+      }
+      
+      // Send password reset email
+      await firebaseAuth.resetPassword(email);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Password reset error:', error);
+      
+      let errorMessage = 'Failed to send password reset email. Please try again.';
+      
+      // Handle specific Firebase error codes
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No user found with this email address.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
   
-  // Update user profile in Firestore
+  // Update user profile
   const updateUserProfile = async (profileData) => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      if (!user) throw new Error('You must be logged in to update your profile');
+      setIsLoading(true);
+      setError(null);
       
-      const userRef = doc(db, 'users', user.uid);
+      // Validate user is logged in
+      if (!currentUser) {
+        throw new Error('You must be logged in to update your profile');
+      }
       
-      // Update Firestore document
-      await updateDoc(userRef, {
+      // Update profile with database service
+      const updatedProfile = {
         ...profileData,
-        updatedAt: new Date().toISOString()
-      });
+        uid: currentUser.uid
+      };
       
-      // Update local user profile
-      const updatedProfile = { ...userProfile, ...profileData };
-      setUserProfile(updatedProfile);
+      const response = await DatabaseService.saveProfile(updatedProfile, isOnline);
       
-      // Update AsyncStorage
-      const storedProfile = JSON.parse(await AsyncStorage.getItem('profile')) || {};
-      const updatedStoredProfile = { ...storedProfile, ...profileData };
-      await AsyncStorage.setItem('profile', JSON.stringify(updatedStoredProfile));
-      
-      Alert.alert('Success', 'Profile updated successfully');
-    } catch (err) {
-      console.error('Profile update error:', err);
-      setError(err.message);
-      Alert.alert('Error', 'Failed to update profile');
-      throw err;
+      if (response.success) {
+        setUserProfile(response.data);
+        return { success: true, profile: response.data };
+      } else {
+        throw new Error(response.error?.message || 'Failed to update profile');
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      setError(error.message || 'Failed to update profile');
+      return { success: false, error: error.message };
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
   
-  // Update password
+  // Change current user's password
   const changePassword = async (currentPassword, newPassword) => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      if (!user) throw new Error('You must be logged in to change your password');
+      setIsLoading(true);
+      setError(null);
       
-      // Re-authenticate user before changing password
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential);
+      // Validate user is logged in
+      if (!currentUser) {
+        throw new Error('You must be logged in to change your password');
+      }
+      
+      // Validate new password
+      if (!isValidPassword(newPassword)) {
+        throw new Error('New password must be at least 8 characters with at least one uppercase letter, one lowercase letter, and one number');
+      }
+      
+      // Check network connection
+      if (!isOnline) {
+        throw new Error('Cannot change password while offline');
+      }
+      
+      // Reauthenticate user first
+      await firebaseAuth.reauthenticate(currentUser, currentPassword);
       
       // Update password
-      await updatePassword(user, newPassword);
+      await firebaseAuth.updatePassword(currentUser, newPassword);
       
-      Alert.alert('Success', 'Password updated successfully');
-    } catch (err) {
-      console.error('Password change error:', err);
-      setError(err.message);
+      return { success: true };
+    } catch (error) {
+      console.error('Password change error:', error);
       
-      let errorMessage = 'Failed to update password.';
+      let errorMessage = 'Failed to change password. Please try again.';
       
-      if (err.code === 'auth/wrong-password') {
-        errorMessage = `Current password is incorrect. Details: ${err.message}`;
-      } else if (err.code === 'auth/weak-password') {
-        errorMessage = `New password is too weak. Please use a stronger password. Details: ${err.message}`;
+      // Handle specific Firebase error codes
+      if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Current password is incorrect.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please use a stronger password.';
+      } else if (error.code === 'auth/requires-recent-login') {
+        errorMessage = 'This operation is sensitive and requires recent authentication. Please log in again before retrying.';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
       
-      Alert.alert('Password Update Failed', errorMessage);
-      throw err;
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
   
-  // Update email
+  // Change current user's email
   const changeEmail = async (password, newEmail) => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      if (!user) throw new Error('You must be logged in to change your email');
+      setIsLoading(true);
+      setError(null);
       
-      // Re-authenticate user before changing email
-      const credential = EmailAuthProvider.credential(user.email, password);
-      await reauthenticateWithCredential(user, credential);
-      
-      // Update email in Auth
-      await updateEmail(user, newEmail);
-      
-      // Update email in Firestore
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        email: newEmail,
-        updatedAt: new Date().toISOString()
-      });
-      
-      // Update local storage
-      const storedProfile = JSON.parse(await AsyncStorage.getItem('profile')) || {};
-      storedProfile.email = newEmail;
-      await AsyncStorage.setItem('profile', JSON.stringify(storedProfile));
-      
-      // Update context
-      setUserProfile(prev => ({ ...prev, email: newEmail }));
-      
-      Alert.alert('Success', 'Email updated successfully');
-    } catch (err) {
-      console.error('Email change error:', err);
-      setError(err.message);
-      
-      let errorMessage = 'Failed to update email.';
-      
-      if (err.code === 'auth/wrong-password') {
-        errorMessage = `Password is incorrect. Details: ${err.message}`;
-      } else if (err.code === 'auth/email-already-in-use') {
-        errorMessage = `This email is already in use by another account. Details: ${err.message}`;
-      } else if (err.code === 'auth/invalid-email') {
-        errorMessage = `Please enter a valid email address. Details: ${err.message}`;
+      // Validate user is logged in
+      if (!currentUser) {
+        throw new Error('You must be logged in to change your email');
       }
-
-      Alert.alert('Email Update Failed', errorMessage);
-      throw err;
+      
+      // Validate new email
+      if (!isValidEmail(newEmail)) {
+        throw new Error('Please enter a valid email address');
+      }
+      
+      // Check network connection
+      if (!isOnline) {
+        throw new Error('Cannot change email while offline');
+      }
+      
+      // Reauthenticate user first
+      await firebaseAuth.reauthenticate(currentUser, password);
+      
+      // Update email
+      await firebaseAuth.updateEmail(currentUser, newEmail);
+      
+      // Update profile
+      const updatedProfile = {
+        ...userProfile,
+        email: newEmail
+      };
+      
+      await DatabaseService.saveProfile(updatedProfile, isOnline);
+      setUserProfile(updatedProfile);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Email change error:', error);
+      
+      let errorMessage = 'Failed to change email. Please try again.';
+      
+      // Handle specific Firebase error codes
+      if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Password is incorrect.';
+      } else if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Please use a different email.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address format.';
+      } else if (error.code === 'auth/requires-recent-login') {
+        errorMessage = 'This operation is sensitive and requires recent authentication. Please log in again before retrying.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
-
-  // Try to auto-login from AsyncStorage
-  const tryAutoLogin = async () => {
-    try {
-      const storedUid = await AsyncStorage.getItem('loggedInUser');
-      const rememberMe = await AsyncStorage.getItem('rememberMe');
-      
-      if (storedUid && rememberMe === 'true') {
-        // onAuthStateChanged handles user state automatically
-        // This is just for awareness that auto-login is supported
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error('Auto-login error:', err);
-      return false;
-    }
-  };
-
-  useEffect(() => {
-    tryAutoLogin();
-  }, []);
-
+  
   // Resend verification email
   const resendVerificationEmail = async () => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      if (!user) throw new Error('No user logged in');
+      setIsLoading(true);
+      setError(null);
       
-      await sendEmailVerification(user);
-      Alert.alert(
-        'Verification Email Sent',
-        'Please check your inbox and follow the link to verify your email address.'
-      );
-    } catch (err) {
-      console.error('Email verification error:', err);
-      setError(err.message);
+      // Validate user is logged in
+      if (!currentUser) {
+        throw new Error('You must be logged in to verify your email');
+      }
       
-      let errorMessage = 'Failed to send verification email.';
-      if (err.code === 'auth/too-many-requests') {
-        errorMessage = `Too many attempts. Please try again later. Details: ${err.message}`;
-      } else {
-        errorMessage = `Failed to send verification email. Details: ${err.message}`;
-      Alert.alert('Verification Failed', errorMessage);
-      throw err;
+      // Check network connection
+      if (!isOnline) {
+        throw new Error('Cannot send verification email while offline');
+      }
+      
+      // Send verification email
+      await sendEmailVerification(currentUser);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Verification email error:', error);
+      
+      let errorMessage = 'Failed to send verification email. Please try again later.';
+      
+      // Handle specific Firebase error codes
+      if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many requests. Please try again later.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
-
-  // Check email verification status
-  const checkVerificationStatus = async () => {
-    setLoading(true);
-    setError(null);
-    
+  
+  // Try to log in automatically if user has selected "remember me"
+  const tryAutoLogin = async () => {
     try {
-      if (!user) throw new Error('No user logged in');
+      const rememberMe = await AsyncStorage.getItem('rememberMe');
+      const email = await AsyncStorage.getItem('userEmail');
       
-      await user.reload();
-      const updatedUser = auth.currentUser;
-      setEmailVerified(updatedUser.emailVerified);
+      if (rememberMe === 'true' && email && isOnline) {
+        // Auto login is handled by Firebase's persistence
+        console.log('Auto login enabled, waiting for Firebase auth state');
+      }
       
-      return updatedUser.emailVerified;
-    } catch (err) {
-      console.error('Verification check error:', err);
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
+      return { success: true };
+    } catch (error) {
+      console.error('Auto login error:', error);
+      return { success: false, error: error.message };
     }
   };
-
-
-    const clearCache = async () => {
-        try {
-            await AsyncStorage.clear();
-            console.log('All data cleared from AsyncStorage.');
-        } catch (error) {
-            console.error('Error clearing AsyncStorage:', error);
-        }
-    };
-
-
+  
+  // Context value
+  const value = {
+    currentUser,
+    userProfile,
+    isLoggedIn,
+    isLoading,
+    error,
+    isOnline,
+    storageInitialized,
+    register,
+    login,
+    logout,
+    resetPassword,
+    updateUserProfile,
+    changePassword,
+    changeEmail,
+    resendVerificationEmail,
+    tryAutoLogin,
+    clearError: () => setError(null)
+  };
+  
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        userProfile,
-        loading,
-        error,
-        setError,
-        login,
-        logout,
-        register,
-        resetPassword,
-        updateUserProfile,
-        changePassword,
-        changeEmail,
-        tryAutoLogin,
-        emailVerified,
-        resendVerificationEmail,
-        checkVerificationStatus,
-        deleteAccount,
-        clearCache
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
-
-    <useEffect(() => {initializeStorage();}, []);
-
     </AuthContext.Provider>
   );
 };

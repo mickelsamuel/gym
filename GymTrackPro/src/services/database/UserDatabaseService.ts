@@ -1,0 +1,263 @@
+import { doc, getDoc, setDoc, serverTimestamp, updateDoc, deleteDoc } from 'firebase/firestore';
+import { BaseDatabaseService } from './BaseDatabaseService';
+import { db, FIREBASE_PATHS, firebaseFirestore } from '../firebase';
+import { User, ApiResponse } from '../../types/global';
+import { StorageKeys, FIREBASE_COLLECTIONS } from '../../constants';
+import { sanitizeObject, validateUserProfile, stripSensitiveData } from '../../utils/sanitize';
+import { logError } from '../../utils/logging';
+
+/**
+ * Service for user-related database operations
+ */
+export class UserDatabaseService extends BaseDatabaseService {
+  // Cache keys
+  private readonly PROFILE_CACHE_KEY = 'profile';
+  
+  /**
+   * Save or update user profile
+   * @param profile User profile data to save
+   * @param isOnline Current online status
+   * @returns API response with the saved profile
+   */
+  async saveProfile(profile: Partial<User>, isOnline: boolean): Promise<ApiResponse<User>> {
+    return this.executeOperation(
+      async () => {
+        // Validate user profile
+        if (!profile.uid) {
+          throw new Error('User ID is required');
+        }
+        
+        const validationErrors = validateUserProfile(profile);
+        if (validationErrors.length > 0) {
+          throw new Error(`Profile validation failed: ${validationErrors.join(', ')}`);
+        }
+        
+        // Sanitize user-provided string data
+        const allowedFields = [
+          'uid', 'email', 'username', 'profilePic', 'userGoal', 
+          'streak', 'joinDate', 'lastActive', 'weight', 'height', 'age'
+        ];
+        
+        const sanitizedProfile = sanitizeObject(profile, allowedFields);
+        
+        // Save locally first for offline access
+        const existingProfile = await this.getFromStorage<User>(StorageKeys.PROFILE);
+        const mergedProfile = this.mergeData(existingProfile || {}, sanitizedProfile as User);
+        
+        await this.saveToStorage(StorageKeys.PROFILE, mergedProfile);
+        
+        // Invalidate cache
+        const cacheKey = `${this.PROFILE_CACHE_KEY}:${profile.uid}`;
+        this.invalidateCache(cacheKey);
+        
+        // Sync with Firestore if online
+        if (isOnline && this.isFirebaseAvailable) {
+          this.checkOnlineStatus(isOnline);
+          
+          const userDocRef = doc(db, FIREBASE_PATHS.USERS, profile.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists()) {
+            // Update existing document
+            await firebaseFirestore.updateDocument<User>(FIREBASE_PATHS.USERS, profile.uid, sanitizedProfile as User);
+          } else {
+            // Create new document
+            await firebaseFirestore.setDocument<User>(FIREBASE_PATHS.USERS, profile.uid, {
+              ...sanitizedProfile
+              // Let Firebase automatically set timestamps
+            } as User);
+          }
+        }
+        
+        return mergedProfile as User;
+      },
+      'save_profile_error',
+      'Failed to save user profile'
+    );
+  }
+  
+  /**
+   * Get user profile
+   * @param uid User ID
+   * @param isOnline Current online status
+   * @returns API response with the user profile
+   */
+  async getProfile(uid: string, isOnline: boolean): Promise<ApiResponse<User>> {
+    return this.executeOperation(
+      async () => {
+        if (!uid) {
+          throw new Error('User ID is required');
+        }
+        
+        const cacheKey = `${this.PROFILE_CACHE_KEY}:${uid}`;
+        
+        return await this.getDataWithCache<User>(
+          cacheKey,
+          // Function to fetch remote data
+          async () => {
+            const userDoc = await firebaseFirestore.getDocument<User>(FIREBASE_PATHS.USERS, uid);
+            if (!userDoc) {
+              throw new Error('User profile not found in Firestore');
+            }
+            return userDoc;
+          },
+          // Function to fetch local data
+          async () => {
+            const localProfile = await this.getFromStorage<User>(StorageKeys.PROFILE);
+            if (localProfile && localProfile.uid === uid) {
+              return localProfile;
+            }
+            return null;
+          },
+          // Function to merge local and remote data
+          (local, remote) => this.mergeData(local, remote),
+          isOnline
+        );
+      },
+      'get_profile_error',
+      'Failed to retrieve user profile'
+    );
+  }
+  
+  /**
+   * Delete a user profile
+   * @param uid User ID
+   * @param isOnline Current online status
+   * @returns API response indicating success or failure
+   */
+  async deleteProfile(uid: string, isOnline: boolean): Promise<ApiResponse<boolean>> {
+    return this.executeOperation(
+      async () => {
+        if (!uid) {
+          throw new Error('User ID is required');
+        }
+        
+        // Clear from local storage
+        await this.saveToStorage(StorageKeys.PROFILE, {});
+        
+        // Invalidate cache
+        const cacheKey = `${this.PROFILE_CACHE_KEY}:${uid}`;
+        this.invalidateCache(cacheKey);
+        
+        // Delete from Firestore if online
+        if (isOnline && this.isFirebaseAvailable) {
+          this.checkOnlineStatus(isOnline);
+          
+          // Mark as deleted instead of actually deleting
+          await firebaseFirestore.updateDocument(FIREBASE_PATHS.USERS, uid, {
+            deleted: true,
+            deletedAt: serverTimestamp()
+          });
+        }
+        
+        return true;
+      },
+      'delete_profile_error',
+      'Failed to delete user profile'
+    );
+  }
+  
+  /**
+   * Get multiple user profiles by IDs (for friend lists, etc.)
+   * @param uids Array of user IDs
+   * @param isOnline Current online status
+   * @returns API response with array of user profiles
+   */
+  async getMultipleProfiles(uids: string[], isOnline: boolean): Promise<ApiResponse<User[]>> {
+    return this.executeOperation(
+      async () => {
+        if (!uids || !Array.isArray(uids) || uids.length === 0) {
+          return [];
+        }
+        
+        const profiles: User[] = [];
+        
+        if (isOnline && this.isFirebaseAvailable) {
+          // Get profiles from Firestore in batches
+          const promises = uids.map(uid => 
+            firebaseFirestore.getDocument<User>(FIREBASE_PATHS.USERS, uid)
+              .then(profile => {
+                if (profile) {
+                  // Strip sensitive data before returning
+                  const safeProfile = stripSensitiveData(profile) as User;
+                  profiles.push(safeProfile);
+                  
+                  // Cache individual profile
+                  const cacheKey = `${this.PROFILE_CACHE_KEY}:${uid}`;
+                  this.addToCache(cacheKey, safeProfile);
+                }
+              })
+              .catch(error => {
+                logError('get_profile_error', error, { uid });
+                // Continue with other profiles
+              })
+          );
+          
+          await Promise.all(promises);
+        } else {
+          // Try to get from local cache
+          for (const uid of uids) {
+            const cacheKey = `${this.PROFILE_CACHE_KEY}:${uid}`;
+            const cachedProfile = this.getFromCache<User>(cacheKey);
+            
+            if (cachedProfile) {
+              profiles.push(cachedProfile);
+            }
+          }
+        }
+        
+        return profiles;
+      },
+      'get_multiple_profiles_error',
+      'Failed to retrieve multiple user profiles'
+    );
+  }
+  
+  /**
+   * Update user settings
+   * @param uid User ID
+   * @param settings Settings to update
+   * @param isOnline Current online status
+   * @returns API response with updated settings
+   */
+  async updateUserSettings(uid: string, settings: any, isOnline: boolean): Promise<ApiResponse<any>> {
+    return this.executeOperation(
+      async () => {
+        if (!uid) {
+          throw new Error('User ID is required');
+        }
+        
+        // Sanitize settings
+        const sanitizedSettings = sanitizeObject(settings, [
+          'darkMode', 'notifications', 'weightUnit', 'heightUnit', 
+          'distanceUnit', 'useBiometricAuth', 'rememberLogin', 
+          'colorTheme', 'language', 'offlineMode', 'dataSyncFrequency'
+        ]);
+        
+        // Save locally
+        const existingSettings = await this.getFromStorage<any>(StorageKeys.APP_SETTINGS) || {};
+        const mergedSettings = {
+          ...existingSettings,
+          ...sanitizedSettings,
+          uid
+        };
+        
+        await this.saveToStorage(StorageKeys.APP_SETTINGS, mergedSettings);
+        
+        // Update in Firestore if online
+        if (isOnline && this.isFirebaseAvailable) {
+          this.checkOnlineStatus(isOnline);
+          
+          await firebaseFirestore.updateDocument(FIREBASE_PATHS.USERS, uid, {
+            settings: sanitizedSettings,
+            updatedAt: serverTimestamp()
+          });
+        }
+        
+        return mergedSettings;
+      },
+      'update_settings_error',
+      'Failed to update user settings'
+    );
+  }
+} 
