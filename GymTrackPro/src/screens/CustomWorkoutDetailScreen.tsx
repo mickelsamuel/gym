@@ -24,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DatabaseService from '../services/DatabaseService';
 import { ExerciseContext } from '../context/ExerciseContext';
+import { useAuth } from '../context/AuthContext';
 import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
 import { BlurView } from 'expo-blur';
 
@@ -63,6 +64,7 @@ const CustomWorkoutDetailScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { listId } = route.params;
   const { getExerciseById, darkMode } = useContext(ExerciseContext);
+  const { isOnline } = useAuth();
   
   // State
   const [workoutList, setWorkoutList] = useState<WorkoutList | null>(null);
@@ -168,12 +170,23 @@ const CustomWorkoutDetailScreen: React.FC = () => {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
+            if (!isOnline) {
+              Alert.alert('Error', 'You are offline. Cannot remove exercise.');
+              return;
+            }
+
             setIsSaving(true);
             try {
               await DatabaseService.removeExerciseFromList(listId, exerciseId);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               loadWorkout();
             } catch (error) {
+               if (error instanceof Error) {
+                console.error('Error removing exercise:', error.message);
+              } else {
+                 console.error('Error removing exercise:', error);
+              }
+
               console.error('Error removing exercise:', error);
               Alert.alert('Error', 'Failed to remove exercise. Please try again.');
             } finally {
@@ -186,6 +199,10 @@ const CustomWorkoutDetailScreen: React.FC = () => {
   };
   
   const handleStartWorkout = (): void => {
+    if (!isOnline) {
+      Alert.alert('Error', 'You are offline. Cannot start workout.');
+      return;
+    }
     if (!workoutList || !workoutList.exercises || workoutList.exercises.length === 0) {
       Alert.alert('Empty Workout', 'Add some exercises before starting this workout.');
       return;
@@ -386,6 +403,7 @@ const CustomWorkoutDetailScreen: React.FC = () => {
               onPress={handleAddExercise}
               type="primary"
             />
+             {!isOnline && <Text style={{ color: theme.danger }}>You are offline. You can not add an exercise.</Text>}
           </View>
         }
         ListFooterComponent={
@@ -397,6 +415,7 @@ const CustomWorkoutDetailScreen: React.FC = () => {
                 type="secondary"
                 fullWidth
                 icon="add-circle-outline"
+                disabled={!isOnline}
               />
             </View>
           ) : null
@@ -422,6 +441,7 @@ const CustomWorkoutDetailScreen: React.FC = () => {
             fullWidth
             icon="play"
             loading={isSaving}
+            disabled={!isOnline}
           />
         </View>
       )}

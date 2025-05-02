@@ -93,25 +93,27 @@ export default function Input({
   
   // Get border styles based on variant, focus state, and error
   const getBorderStyles = () => {
+    const defaultBorderColor = isFocused ? colors.primary : 'transparent';
+    const borderColor = hasError ? colors.danger : defaultBorderColor;
+
     if (variant === 'outlined') {
-      const borderColor = hasError 
-        ? colors.danger 
-        : (isFocused ? colors.primary : colors.border);
-        
       return {
         borderWidth: 1.5,
-        borderColor,
+        borderColor: hasError ? colors.danger : (isFocused ? colors.primary : colors.border)
       };
     }
-    
+
     return {
       borderWidth: 0,
       borderBottomWidth: 2,
-      borderBottomColor: hasError 
-        ? colors.danger 
-        : (isFocused ? colors.primary : 'transparent'),
+      borderBottomColor: borderColor,
     };
   };
+
+  
+  
+  
+
   
   // Get text color based on theme
   const getTextColor = () => {

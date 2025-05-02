@@ -67,6 +67,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const isDarkMode = false;
   const colors = isDarkMode ? Theme.dark : Theme.light;
   
+  // Helper function to check for email verification related errors
+  const isEmailVerificationError = (err: any): boolean => {
+    return err && (err.message && (err.message.includes('email not verified') || 
+           err.message.includes('verify your email')) || err.includes('email not verified') || 
+           err.includes('verify your email'))
+  };
+  
   useEffect(() => {
     // Start animations when component mounts
     Animated.parallel([
@@ -89,19 +96,22 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     ]).start();
     
     return () => {
-      if (clearError) clearError();
+      if (clearError) {
+        clearError();
+      }
+      setFormErrors({});
+      setNeedsVerification(false);
     };
   }, []);
   
   useEffect(() => {
     if (error) {
       setFormErrors({ server: error });
-      
-      // Check if the error is related to email verification
-      if (error.includes('email not verified') || error.includes('verify your email')) {
+      if (isEmailVerificationError(error)) {
         setNeedsVerification(true);
       } else {
         setNeedsVerification(false);
+
       }
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -143,10 +153,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       await login(email, password, rememberMe);
       // Navigation handled by AuthContext
     } catch (error: any) {
-      // Check if the error is related to email verification
-      if (error.message && (error.message.includes('email not verified') || 
-          error.message.includes('verify your email'))) {
-        setNeedsVerification(true);
+      if(isEmailVerificationError(error)){
+        setNeedsVerification(true)
       }
       // Error handled by AuthContext via error
       setIsLoading(false);

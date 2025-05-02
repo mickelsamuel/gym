@@ -115,21 +115,22 @@ export const Typography = {
   fontFamilyRounded: Platform.OS === 'ios' ? 'SF Pro Rounded' : 'Product Sans',
   
   // Font Sizes
-  heading1: 32,
-  heading2: 28,
-  heading3: 24,
-  title: 20,
-  subtitle: 18,
-  body: 16,
-  bodySmall: 14,
-  caption: 12,
-  tiny: 10,
-  
-  // Font Weights
-  regular: '400',
-  medium: '500',
-  semibold: '600',
-  bold: '700',
+  heading1: {
+    fontSize: 32,
+    fontWeight: '700'
+  },
+  heading2: { fontSize: 28, fontWeight: '700'},
+  heading3: { fontSize: 24, fontWeight: '600'},
+  title: { fontSize: 20, fontWeight: '600'},
+  subtitle: { fontSize: 18, fontWeight: '500'},
+  body: { fontSize: 16, fontWeight: '400'},
+  bodySmall: { fontSize: 14, fontWeight: '400'},
+  caption: { fontSize: 12, fontWeight: '500'},
+  tiny: { fontSize: 10, fontWeight: '500'},
+
+
+
+
 };
 
 // Spacing

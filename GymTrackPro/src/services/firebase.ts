@@ -1,4 +1,5 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
+do aimport { initializeApp, FirebaseApp } from 'firebase/app';
 import {
   initializeAuth,
   Auth,
@@ -6,19 +7,26 @@ import {
 } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator, Firestore } from 'firebase/firestore';
 import { getAnalytics, isSupported, Analytics } from 'firebase/analytics';
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+import { ReactNativeAsyncStorage } from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { FIREBASE_API_KEY, FIREBASE_APP_ID, FIREBASE_AUTH_DOMAIN, FIREBASE_MEASUREMENT_ID, FIREBASE_MESSAGING_SENDER_ID, FIREBASE_PROJECT_ID, FIREBASE_STORAGE_BUCKET } from '@env';
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAE-3y2TAD6B_USXcp2iMYUtkbg-EeRJrI",
-  authDomain: "gymtrackpro-73899.firebaseapp.com",
-  projectId: "gymtrackpro-73899",
-  storageBucket: "gymtrackpro-73899.appspot.com",
-  messagingSenderId: "204448386581",
-  appId: "1:204448386581:web:8699f7aea75849659ac81c",
-  measurementId: "G-12C659TBKL"
+  apiKey: FIREBASE_API_KEY,
+  authDomain: FIREBASE_AUTH_DOMAIN,
+  projectId: FIREBASE_PROJECT_ID,
+  storageBucket: FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
+  appId: FIREBASE_APP_ID,
+  measurementId: FIREBASE_MEASUREMENT_ID
 };
+
+// Ensure that all required environment variables are set
+if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId ||
+    !firebaseConfig.storageBucket || !firebaseConfig.messagingSenderId || !firebaseConfig.appId || !firebaseConfig.measurementId) {
+  throw new Error("Missing Firebase configuration variables in environment.");
+}
 
 // Initialize Firebase
 let app: FirebaseApp;
@@ -68,29 +76,27 @@ initializeAnalytics();
 
 export { auth, db, analytics };
 
-/* 
-Firebase Firestore Rules for Copy/Paste into Firebase Console:
-
-rules_version = '2';
+/**
+ * Firebase Firestore Rules for Copy/Paste into Firebase Console:
+ * rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Allow read/write access to all users for testing
-    // WARNING: **For testing only**. Replace with proper rules before deployment
-    match /{document=**} {
-      allow read, write: if true;
-    }
+    // WARNING: **For testing only**. Comment these out and uncomment the production rules before deployment
+    // match /{document=**} {
+    //   allow read, write: if true;
+    // }
     
     // SECURE RULES FOR PRODUCTION:
     // Uncomment these when ready to deploy to production
     
-    // match /users/{userId} {
-    //   allow read: if request.auth != null;
-    //   allow write: if request.auth != null && request.auth.uid == userId;
-    // }
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
     
-    // match /test/{document=**} {
-    //   allow read, write: if request.auth != null;
-    // }
+    match /test/{document=**} {
+      allow read, write: if request.auth != null;
+    }
   }
 }
-*/ 

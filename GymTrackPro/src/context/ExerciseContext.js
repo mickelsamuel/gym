@@ -154,7 +154,7 @@ export const ExerciseProvider = ({ children }) => {
   }, [darkMode]);
   
   // Generate exercise stats from workout history
-  const processExerciseStats = useCallback((workoutHistory) => {
+  const processExerciseStats = useCallback(workoutHistory => {
     if (!Array.isArray(workoutHistory)) {
       console.warn('Workout history is not an array:', workoutHistory);
       return;
@@ -164,61 +164,42 @@ export const ExerciseProvider = ({ children }) => {
     
     workoutHistory.forEach(workout => {
       if (!workout) return;
-      
       const { exerciseId, exerciseName, weight, reps, sets, date } = workout;
-      
       if (!exerciseId) return;
-      
+
       if (!stats[exerciseId]) {
         stats[exerciseId] = {
           name: exerciseName || 'Unknown Exercise',
           totalSets: 0,
           totalReps: 0,
           maxWeight: 0,
-          history: [],
           lastPerformed: null,
-          improvementRate: 0, // percentage improvement over time
+          history: [],
         };
       }
-      
-      // Sum totals
-      stats[exerciseId].totalSets += sets || 0;
-      stats[exerciseId].totalReps += (reps || 0) * (sets || 0);
-      
-      // Track max weight
-      if ((weight || 0) > stats[exerciseId].maxWeight) {
-        stats[exerciseId].maxWeight = weight || 0;
-      }
-      
-      // Add to history if all required data is present
+
+      const currentStats = stats[exerciseId];
+      currentStats.totalSets += sets || 0;
+      currentStats.totalReps += (reps || 0) * (sets || 0);
+      currentStats.maxWeight = Math.max(currentStats.maxWeight, weight || 0);
+
       if (date) {
-        stats[exerciseId].history.push({
+        currentStats.history.push({
           date,
           weight: weight || 0,
           reps: reps || 0,
           sets: sets || 0,
-          volume: (weight || 0) * (reps || 0) * (sets || 0),
+          volume: (weight || 0) * (reps || 0) * (sets || 0)
         });
       }
-      
-      // Sort history by date (newest first)
-      if (stats[exerciseId].history.length > 0) {
-        stats[exerciseId].history.sort((a, b) => {
-          // Safely parse dates with fallbacks if parsing fails
-          let dateA = new Date(0); // start of epoch as fallback
-          let dateB = new Date(0);
-          
-          try {
-            dateA = new Date(a.date);
-          } catch (e) {}
-          
-          try {
-            dateB = new Date(b.date);
-          } catch (e) {}
-          
-          return dateB - dateA;
+
+      currentStats.history.sort((a, b) => {
+        let dateA = new Date(a.date || 0);
+        let dateB = new Date(b.date || 0);
+        if (isNaN(dateA.getTime())) dateA = new Date(0);
+        if (isNaN(dateB.getTime())) dateB = new Date(0);
+        return dateB - dateA;
         });
-      }
       
       // Set last performed date
       if (!stats[exerciseId].lastPerformed || 
@@ -227,39 +208,21 @@ export const ExerciseProvider = ({ children }) => {
       }
     });
     
-    // Calculate improvement rates
-    Object.keys(stats).forEach(id => {
-      const { history } = stats[id];
-      
-      if (history && history.length >= 2) {
-        try {
-          // Sort by date (oldest first)
-          const sortedHistory = [...history].sort((a, b) => {
-            let dateA = new Date(0);
-            let dateB = new Date(0);
-            
-            try {
-              dateA = new Date(a.date);
-              dateB = new Date(b.date);
-            } catch (e) {}
-            
-            return dateA - dateB;
-          });
-          
-          // Take first and last entry
-          const firstEntry = sortedHistory[0];
-          const lastEntry = sortedHistory[sortedHistory.length - 1];
-          
-          if (firstEntry && lastEntry && firstEntry.volume > 0) {
-            // Calculate improvement in volume
-            const volumeImprovement = lastEntry.volume - firstEntry.volume;
-            const percentImprovement = (volumeImprovement / firstEntry.volume) * 100;
-            
-            stats[id].improvementRate = Math.round(percentImprovement);
-          }
-        } catch (error) {
-          console.warn(`Error calculating improvement rate for exercise ${id}:`, error);
-          stats[id].improvementRate = 0;
+    // Calculate improvement rates (if the exercise has 2 or more workouts)
+    Object.values(stats).forEach(exerciseStats => {
+      if (exerciseStats.history.length < 2) {
+        exerciseStats.improvementRate = 0;
+        return;
+      }
+
+      const sortedHistory = [...exerciseStats.history].sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
+      const firstEntry = sortedHistory[0];
+      const lastEntry = sortedHistory[sortedHistory.length - 1];
+
+      if (firstEntry.volume > 0) {
+        const volumeImprovement = lastEntry.volume - firstEntry.volume;
+        const percentImprovement = (volumeImprovement / firstEntry.volume) * 100;
+        exerciseStats.improvementRate = Math.round(percentImprovement);
         }
       }
     });
@@ -415,34 +378,74 @@ export const ExerciseProvider = ({ children }) => {
   // Get stats for a specific exercise
   const getExerciseStats = (exerciseId) => exerciseStats[exerciseId] || null;
   
+  // Get suggested values for next workout based on history and performance
+  const getSuggestedValues = (exerciseId, currentValue, isWeight = false) => {
+    const stats = exerciseStats[exerciseId];
+  
+    if (!stats || !stats.history || stats.history.length === 0) {
+      return null;
+    }
+  
+    if (stats.history.length === 1) {
+      return isWeight ? { min: currentValue, max: currentValue } : { min: currentValue, max: currentValue };
+    }
+  
+    const latestWorkout = stats.history[0];
+    const { reps, sets } = latestWorkout;
+    const averageVolume = currentValue * reps * sets;
+  
+    const lastThreeWorkouts = stats.history.slice(0, 3);
+    const sumOfLastVolumes = lastThreeWorkouts.reduce((sum, workout) => sum + workout.volume, 0);
+    const averageVolumeOfLastThree = lastThreeWorkouts.length > 0 ? sumOfLastVolumes / lastThreeWorkouts.length : 0;
+  
+    const improvementPercentage = averageVolumeOfLastThree > 0 ? (averageVolume - averageVolumeOfLastThree) / averageVolumeOfLastThree * 100 : 0;
+  
+    // Adjust value based on recent performance trend
+    let suggestedValue = currentValue;
+    if (reps > 12 && improvementPercentage >= 0) {
+      suggestedValue = Math.round(currentValue * 1.05); // Increase 5%
+    } else if (reps < 6 || improvementPercentage < 0) {
+      suggestedValue = Math.round(currentValue * 0.95); // Decrease 5%
+    }
+    
+    // Calculate the range, ensuring the current value is within it
+    let minWeight = Math.min(currentValue, Math.max(suggestedValue - 5, suggestedValue - (suggestedValue * 0.1)));
+    let maxWeight = Math.max(currentValue, Math.min(suggestedValue + 5, suggestedValue + (suggestedValue * 0.1)));
+  
+    // Ensure the range is not wider than 10
+    if (maxWeight - minWeight > 10) {
+      const diff = (maxWeight - minWeight) - 10;
+      maxWeight -= Math.round(diff / 2);
+      minWeight += Math.round(diff / 2);
+    }
+  
+    //For weight, ensure the min value is at least 1
+    if (isWeight) minWeight = Math.max(1, minWeight)
+  
+    return { min: Math.round(minWeight), max: Math.round(maxWeight) };
+  };
+  
   // Get suggested weight for next workout based on history
   const getSuggestedWeight = (exerciseId) => {
     const stats = exerciseStats[exerciseId];
-    
+
     if (!stats || !stats.history || stats.history.length === 0) {
       return null;
     }
     
-    // Get the latest workout
     const latestWorkout = stats.history[0];
-    const { weight, reps } = latestWorkout;
-    
-    // If user completed more than 12 reps in their last workout, suggest increasing weight
-    if (reps > 12) {
-      return Math.round(weight * 1.05); // 5% increase
-    }
-    
-    // If user completed less than 6 reps, suggest decreasing weight
-    if (reps < 6) {
-      return Math.round(weight * 0.95); // 5% decrease
-    }
-    
-    // Otherwise, suggest the same weight
-    return weight;
+    const { weight } = latestWorkout;
+    return getSuggestedValues(exerciseId, weight, true)
   };
   
   // Get suggested reps for next workout based on history and goal
   const getSuggestedReps = (exerciseId) => {
+    const stats = exerciseStats[exerciseId];
+  
+    if (!stats || !stats.history || stats.history.length === 0) {
+      return null;
+    }
+    
     // If no goal is set, return a default range
     if (!userGoal) {
       return { min: 8, max: 12 };
@@ -453,20 +456,24 @@ export const ExerciseProvider = ({ children }) => {
     if (!goalData) {
       return { min: 8, max: 12 };
     }
+      // Return appropriate rep ranges based on the goal
+      let suggestedReps = 10
+      switch (userGoal) {
+        case 'strength':
+          suggestedReps = 5;
+          break;
+        case 'hypertrophy':
+          suggestedReps = 10;
+          break;
+        case 'endurance':
+          suggestedReps = 13;
+          break;
+        case 'tone':
+          suggestedReps = 12;
+          break;
+      }
     
-    // Return appropriate rep ranges based on the goal
-    switch (userGoal) {
-      case 'strength':
-        return { min: 4, max: 6 };
-      case 'hypertrophy':
-        return { min: 8, max: 12 };
-      case 'endurance':
-        return { min: 12, max: 15 };
-      case 'tone':
-        return { min: 10, max: 15 };
-      default:
-        return { min: 8, max: 12 };
-    }
+    return getSuggestedValues(exerciseId, suggestedReps) || { min: 8, max: 12 };
   };
 
   return (

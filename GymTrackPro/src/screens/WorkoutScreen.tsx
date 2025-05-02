@@ -27,7 +27,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { CalendarList } from 'react-native-calendars';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext, useAuth } from '../context/AuthContext';
 import moment from 'moment';
 import workoutCategories from '../data/workoutCategories';
 
@@ -124,7 +124,7 @@ const WorkoutScreen: React.FC = () => {
     getSuggestedWeight,
     getSuggestedReps
   } = useContext(ExerciseContext);
-  const { user } = useContext(AuthContext);
+  const { user, isOnline } = useAuth();
   const tabBarHeight = useBottomTabBarHeight();
   
   const [workoutLists, setWorkoutLists] = useState<WorkoutList[]>([]);
@@ -274,7 +274,7 @@ const WorkoutScreen: React.FC = () => {
     }
     
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLoading(true);
+    
     try {
       const newPlan = await DatabaseService.createWorkoutList(newListName.trim());
       setNewListName('');
@@ -282,7 +282,12 @@ const WorkoutScreen: React.FC = () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       Alert.alert('Error', 'Could not create new workout list.');
-      console.error("Error creating workout list:", error);
+      if(error instanceof Error){
+        console.error("Error creating workout list:", error.message);
+      } else {
+        console.error("Error creating workout list:", error);
+      }
+     
     } finally {
       setLoading(false);
     }
@@ -352,6 +357,20 @@ const WorkoutScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
+        {/* Create List Input */}
+        <View style={styles.createListInput}>
+            <TextInput
+              style={[styles.input, { backgroundColor: theme.input, color: theme.text }]}
+              placeholder="New workout name"
+              placeholderTextColor={theme.textSecondary}
+              value={newListName}
+              onChangeText={setNewListName}
+            />
+             <Button onPress={handleCreateList} disabled={!isOnline || loading} loading={loading} >
+                <Ionicons name="add" size={20} color={'#FFFFFF'} />
+                <Text style={styles.buttonText}>Create</Text>
+              </Button>
+            {!isOnline && <Text style={{ color: theme.danger }}>You are offline. You can not create a new workout.</Text>}
 
         {/* Main content will go here... */}
       </Animated.ScrollView>
@@ -409,6 +428,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: Spacing.md,
   },
+
   input: {
     flex: 1,
     height: 50,
@@ -424,6 +444,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    opacity: 0.9
   },
   buttonText: {
     marginLeft: Spacing.xs,

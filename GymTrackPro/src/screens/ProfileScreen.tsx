@@ -26,7 +26,7 @@ import { LineChart } from 'react-native-chart-kit';
 import DatabaseService from '../services/DatabaseService';
 import MockDataService from '../services/MockDataService';
 import { ExerciseContext } from '../context/ExerciseContext';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext, useAuth } from '../context/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -112,7 +112,7 @@ const ProfileScreen: React.FC = () => {
   const theme = darkMode ? Theme.dark : Theme.light;
   
   const { user, userProfile, logout, emailVerified, deleteAccount } = useContext(AuthContext);
-  const navigation = useNavigation();
+  const { isOnline } = useAuth();  const navigation = useNavigation();
   
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -447,6 +447,11 @@ const ProfileScreen: React.FC = () => {
   }
 
   async function handleLogWeight(): Promise<void> {
+    if (!isOnline) {
+      Alert.alert('Error', 'You are offline. Cannot log weight.');
+      return;
+    }
+
     if (!weightToLog || isNaN(parseFloat(weightToLog))) {
       Alert.alert('Error', 'Please enter a valid weight');
       return;
@@ -484,6 +489,11 @@ const ProfileScreen: React.FC = () => {
   }
 
   const saveUsername = async (): Promise<void> => {
+    if (!isOnline) {
+      Alert.alert('Error', 'You are offline. Cannot save username.');
+      return;
+    }
+
     if (!usernameInput.trim()) {
       Alert.alert('Error', 'Username cannot be empty');
       return;
@@ -516,6 +526,11 @@ const ProfileScreen: React.FC = () => {
   };
 
   const handleSelectGoal = (goalId: string): void => {
+    if (!isOnline) {
+      Alert.alert('Error', 'You are offline. Cannot select goal.');
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     // Update the goal both in context and Firestore

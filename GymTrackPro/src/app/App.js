@@ -1,76 +1,77 @@
 // App.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, type ReactNode } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, StyleSheet, Text, LogBox } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ExerciseProvider, useExercise } from '../context/ExerciseContext';
 import AppNavigator from '../navigation/AppNavigator';
 import { Theme } from '../constants/Theme';
-import { db } from '../services/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-
-// Prevent warnings and initialization issues
-LogBox.ignoreLogs([
-  'Sending `onAnimatedValueUpdate` with no listeners registered.',
-  'Non-serializable values were found in the navigation state',
-]);
+import { auth, db } from '../services/firebase';
+import { doc, getDoc } from 'firebase/firestore'; // Import getDoc
+import { onAuthStateChanged } from "firebase/auth";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
-export default function App() {
+export default function App(): ReactNode {
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <ExerciseProvider>
-          <AppContent />
+          <AppRoot />
         </ExerciseProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
 }
 
-function AppContent() {
-  const { loading: authLoading } = useAuth();
-  const { darkMode } = useExercise();
-  const [appIsReady, setAppIsReady] = useState(false);
-  const [error, setError] = useState(null);
-  const [firebaseConnected, setFirebaseConnected] = useState(false);
+function AppRoot(): ReactNode {
+  const { loading: authLoading }: { loading: boolean } = useAuth();
+  const { darkMode }: { darkMode: boolean } = useExercise();
+  const [appIsReady, setAppIsReady] = useState<boolean>(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [firebaseConnected, setFirebaseConnected] = useState<boolean>(false);
 
   // Get theme colors based on dark mode
-  const colors = darkMode ? Theme.dark : Theme.light;
+  const colors: { [key: string]: string } = darkMode ? Theme.dark : Theme.light;
 
   // Check if Firebase is connected
   useEffect(() => {
-    async function checkFirebase() {
+    const checkFirebase = async () => {
       try {
         // Use a test document that should be publicly readable
-        const testDocRef = doc(db, 'test', 'connection');
-        const testSnap = await getDoc(testDocRef);
-        
-        // If we reach this line, we connected successfully
-        setFirebaseConnected(true);
-        console.log('Firebase connection successful!', testSnap.exists() ? 'Document exists' : 'Document does not exist');
+        const testDocRef = doc(db, 'test', 'connection'); // Updated test document reference
+        await getDoc(testDocRef); // Check if the document exists and is readable
+
+        // Check if the user is authenticated
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setFirebaseConnected(true);
+                console.log('Firebase connection successful! User is authenticated.');
+            } else {
+                setFirebaseConnected(false);
+                setError(new Error("User is not authenticated."));
+                console.warn('Firebase connection error: User is not authenticated.');
+            }
+        });
+
       } catch (e) {
-        console.warn('Firebase connection test:', e.message);
-        // Still set to true to allow the app to continue
-        setFirebaseConnected(true);
+        setError(e);
+        setFirebaseConnected(false);
+        console.warn('Firebase connection error:', e);
       }
-    }
-    
+    };
+
     checkFirebase();
   }, []);
 
   useEffect(() => {
-    async function prepare() {
+    const prepare = async () => {
       try {
         // Add any async resource loading here
         // e.g. Font.loadAsync(), Asset.loadAsync(), etc.
-        
-        // Artificially delay for a smoother splash screen experience
-        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (e) {
         console.warn('Error loading assets:', e);
         setError(e);
@@ -78,9 +79,11 @@ function AppContent() {
         // Tell the application to render
         setAppIsReady(true);
         await SplashScreen.hideAsync();
+      } finally {
+          setAppIsReady(true);
+          await SplashScreen.hideAsync();
       }
-    }
-
+    };
     prepare();
   }, []);
 
@@ -98,10 +101,11 @@ function AppContent() {
   if (error) {
     return (
       <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.text }]}>
-          Something went wrong!
+        <Text style={[styles.errorText, { color: colors.text }]}>          
+          Error: {error.name}
         </Text>
-        <Text style={[styles.errorDescription, { color: colors.textSecondary }]}>
+          <Text style={[styles.errorDescription, { color: colors.textSecondary }]}>
+            {error.message}
           Please restart the application.
         </Text>
       </View>
@@ -121,6 +125,7 @@ function AppContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    // Add more styles if needed
   },
   errorContainer: {
     flex: 1,

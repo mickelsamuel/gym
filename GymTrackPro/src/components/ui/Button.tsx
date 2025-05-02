@@ -94,57 +94,41 @@ export default function Button({
   
   // Determine button background colors based on type
   const getButtonBackground = () => {
-    if (disabled || type === 'disabled') return { backgroundColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' };
-    
-    switch (type) {
-      case 'primary':
-        return {
-          element: (
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-          ),
-          backgroundColor: 'transparent',
-        };
-      case 'secondary':
-        return {
-          backgroundColor: 'transparent',
-          borderWidth: 1.5,
-          borderColor: colors.primary,
-        };
-      case 'tertiary':
-        return {
-          backgroundColor: 'transparent',
-        };
-      case 'danger':
-        return {
-          element: (
-            <LinearGradient
-              colors={[colors.danger, '#FF3B58']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-          ),
-          backgroundColor: 'transparent',
-        };
-      case 'success':
-        return {
-          element: (
-            <LinearGradient
-              colors={[colors.success, '#2BB894']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-          ),
-          backgroundColor: 'transparent',
-        };
-      default:
-        return { backgroundColor: colors.primary };
+    if (disabled || type === 'disabled') {
+      return { backgroundColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' };
+    }
+
+    const gradientMap: { [key: string]: string[] } = {
+      primary: [colors.primary, colors.primaryDark],
+      danger: [colors.danger, '#FF3B58'],
+      success: [colors.success, '#2BB894'],
+    };
+
+    const gradientColors = gradientMap[type];
+
+    if (gradientColors) {
+      return {
+        element: (
+          <LinearGradient
+            colors={gradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        ),
+        backgroundColor: 'transparent',
+      };
+    }
+
+    if (type === 'secondary') {
+      return { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.primary };
+    }
+
+    if (type === 'tertiary') {
+      return { backgroundColor: 'transparent' };
+    }
+
+    return { backgroundColor: colors.primary };
     }
   };
   

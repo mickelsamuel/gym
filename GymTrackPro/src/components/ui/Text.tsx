@@ -45,16 +45,16 @@ export default function Text({
   
   // Get style based on variant
   const getVariantStyle = (): TextStyle => {
-    const baseStyle: TextStyle = {
-      color: color || colors.text,
-      textAlign: centered ? 'center' : undefined,
-    };
     
     switch (variant) {
       case 'heading1':
         return {
-          ...baseStyle,
+          color: color || colors.text,
+          textAlign: centered ? 'center' : undefined,
           fontSize: Typography.heading1,
+
+
+
           fontWeight: '700',
           letterSpacing: -0.5,
           lineHeight: Typography.heading1 * 1.2,
@@ -62,8 +62,9 @@ export default function Text({
         };
       case 'heading2':
         return {
-          ...baseStyle,
+          color: color || colors.text,
           fontSize: Typography.heading2,
+          textAlign: centered ? 'center' : undefined,
           fontWeight: '700',
           letterSpacing: -0.3,
           lineHeight: Typography.heading2 * 1.2,
@@ -71,8 +72,9 @@ export default function Text({
         };
       case 'heading3':
         return {
-          ...baseStyle,
+          color: color || colors.text,
           fontSize: Typography.heading3,
+          textAlign: centered ? 'center' : undefined,
           fontWeight: '600',
           letterSpacing: -0.2,
           lineHeight: Typography.heading3 * 1.2,
@@ -80,8 +82,9 @@ export default function Text({
         };
       case 'title':
         return {
-          ...baseStyle,
+          color: color || colors.text,
           fontSize: Typography.title,
+          textAlign: centered ? 'center' : undefined,
           fontWeight: '600',
           letterSpacing: -0.1,
           lineHeight: Typography.title * 1.3,
@@ -89,32 +92,36 @@ export default function Text({
         };
       case 'subtitle':
         return {
-          ...baseStyle,
+          color: color || colors.text,
           fontSize: Typography.subtitle,
+          textAlign: centered ? 'center' : undefined,
           fontWeight: '500',
           lineHeight: Typography.subtitle * 1.3,
           fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif-medium',
         };
       case 'body':
         return {
-          ...baseStyle,
+          color: color || colors.text,
           fontSize: Typography.body,
+          textAlign: centered ? 'center' : undefined,
           fontWeight: '400',
           lineHeight: Typography.body * 1.5,
           fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
         };
       case 'bodySmall':
         return {
-          ...baseStyle,
+          color: color || colors.text,
           fontSize: Typography.bodySmall,
+          textAlign: centered ? 'center' : undefined,
           fontWeight: '400',
           lineHeight: Typography.bodySmall * 1.5,
           fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
         };
       case 'caption':
         return {
-          ...baseStyle,
+          color: color || colors.textSecondary,
           fontSize: Typography.caption,
+          textAlign: centered ? 'center' : undefined,
           fontWeight: '500',
           lineHeight: Typography.caption * 1.4,
           fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
@@ -122,16 +129,17 @@ export default function Text({
         };
       case 'tiny':
         return {
-          ...baseStyle,
+          color: color || colors.textTertiary,
           fontSize: Typography.tiny,
+          textAlign: centered ? 'center' : undefined,
           fontWeight: '500',
           lineHeight: Typography.tiny * 1.3,
           fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
-          color: color || colors.textTertiary,
           letterSpacing: 0.2,
         };
       default:
-        return baseStyle;
+        return { color: color || colors.text,
+          textAlign: centered ? 'center' : undefined,};
     }
   };
   
