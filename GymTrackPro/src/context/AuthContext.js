@@ -17,9 +17,10 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import DatabaseService from '../services/DatabaseService';
-import { NetworkState, useNetworkState } from '../services/NetworkState';
+import { NetworkState } from '../services/NetworkState';
+import { useNetworkState } from '../hooks/useNetworkState';
 import { StorageKeys, FIREBASE_COLLECTIONS } from '../constants';
-import { isValidEmail, isValidPassword, isValidUsername } from '../utils/sanitize';
+import { isValidEmail, isValidPassword, isValidUsername, hasSpecialCharacters } from '../utils/sanitize';
 
 // Define the Auth context interface
 export const AuthContext = createContext();
@@ -215,77 +216,90 @@ export const AuthProvider = ({ children }) => {
     }
   };
   
-  // Register a new user
+  // Registration function
   const register = async ({ email, password, username, age, weight, height }) => {
+    if (!email || !password || !username) {
+      setError('Email, password, and username are required.');
+      return { success: false, error: 'Email, password, and username are required.' };
+    }
+    
     try {
       setIsLoading(true);
-      setError(null);
       
       // Validate inputs
-      if (!email || !password || !username) {
-        throw new Error('Email, password, and username are required');
-      }
-      
       if (!isValidEmail(email)) {
-        throw new Error('Please enter a valid email address');
+        throw new Error('Invalid email format');
       }
       
       if (!isValidPassword(password)) {
-        throw new Error('Password must be at least 8 characters with at least one uppercase letter, one lowercase letter, and one number');
+        throw new Error('Password must be at least 8 characters long and include uppercase, lowercase, and numbers');
       }
       
       if (!isValidUsername(username)) {
-        throw new Error('Username must be 3-20 characters and can only contain letters, numbers, and underscores');
+        throw new Error('Username must be 3-20 characters and contain only letters, numbers, and underscores');
+      }
+
+      // Enhanced password security validation
+      if (password.toLowerCase().includes(username.toLowerCase())) {
+        throw new Error('Password cannot contain your username');
+      }
+
+      if (password.toLowerCase().includes(email.toLowerCase().split('@')[0])) {
+        throw new Error('Password cannot contain part of your email');
+      }
+
+      if (!hasSpecialCharacters(password)) {
+        throw new Error('Password should include at least one special character (e.g., !@#$%^&*)');
       }
       
-      // Check network connection
-      if (!isOnline) {
-        throw new Error('Cannot register while offline');
+      // Create user in Firebase Auth
+      const userCredential = await firebaseAuth.register(email, password);
+      
+      if (!userCredential) {
+        throw new Error('Failed to create account');
       }
       
-      // Register user with Firebase Auth
-      const user = await firebaseAuth.register(email, password);
+      // Create user profile in Firestore
+      const user = userCredential;
+      const uid = user.uid;
       
-      // Create user profile
-      const userProfile = {
-        uid: user.uid,
-        email: email,
-        username: username,
-        age: age ? parseInt(age) : null,
-        height: height ? parseFloat(height) : null,
-        weight: weight ? parseFloat(weight) : null,
-        joinDate: new Date().toISOString()
+      const profileData = {
+        uid,
+        email,
+        username,
+        joinDate: new Date().toISOString(),
+        lastActive: new Date().toISOString(),
+        weight: weight || null,
+        height: height || null,
+        age: age || null,
+        isEmailVerified: user.emailVerified || false
       };
       
-      // Save profile to Firestore and local storage
-      await DatabaseService.saveProfile(userProfile, isOnline);
-      
-      // Send verification email
-      await sendEmailVerification(user);
-      
-      setCurrentUser(user);
-      setUserProfile(userProfile);
-      setIsLoggedIn(true);
-      
-      return { success: true, user };
-    } catch (error) {
-      console.error('Registration error:', error);
-      
-      let errorMessage = 'Registration failed. Please try again.';
-      
-      // Handle specific Firebase error codes
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email is already registered. Please use a different email or try logging in.';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak. Please use a stronger password.';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address format.';
-      } else if (error.message) {
-        errorMessage = error.message;
+      // Send email verification
+      try {
+        await sendEmailVerification(user);
+      } catch (verificationError) {
+        console.warn('Error sending verification email:', verificationError);
       }
       
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
+      // Save profile to database
+      const profileResponse = await DatabaseService.saveProfile(profileData, isOnline);
+      
+      if (!profileResponse.success) {
+        throw new Error('Failed to create user profile');
+      }
+      
+      // Update the current user and profile
+      setCurrentUser(user);
+      setUserProfile(profileData);
+      setIsLoggedIn(true);
+      setError(null);
+      
+      return { success: true, user: profileData };
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError(error.message);
+      return { success: false, error: error.message };
     } finally {
       setIsLoading(false);
     }
@@ -470,46 +484,68 @@ export const AuthProvider = ({ children }) => {
     }
   };
   
-  // Change current user's password
+  // Change password
   const changePassword = async (currentPassword, newPassword) => {
+    if (!currentUser) {
+      setError('You must be logged in to change your password.');
+      return { success: false, error: 'Not logged in' };
+    }
+    
+    if (!currentPassword || !newPassword) {
+      setError('Current password and new password are required.');
+      return { success: false, error: 'Current password and new password are required' };
+    }
+    
     try {
       setIsLoading(true);
-      setError(null);
-      
-      // Validate user is logged in
-      if (!currentUser) {
-        throw new Error('You must be logged in to change your password');
-      }
       
       // Validate new password
       if (!isValidPassword(newPassword)) {
-        throw new Error('New password must be at least 8 characters with at least one uppercase letter, one lowercase letter, and one number');
+        throw new Error('New password must be at least 8 characters long and include uppercase, lowercase, and numbers');
+      }
+
+      // Enhanced password validation
+      if (newPassword === currentPassword) {
+        throw new Error('New password must be different from current password');
+      }
+
+      const { email, username } = userProfile || { email: currentUser.email, username: '' };
+      
+      if (newPassword.toLowerCase().includes(username.toLowerCase())) {
+        throw new Error('Password cannot contain your username');
+      }
+
+      if (email && newPassword.toLowerCase().includes(email.toLowerCase().split('@')[0])) {
+        throw new Error('Password cannot contain part of your email');
+      }
+
+      if (!hasSpecialCharacters(newPassword)) {
+        throw new Error('Password should include at least one special character (e.g., !@#$%^&*)');
       }
       
-      // Check network connection
-      if (!isOnline) {
-        throw new Error('Cannot change password while offline');
-      }
-      
-      // Reauthenticate user first
+      // Re-authenticate user to verify current password
       await firebaseAuth.reauthenticate(currentUser, currentPassword);
       
-      // Update password
+      // Change password
       await firebaseAuth.updatePassword(currentUser, newPassword);
       
-      return { success: true };
+      setError(null);
+      return { 
+        success: true, 
+        message: 'Password updated successfully. Please login with your new password.' 
+      };
     } catch (error) {
-      console.error('Password change error:', error);
+      console.error('Change password error:', error);
       
       let errorMessage = 'Failed to change password. Please try again.';
       
-      // Handle specific Firebase error codes
+      // Specific error handling
       if (error.code === 'auth/wrong-password') {
         errorMessage = 'Current password is incorrect.';
       } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak. Please use a stronger password.';
+        errorMessage = 'New password is too weak.';
       } else if (error.code === 'auth/requires-recent-login') {
-        errorMessage = 'This operation is sensitive and requires recent authentication. Please log in again before retrying.';
+        errorMessage = 'For security reasons, please log out and log back in before changing your password.';
       } else if (error.message) {
         errorMessage = error.message;
       }

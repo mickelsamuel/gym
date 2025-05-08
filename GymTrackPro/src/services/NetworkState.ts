@@ -3,7 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { checkConnection as checkFirebaseConnection } from './firebase';
 import { logError } from '../utils/logging';
-import { NetworkStatus } from '../types/global';
+import { NetworkStatus } from '../types/globalTypes';
 
 const NETWORK_STATUS_STORAGE_KEY = 'network_status';
 const CONNECTION_TEST_INTERVAL = 60000; // 1 minute
@@ -252,35 +252,104 @@ class NetworkStateService {
     
     this.listeners = [];
   }
+
+  /**
+   * Add a network reconnection listener
+   * This will trigger the provided action when the network becomes available
+   * @param action Function to execute when network is restored
+   * @returns An object with a remove method to remove the listener
+   */
+  public addReconnectionListener(
+    action: () => Promise<void>,
+    label: string = 'generic'
+  ): { remove: () => void } {
+    // Create a unique identifier for this listener
+    const id = `reconnect_${label}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Define the network change listener
+    const listener = async (state: NetworkStatus) => {
+      try {
+        // If we're now connected but were previously disconnected
+        if (state.isConnected && state.isInternetReachable) {
+          console.log(`Network reconnection detected for ${label}`);
+          
+          // Execute the action
+          await action();
+        }
+      } catch (error) {
+        console.error(`Error in reconnection listener ${label}:`, error);
+        logError(`reconnection_listener_${label}_error`, error);
+      }
+    };
+    
+    // Add the listener
+    this.listeners.push(listener);
+    
+    // Return a handle to remove the listener
+    return {
+      remove: () => {
+        this.listeners = this.listeners.filter(l => l !== listener);
+      }
+    };
+  }
+  
+  /**
+   * Schedule a task to execute when online
+   * If online, executes immediately, otherwise queues for when connection is restored
+   * @param task Function to execute
+   * @param taskName Name of the task for logging
+   * @returns Promise that resolves when the task is executed
+   */
+  public async executeWhenOnline<T>(
+    task: () => Promise<T>,
+    taskName: string = 'generic_task'
+  ): Promise<T | null> {
+    // Check if we're currently online
+    const state = this.getState();
+    
+    if (state.isConnected && state.isInternetReachable) {
+      try {
+        // Execute immediately if online
+        return await task();
+      } catch (error) {
+        console.error(`Error executing online task ${taskName}:`, error);
+        logError(`execute_online_task_${taskName}_error`, error);
+        return null;
+      }
+    } else {
+      // Queue for later execution when online
+      console.log(`Queueing task ${taskName} for execution when online`);
+      
+      // Return a promise that will resolve when the network becomes available
+      return new Promise<T | null>((resolve) => {
+        // Add a one-time listener that will be removed after execution
+        const listener = this.addReconnectionListener(async () => {
+          try {
+            // Execute the task
+            const result = await task();
+            
+            // Resolve the promise with the result
+            resolve(result);
+            
+            // Remove this listener
+            listener.remove();
+          } catch (error) {
+            console.error(`Error executing queued task ${taskName}:`, error);
+            logError(`execute_queued_task_${taskName}_error`, error);
+            
+            // Resolve with null on error
+            resolve(null);
+            
+            // Remove this listener
+            listener.remove();
+          }
+        }, taskName);
+      });
+    }
+  }
 }
 
 // Export a singleton instance
 export const NetworkState = new NetworkStateService();
 
-/**
- * React hook for using network state in components
- * @returns The current network state
- */
-export const useNetworkState = (): NetworkStatus => {
-  const [networkState, setNetworkState] = useState<NetworkStatus>({
-    isConnected: true,
-    isInternetReachable: true,
-    lastChecked: new Date().toISOString()
-  });
-  
-  useEffect(() => {
-    // Initialize if needed
-    NetworkState.init();
-    
-    // Listen for changes
-    const listener = NetworkState.addListener(state => {
-      setNetworkState(state);
-    });
-    
-    return () => {
-      listener.remove();
-    };
-  }, []);
-  
-  return networkState;
-}; 
+// React hook moved to hooks/useNetworkState.ts 

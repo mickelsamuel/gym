@@ -1,5 +1,15 @@
 // Utility functions for data sanitization and validation
-import { Exercise, Workout, WorkoutExercise, WorkoutSet, WeightLogEntry, User, Friend, FriendRequest, WorkoutPlan } from '../types/global';
+import { 
+  Exercise, 
+  Workout, 
+  WorkoutExercise, 
+  WorkoutSet, 
+  WeightLogEntry, 
+  User, 
+  Friend, 
+  FriendRequest, 
+  WorkoutPlan 
+} from '../types/mergedTypes';
 
 /**
  * Sanitizes a string by escaping HTML special characters
@@ -128,12 +138,9 @@ export const isValidDate = (dateStr: string): boolean => {
 export const isValidUrl = (url: string): boolean => {
   if (!url || typeof url !== 'string') return false;
   
-  try {
-    new URL(url);
-    return true;
-  } catch (e) {
-    return false;
-  }
+  // Simple URL validation regex
+  const urlRegex = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
+  return urlRegex.test(url);
 };
 
 /**
@@ -267,24 +274,36 @@ export const validateWorkoutPlan = (plan: Partial<WorkoutPlan>): string[] => {
 };
 
 /**
- * Validates a weight log entry
+ * Validate a weight log entry
  * @param entry The weight log entry to validate
- * @returns Array of validation errors, empty if valid
+ * @returns An array of error messages or an empty array if valid
  */
-export const validateWeightLogEntry = (entry: Partial<WeightLogEntry>): string[] => {
+export const validateWeightLogEntry = (entry: Partial<any>): string[] => {
   const errors: string[] = [];
   
+  if (!entry) {
+    errors.push('Weight log entry is required');
+    return errors;
+  }
+  
   if (!entry.userId) {
-    errors.push('User ID is required');
+    errors.push('userId is required');
   }
   
-  if (!entry.date || !isValidDate(entry.date)) {
-    errors.push('Valid date is required');
+  if (!entry.date) {
+    errors.push('date is required');
+  } else if (!isValidDate(entry.date)) {
+    errors.push('date must be a valid date string');
   }
   
-  const weight = validateNumber(entry.weight, 0);
-  if (weight === null) {
-    errors.push('Weight must be a positive number');
+  if (entry.weight === undefined || entry.weight === null) {
+    errors.push('weight is required');
+  } else if (typeof entry.weight !== 'number' || entry.weight <= 0) {
+    errors.push('weight must be a positive number');
+  }
+  
+  if (entry.notes && typeof entry.notes !== 'string') {
+    errors.push('notes must be a string');
   }
   
   return errors;
@@ -394,31 +413,34 @@ export const validateExercise = (exercise: Partial<Exercise>): string[] => {
 };
 
 /**
- * Validates a friend request
+ * Validate a friend request
  * @param request The friend request to validate
- * @returns Array of validation errors, empty if valid
+ * @returns An array of error messages or an empty array if valid
  */
-export const validateFriendRequest = (request: Partial<FriendRequest>): string[] => {
+export const validateFriendRequest = (request: Partial<any>): string[] => {
   const errors: string[] = [];
   
+  if (!request) {
+    errors.push('Friend request is required');
+    return errors;
+  }
+  
   if (!request.fromUid) {
-    errors.push('Sender user ID is required');
+    errors.push('fromUid is required');
   }
   
   if (!request.toUid) {
-    errors.push('Recipient user ID is required');
+    errors.push('toUid is required');
   }
   
   if (!request.fromUsername) {
-    errors.push('Sender username is required');
+    errors.push('fromUsername is required');
   }
   
-  if (request.fromUid === request.toUid) {
-    errors.push('Cannot send a friend request to yourself');
-  }
-  
-  if (request.status && !['pending', 'accepted', 'rejected'].includes(request.status)) {
-    errors.push('Invalid status value');
+  if (request.status === undefined) {
+    errors.push('status is required');
+  } else if (!['pending', 'accepted', 'rejected'].includes(request.status)) {
+    errors.push('status must be one of: pending, accepted, rejected');
   }
   
   return errors;
@@ -484,4 +506,66 @@ export const stripSensitiveData = <T extends Record<string, any>>(data: T): Part
   });
   
   return result;
+};
+
+/**
+ * Validates and sanitizes data before sending to Firestore
+ * This function should be used as the final step before any write operation to Firestore
+ * 
+ * @param data The data to validate and sanitize
+ * @param dataType The type of data being processed ('workout', 'profile', 'weightLog', etc.)
+ * @returns The validated and sanitized data, or throws an error if validation fails
+ */
+export const validateForFirestore = <T extends Record<string, any>>(
+  data: T, 
+  dataType: 'workout' | 'profile' | 'weightLog' | 'exercise' | 'plan' | 'friend' | 'friendRequest'
+): T => {
+  // First sanitize the data to remove any potential injection attacks
+  const sanitized = sanitizeFirestoreData(data);
+  
+  // Validate based on the data type
+  let validationErrors: string[] = [];
+  
+  switch (dataType) {
+    case 'workout':
+      validationErrors = validateWorkout(sanitized as Partial<Workout>);
+      break;
+    case 'profile':
+      validationErrors = validateUserProfile(sanitized as Partial<User>);
+      break;
+    case 'weightLog':
+      validationErrors = validateWeightLogEntry(sanitized as Partial<WeightLogEntry>);
+      break;
+    case 'exercise':
+      validationErrors = validateExercise(sanitized as Partial<Exercise>);
+      break;
+    case 'plan':
+      validationErrors = validateWorkoutPlan(sanitized as Partial<WorkoutPlan>);
+      break;
+    case 'friend':
+      validationErrors = validateFriend(sanitized as Partial<Friend>);
+      break;
+    case 'friendRequest':
+      validationErrors = validateFriendRequest(sanitized as Partial<FriendRequest>);
+      break;
+  }
+  
+  // If validation fails, throw an error
+  if (validationErrors.length > 0) {
+    throw new Error(`Validation failed for ${dataType}: ${validationErrors.join(', ')}`);
+  }
+  
+  // Strip sensitive data before sending to Firestore
+  const stripped = stripSensitiveData(sanitized);
+  
+  // Remove undefined or null values as they cause issues with Firestore
+  const cleanedData: Record<string, any> = {};
+  
+  for (const [key, value] of Object.entries(stripped)) {
+    if (value !== undefined && value !== null) {
+      cleanedData[key] = value;
+    }
+  }
+  
+  return cleanedData as T;
 };

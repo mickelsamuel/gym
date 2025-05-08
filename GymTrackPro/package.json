@@ -4,18 +4,15 @@
   "scripts": {
     "start": "expo start",
     "web": "expo start --web",
-    "test": "jest --watchAll",
+    "test": "jest --watchAll --config jest.config.js",
     "lint": "expo lint",
     "setup-firebase": "npm install @react-native-firebase/app @react-native-firebase/auth @react-native-firebase/firestore @react-native-firebase/analytics"
   },
-  "jest": {
-    "preset": "jest-expo"
-  },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
-    "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-async-storage/async-storage": "^1.23.1",
     "@react-native-community/datetimepicker": "8.2.0",
-    "@react-native-community/netinfo": "11.4.1",
+    "@react-native-community/netinfo": "^11.4.1",
     "@react-native-community/slider": "4.5.5",
     "@react-native-picker/picker": "2.9.0",
     "@react-navigation/bottom-tabs": "^7.3.1",
@@ -25,9 +22,11 @@
     "@types/babel__generator": "^7.27.0",
     "@types/babel__template": "^7.4.4",
     "@types/babel__traverse": "^7.20.7",
+    "@types/crypto-js": "^4.2.2",
     "@types/estree": "^1.0.7",
     "@types/hammerjs": "^2.0.46",
     "@types/json-schema": "^7.0.15",
+    "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "expo": "~52.0.46",
     "expo-blur": "~14.0.3",

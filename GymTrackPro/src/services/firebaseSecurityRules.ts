@@ -194,33 +194,32 @@ export const FirebaseSecurityRules = {
     if (!currentUser) return false;
     
     // Basic permission checks based on user identity
-    if (userId && currentUser.uid !== userId) {
-      // Check if user is admin (this is a simplified example)
-      // In a real app, this would fetch the user's role from Firestore
-      const isAdmin = false; // Replace with actual admin check
-      if (!isAdmin) return false;
-    }
-    
-    // Collection-specific permissions
     if (collectionPath === FIREBASE_PATHS.USERS) {
-      if (action === 'read') return true;
-      if (['write', 'update', 'delete'].includes(action)) {
+      // For users collection, only the user can access their own document
+      if (action === 'read' || action === 'update') {
         return currentUser.uid === documentId;
       }
+      return false;
     }
     
-    if (collectionPath === FIREBASE_PATHS.WORKOUT_PLANS) {
-      if (action === 'read') return true;
-      // For write/update/delete, we'd need to check if the workout belongs to the user
-      // This is a simplified implementation
-      return userId === currentUser.uid;
+    if (collectionPath === FIREBASE_PATHS.WORKOUT_HISTORY) {
+      // For workout history, only the owner can access their workouts
+      return currentUser.uid === userId;
+    }
+    
+    if (collectionPath === FIREBASE_PATHS.FRIEND_REQUESTS) {
+      if (action === 'update') {
+        // For friend requests, recipient can update to accept/reject
+        return currentUser.uid === userId;
+      }
+      return false;
     }
     
     if ([FIREBASE_PATHS.EXERCISES, FIREBASE_PATHS.MUSCLE_GROUPS, 
          FIREBASE_PATHS.WORKOUT_CATEGORIES, FIREBASE_PATHS.GOALS].includes(collectionPath)) {
       if (action === 'read') return true;
       // Only admins can modify these collections
-      return false; // Replace with actual admin check
+      return false;
     }
     
     // Default to denying permission

@@ -126,6 +126,7 @@ export interface AppSettings {
   language?: string;
   offlineMode?: boolean;
   dataSyncFrequency?: 'always' | 'wifi_only' | 'manual';
+  notifications?: boolean;
 }
 
 // ======================================================

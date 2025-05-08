@@ -98,7 +98,7 @@ export default function Button({
       return { backgroundColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' };
     }
 
-    const gradientMap: { [key: string]: string[] } = {
+    const gradientMap: { [key: string]: [string, string] } = {
       primary: [colors.primary, colors.primaryDark],
       danger: [colors.danger, '#FF3B58'],
       success: [colors.success, '#2BB894'],
@@ -129,7 +129,6 @@ export default function Button({
     }
 
     return { backgroundColor: colors.primary };
-    }
   };
   
   // Determine text color based on button type
@@ -153,9 +152,9 @@ export default function Button({
   // Determine font size based on button size
   const getFontSize = () => {
     switch (size) {
-      case 'small': return Typography.caption;
-      case 'large': return Typography.body;
-      default: return Typography.bodySmall;
+      case 'small': return typeof Typography.caption === 'object' ? Typography.caption.fontSize : 12;
+      case 'large': return typeof Typography.body === 'object' ? Typography.body.fontSize : 16;
+      default: return typeof Typography.bodySmall === 'object' ? Typography.bodySmall.fontSize : 14;
     }
   };
   

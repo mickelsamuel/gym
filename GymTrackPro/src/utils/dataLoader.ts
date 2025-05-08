@@ -129,8 +129,13 @@ export const migrateExercisesToFirestore = async (): Promise<boolean> => {
       
       for (let j = start; j < end; j++) {
         const exercise = exercises[j];
-        const docRef = doc(db, FIREBASE_PATHS.EXERCISES, exercise.id);
-        batch.set(docRef, exercise);
+        // Ensure ID exists before creating document reference
+        if (exercise.id && typeof exercise.id === 'string') {
+          const docRef = doc(db, FIREBASE_PATHS.EXERCISES, exercise.id);
+          batch.set(docRef, exercise);
+        } else {
+          console.error('Exercise missing valid ID:', exercise);
+        }
       }
       
       await batch.commit();
@@ -347,26 +352,62 @@ export const getGoals = async (): Promise<Goal[]> => {
  */
 export const initializeAppData = async (): Promise<void> => {
   try {
-    // Attempt to migrate data to Firestore if online
-    const online = await fetch('https://www.google.com', { method: 'HEAD' })
-      .then(() => true)
-      .catch(() => false);
+    console.log('Initializing app data...');
+    
+    // First check if data has already been migrated
+    const migrated = await isDataMigrated();
+    
+    if (!migrated) {
+      console.log('Starting data migration to Firestore...');
       
-    if (online) {
-      await migrateExercisesToFirestore();
+      // Execute migration with retry logic
+      let migrationSuccess = false;
+      let attempts = 0;
+      
+      while (!migrationSuccess && attempts < 3) {
+        attempts++;
+        try {
+          migrationSuccess = await migrateExercisesToFirestore();
+          if (migrationSuccess) {
+            console.log(`Successfully migrated data to Firestore (attempt ${attempts})`);
+          } else {
+            console.warn(`Data migration attempt ${attempts} failed`);
+          }
+        } catch (migrationError) {
+          console.error(`Migration error (attempt ${attempts}):`, migrationError);
+          logError(`data_migration_attempt_${attempts}_error`, migrationError);
+          
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempts)));
+        }
+      }
+      
+      if (!migrationSuccess) {
+        console.error('All data migration attempts failed.');
+        logError('data_migration_all_attempts_failed', { attempts });
+        // We'll proceed with local data anyway
+      }
+    } else {
+      console.log('Data already migrated to Firestore.');
     }
     
-    // Prefetch all data to cache
-    await Promise.all([
-      getExercises(),
-      getMuscleGroups(),
-      getWorkoutCategories(),
-      getGoals()
-    ]);
-    
-    console.log('App data initialized successfully');
+    // Prefetch all data to cache (regardless of migration success)
+    try {
+      await Promise.all([
+        getExercises(),
+        getMuscleGroups(),
+        getWorkoutCategories(),
+        getGoals()
+      ]);
+      console.log('App data prefetched successfully');
+    } catch (prefetchError) {
+      console.error('Error prefetching app data:', prefetchError);
+      logError('prefetch_app_data_error', prefetchError);
+    }
   } catch (error) {
-    console.error('Error initializing app data:', error);
-    logError('init_app_data_error', error);
+    console.error('Error in initializeAppData:', error);
+    logError('initialize_app_data_error', error);
+    // Continue with app initialization even if data setup fails
+    // as we'll fall back to local data
   }
 }; 

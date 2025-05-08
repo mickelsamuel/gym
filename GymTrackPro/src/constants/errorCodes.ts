@@ -92,7 +92,7 @@ export const getErrorMessage = (errorCode: string): string => {
     case AUTH_ERROR_CODES.WRONG_PASSWORD:
       return 'Incorrect password. Please try again.';
     case AUTH_ERROR_CODES.WEAK_PASSWORD:
-      return 'Password is too weak. Please use a stronger password.';
+      return 'Password must be at least 8 characters. Please choose a stronger password.';
     case AUTH_ERROR_CODES.REQUIRES_RECENT_LOGIN:
       return 'This action requires recent authentication. Please login again.';
     case AUTH_ERROR_CODES.INVALID_CREDENTIAL:

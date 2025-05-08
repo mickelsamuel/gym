@@ -1,10 +1,11 @@
 import { collection, doc, getDoc, getDocs, setDoc, serverTimestamp, query, where, orderBy, updateDoc, deleteDoc } from 'firebase/firestore';
 import { BaseDatabaseService } from './BaseDatabaseService';
 import { db, FIREBASE_PATHS, firebaseFirestore } from '../firebase';
-import { WeightLogEntry, ApiResponse } from '../../types/globalTypes';
+import { WeightLogEntry, ApiResponse } from '../../types/mergedTypes';
 import { StorageKeys } from '../../constants';
 import { validateNumber, isValidDate, validateWeightLogEntry } from '../../utils/sanitize';
 import { logError } from '../../utils/logging';
+import { prepareForFirestore, createServerTimestamp } from '../../utils/typeUtils';
 
 /**
  * Service for weight log related database operations
@@ -72,7 +73,7 @@ export class WeightLogDatabaseService extends BaseDatabaseService {
             const { userId, ...entryData } = newEntry;
             
             // Add timestamps
-            const docData = {
+            const docData: any = {
               ...entryData,
               updatedAt: serverTimestamp()
             };
@@ -320,41 +321,59 @@ export class WeightLogDatabaseService extends BaseDatabaseService {
         return false;
       }
       
+      console.log("Starting weight log sync for user:", userId);
+      
       // Get local logs
       const localLogs = await this.getFromStorage<WeightLogEntry[]>(StorageKeys.DAILY_WEIGHT_LOG) || [];
       const userLocalLogs = localLogs.filter(log => log.userId === userId);
       
+      console.log("Local weight logs to sync:", userLocalLogs);
+      
       // Get remote logs
       const subcollectionPath = `${FIREBASE_PATHS.USERS}/${userId}/${FIREBASE_PATHS.USER_SUBCOLLECTIONS.WEIGHT_LOG}`;
-      const remoteLogs = await firebaseFirestore.getCollection<WeightLogEntry>(subcollectionPath);
+      console.log("Syncing to path:", subcollectionPath);
+      
+      let remoteLogs: WeightLogEntry[] = [];
+      try {
+        remoteLogs = await firebaseFirestore.getCollection<WeightLogEntry>(subcollectionPath);
+        console.log("Remote logs:", remoteLogs);
+      } catch (error) {
+        console.error("Error fetching remote logs:", error);
+        // Continue with empty remote logs
+      }
       
       // Merge logs
       const mergedLogs = this.mergeWeightLogs(userLocalLogs, remoteLogs);
+      console.log("Merged logs:", mergedLogs);
       
       // Update local storage
       const otherUserLogs = localLogs.filter(log => log.userId !== userId);
       await this.saveToStorage(StorageKeys.DAILY_WEIGHT_LOG, [...otherUserLogs, ...mergedLogs]);
       
-      // Push any logs that don't have an ID to Firestore
-      const logsToSync = mergedLogs.filter(log => !log.id);
-      
-      for (const log of logsToSync) {
-        // Format date to use as document ID
-        const formattedDate = log.date.replace(/[^0-9]/g, '');
-        const docId = formattedDate;
+      // Push all local logs that don't exist remotely
+      for (const log of userLocalLogs) {
+        // Ensure the log has an ID
+        const docId = log.id || log.date.replace(/[^0-9]/g, '');
         
-        // Prepare log data without userId
-        const { userId: uid, ...logData } = log;
-        
-        // Add timestamps
-        const docData = {
-          ...logData,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        };
-        
-        // Save to Firestore
-        await firebaseFirestore.setDocument(subcollectionPath, docId, docData);
+        try {
+          // Prepare log data without userId
+          const { userId: uid, ...logData } = log;
+          
+          // Add timestamps
+          const docData: any = {
+            ...logData,
+            id: docId, // Ensure ID is included
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          };
+          
+          console.log(`Saving weight log to Firestore: ${subcollectionPath}/${docId}`, docData);
+          
+          // Save to Firestore
+          await firebaseFirestore.setDocument(subcollectionPath, docId, docData);
+        } catch (error) {
+          console.error(`Error syncing weight log ${docId}:`, error);
+        }
       }
       
       // Invalidate cache

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db, firebaseFirestore, FIREBASE_PATHS } from '../firebase';
 import { doc, getDoc, setDoc, serverTimestamp, DocumentReference } from 'firebase/firestore';
-import { StorageKeys, FIREBASE_COLLECTIONS } from '../../constants';
+import { StorageKeys } from '../../constants';
 import { ApiResponse, FirebaseTimestamp } from '../../types/global';
 import { CacheEntry, DataCache } from '../../types/data';
 import { checkConnection } from '../firebase';
@@ -423,6 +423,47 @@ export class BaseDatabaseService {
     if (storageKey) {
       await this.saveToStorage(storageKey, data);
     }
+  }
+
+  /**
+   * Validate data before sending to Firestore
+   * @param data Data to validate
+   * @param type Type of data being validated
+   * @returns Validated and sanitized data
+   * @throws Error if validation fails
+   */
+  protected validateData<T extends Record<string, any>>(
+    data: T,
+    type: 'profile' | 'workout' | 'weightLog' | 'exercise' | 'plan' | 'friend' | 'friendRequest'
+  ): T {
+    try {
+      // Import validation function dynamically to avoid circular dependencies
+      const { validateForFirestore } = require('../../utils/sanitize');
+      return validateForFirestore(data, type);
+    } catch (error) {
+      console.error(`Validation error for ${type}:`, error);
+      logError(`validation_error_${type}`, { data, error });
+      throw error;
+    }
+  }
+  
+  /**
+   * Execute a write operation with validation
+   * @param data Data to write
+   * @param dataType Type of data
+   * @param writeOperation Function that performs the actual write
+   * @returns Result of the write operation
+   */
+  protected async executeValidatedWrite<T extends Record<string, any>, R>(
+    data: T,
+    dataType: 'profile' | 'workout' | 'weightLog' | 'exercise' | 'plan' | 'friend' | 'friendRequest',
+    writeOperation: (validatedData: T) => Promise<R>
+  ): Promise<R> {
+    // Validate data
+    const validatedData = this.validateData(data, dataType);
+    
+    // Execute write operation
+    return await writeOperation(validatedData);
   }
 }
 

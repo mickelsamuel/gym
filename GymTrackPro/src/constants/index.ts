@@ -6,6 +6,7 @@ export * from './WorkoutCategories';
 export * from './Colors';
 export * from './Theme';
 export * from './Animations';
+export * from './errorCodes';
 
 // Firebase collection paths
 export const FIREBASE_COLLECTIONS = {
@@ -26,22 +27,13 @@ export const APP_CONSTANTS = {
   MAX_USERNAME_LENGTH: 20
 };
 
-// Core application constants
-import { StorageKeys } from './StorageKeys';
-import { FIREBASE_COLLECTIONS } from './FirebaseCollections';
-import { FIREBASE_SUBCOLLECTIONS } from './FirebaseSubcollections';
-import { ERROR_CODES } from './ErrorCodes';
-import { APP_CONFIG } from './AppConfig';
-import { ThemeColors } from './Colors';
-
-// Export constants
-export {
-  StorageKeys,
-  FIREBASE_COLLECTIONS,
-  FIREBASE_SUBCOLLECTIONS,
-  ERROR_CODES,
-  APP_CONFIG,
-  ThemeColors
+// Export related constants that might not be directly imported through the files above
+export const APP_CONFIG = {
+  APP_NAME: 'GymTrackPro',
+  VERSION: '1.0.0',
+  BUILD: '100',
+  API_VERSION: 'v1',
+  ENVIRONMENT: process.env.NODE_ENV || 'development'
 };
 
 // Common constants

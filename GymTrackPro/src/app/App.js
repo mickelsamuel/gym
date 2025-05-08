@@ -1,5 +1,5 @@
 // App.js
-import React, { useState, useEffect, type ReactNode } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -15,7 +15,11 @@ import { onAuthStateChanged } from "firebase/auth";
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
-export default function App(): ReactNode {
+/**
+ * Main App component
+ * @returns {React.ReactNode}
+ */
+export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
@@ -27,15 +31,19 @@ export default function App(): ReactNode {
   );
 }
 
-function AppRoot(): ReactNode {
-  const { loading: authLoading }: { loading: boolean } = useAuth();
-  const { darkMode }: { darkMode: boolean } = useExercise();
-  const [appIsReady, setAppIsReady] = useState<boolean>(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [firebaseConnected, setFirebaseConnected] = useState<boolean>(false);
+/**
+ * Root application component with providers
+ * @returns {React.ReactNode}
+ */
+function AppRoot() {
+  const { loading: authLoading } = useAuth();
+  const { darkMode } = useExercise();
+  const [appIsReady, setAppIsReady] = useState(false);
+  const [error, setError] = useState(null);
+  const [firebaseConnected, setFirebaseConnected] = useState(false);
 
   // Get theme colors based on dark mode
-  const colors: { [key: string]: string } = darkMode ? Theme.dark : Theme.light;
+  const colors = darkMode ? Theme.dark : Theme.light;
 
   // Check if Firebase is connected
   useEffect(() => {
@@ -79,9 +87,6 @@ function AppRoot(): ReactNode {
         // Tell the application to render
         setAppIsReady(true);
         await SplashScreen.hideAsync();
-      } finally {
-          setAppIsReady(true);
-          await SplashScreen.hideAsync();
       }
     };
     prepare();

@@ -1,140 +1,110 @@
 import { MuscleGroup } from '../types/global';
 
 /**
- * Static data for muscle groups
+ * Predefined muscle groups with detailed information
  */
 export const MUSCLE_GROUPS: MuscleGroup[] = [
   {
     id: "chest",
     name: "Chest",
-    imageUrl: require('../../assets/images/muscles/chest.png'),
+    imageUrl: "assets/images/muscles/chest.png",
     description: "Primarily the pectoralis major and minor, responsible for pushing movements."
   },
   {
     id: "back",
     name: "Back",
-    imageUrl: require('../../assets/images/muscles/back.png'),
-    description: "Broad term for upper and mid back musculature including rhomboids and trapezius."
-  },
-  {
-    id: "legs",
-    name: "Legs (General)",
-    imageUrl: require('../../assets/images/muscles/legs.png'),
-    description: "General category for lower-body muscles (quads, hamstrings, glutes)."
-  },
-  {
-    id: "quads",
-    name: "Quadriceps",
-    imageUrl: require('../../assets/images/muscles/quads.png'),
-    description: "The four-part muscle group in the front of the thigh, crucial for knee extension."
-  },
-  {
-    id: "hamstrings",
-    name: "Hamstrings",
-    imageUrl: require('../../assets/images/muscles/hamstrings.png'),
-    description: "Rear thigh muscles responsible for knee flexion and hip extension."
-  },
-  {
-    id: "glutes",
-    name: "Glutes",
-    imageUrl: require('../../assets/images/muscles/glutes.png'),
-    description: "Gluteus maximus, medius, and minimus; key for hip extension, stability."
-  },
-  {
-    id: "calves",
-    name: "Calves",
-    imageUrl: require('../../assets/images/muscles/calves.png'),
-    description: "Gastrocnemius and soleus muscles in lower leg for plantar flexion."
+    imageUrl: "assets/images/muscles/back.png",
+    description: "Includes the latissimus dorsi, rhomboids, and trapezius, used in pulling movements."
   },
   {
     id: "shoulders",
-    name: "Shoulders (Deltoids)",
-    imageUrl: require('../../assets/images/muscles/shoulders.png'),
-    description: "Front, middle, and rear delts controlling arm elevation and rotation."
-  },
-  {
-    id: "rearDelts",
-    name: "Rear Deltoids",
-    imageUrl: require('../../assets/images/muscles/rear-delts.png'),
-    description: "Posterior portion of the deltoid muscle, involved in shoulder extension and external rotation."
-  },
-  {
-    id: "triceps",
-    name: "Triceps",
-    imageUrl: require('../../assets/images/muscles/triceps.png'),
-    description: "Three-headed muscle on the back of the arm, responsible for elbow extension."
+    name: "Shoulders",
+    imageUrl: "assets/images/muscles/shoulders.png",
+    description: "The deltoid muscles, supporting arm movement in all directions."
   },
   {
     id: "biceps",
     name: "Biceps",
-    imageUrl: require('../../assets/images/muscles/biceps.png'),
-    description: "Front of the arm, primarily responsible for elbow flexion and forearm supination."
+    imageUrl: "assets/images/muscles/biceps.png",
+    description: "Located on the front of the upper arm, primarily responsible for elbow flexion."
   },
   {
-    id: "lats",
-    name: "Latissimus Dorsi",
-    imageUrl: require('../../assets/images/muscles/lats.png'),
-    description: "Large V-shaped muscles of the back, crucial for pulling movements."
-  },
-  {
-    id: "core",
-    name: "Core (Abs)",
-    imageUrl: require('../../assets/images/muscles/core.png'),
-    description: "Abdominals, including rectus abdominis, transverse abdominis; stabilizes trunk."
-  },
-  {
-    id: "obliques",
-    name: "Obliques",
-    imageUrl: require('../../assets/images/muscles/obliques.png'),
-    description: "Muscles along the sides of the abdomen, responsible for rotation and lateral flexion."
-  },
-  {
-    id: "lowerBack",
-    name: "Lower Back",
-    imageUrl: require('../../assets/images/muscles/lower-back.png'),
-    description: "Erector spinae and surrounding muscles that support spine extension."
-  },
-  {
-    id: "erectorSpinae",
-    name: "Erector Spinae",
-    imageUrl: require('../../assets/images/muscles/erector-spinae.png'),
-    description: "Deep muscles running along the spine, important for posture and back extension."
+    id: "triceps",
+    name: "Triceps",
+    imageUrl: "assets/images/muscles/triceps.png",
+    description: "Located on the back of the upper arm, used in pushing and arm extension."
   },
   {
     id: "forearms",
     name: "Forearms",
-    imageUrl: require('../../assets/images/muscles/forearms.png'),
-    description: "Responsible for wrist flexion, extension, and grip strength."
+    imageUrl: "assets/images/muscles/forearms.png",
+    description: "Multiple muscles involved in wrist, hand, and finger movements."
   },
   {
-    id: "hipFlexors",
-    name: "Hip Flexors",
-    imageUrl: require('../../assets/images/muscles/hip-flexors.png'),
-    description: "Iliopsoas and related muscles that flex the hip joint."
+    id: "abs",
+    name: "Abs",
+    imageUrl: "assets/images/muscles/abs.png",
+    description: "The rectus abdominis, obliques, and deep core muscles that stabilize the spine."
   },
   {
-    id: "adductors",
-    name: "Adductors",
-    imageUrl: require('../../assets/images/muscles/adductors.png'),
-    description: "Inner thigh muscles that pull the legs toward the midline of the body."
+    id: "quads",
+    name: "Quadriceps",
+    imageUrl: "assets/images/muscles/quads.png",
+    description: "Four muscles at the front of the thigh, crucial for leg extension."
   },
   {
-    id: "abductors",
-    name: "Abductors",
-    imageUrl: require('../../assets/images/muscles/abductors.png'),
-    description: "Outer thigh/hip muscles that move the legs away from the midline."
+    id: "hamstrings",
+    name: "Hamstrings",
+    imageUrl: "assets/images/muscles/hamstrings.png",
+    description: "Three muscles at the back of the thigh, involved in leg flexion."
+  },
+  {
+    id: "glutes",
+    name: "Glutes",
+    imageUrl: "assets/images/muscles/glutes.png",
+    description: "The gluteus maximus, medius, and minimus, important for hip extension and stability."
+  },
+  {
+    id: "calves",
+    name: "Calves",
+    imageUrl: "assets/images/muscles/calves.png",
+    description: "The gastrocnemius and soleus muscles, used for ankle extension and stability."
+  },
+  {
+    id: "lowerBack",
+    name: "Lower Back",
+    imageUrl: "assets/images/muscles/lowerBack.png",
+    description: "The erector spinae and other muscles that support the spine and posture."
   },
   {
     id: "traps",
     name: "Trapezius",
-    imageUrl: require('../../assets/images/muscles/traps.png'),
-    description: "Upper back and neck area muscle for scapular elevation and stabilization."
+    imageUrl: "assets/images/muscles/traps.png",
+    description: "Large muscle extending from the neck to the middle back, important for shoulder movement."
+  },
+  {
+    id: "obliques",
+    name: "Obliques",
+    imageUrl: "assets/images/muscles/obliques.png",
+    description: "Side abdominal muscles that help with rotation and side bending."
+  },
+  {
+    id: "adductors",
+    name: "Adductors",
+    imageUrl: "assets/images/muscles/adductors.png",
+    description: "Inner thigh muscles that bring the legs toward the body's midline."
   },
   {
     id: "neck",
     name: "Neck",
-    imageUrl: require('../../assets/images/muscles/neck.png'),
-    description: "Various muscles surrounding the cervical spine, stabilizing and moving the neck."
+    imageUrl: "assets/images/muscles/neck.png",
+    description: "Muscles supporting head movement and stability."
+  },
+  {
+    id: "fullBody",
+    name: "Full Body",
+    imageUrl: "assets/images/muscles/fullBody.png",
+    description: "Exercises that engage multiple major muscle groups simultaneously."
   }
 ];
 

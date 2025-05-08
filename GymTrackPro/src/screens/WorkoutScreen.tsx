@@ -14,7 +14,8 @@ import {
   Platform,
   ViewStyle,
   TextStyle,
-  ImageStyle
+  ImageStyle,
+  TextInput
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -30,6 +31,7 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { AuthContext, useAuth } from '../context/AuthContext';
 import moment from 'moment';
 import workoutCategories from '../data/workoutCategories';
+import { Workout, WorkoutExercise, Exercise } from '../types/globalTypes';
 
 // Import our custom UI components from design system
 import { 
@@ -56,33 +58,23 @@ interface WorkoutList {
   updatedAt: string;
 }
 
-interface Exercise {
-  id: string;
-  name: string;
-  muscle: string;
-  equipment?: string;
-  description?: string;
-  image?: string;
-  videoUrl?: string;
-}
-
 interface WorkoutSet {
   weight: number;
   reps: number;
   completed?: boolean;
 }
 
-interface WorkoutExercise {
+interface LocalWorkoutExercise {
   exerciseId: string;
   exercise?: Exercise;
   sets: WorkoutSet[];
 }
 
-interface Workout {
+interface LocalWorkout {
   id: string;
   name: string;
   date: string;
-  exercises: WorkoutExercise[];
+  exercises: LocalWorkoutExercise[];
   duration: number;
   userId: string;
   completed?: boolean;
@@ -132,11 +124,11 @@ const WorkoutScreen: React.FC = () => {
   const [showFavorites, setShowFavorites] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [recentWorkouts, setRecentWorkouts] = useState<Workout[]>([]);
-  const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(null);
+  const [recentWorkouts, setRecentWorkouts] = useState<LocalWorkout[]>([]);
+  const [currentWorkout, setCurrentWorkout] = useState<LocalWorkout | null>(null);
   const [customWorkouts, setCustomWorkouts] = useState<WorkoutList[]>([]);
   const [suggestedWorkouts, setSuggestedWorkouts] = useState<WorkoutList[]>([]);
-  const [workoutHistory, setWorkoutHistory] = useState<{[key: string]: Workout[]}>({});
+  const [workoutHistory, setWorkoutHistory] = useState<{[key: string]: LocalWorkout[]}>({});
   const [markedDates, setMarkedDates] = useState<MarkedDate>({});
   const [viewMode, setViewMode] = useState<ViewModeType>('grid');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -232,8 +224,21 @@ const WorkoutScreen: React.FC = () => {
   const loadAllWorkouts = async (): Promise<void> => {
     setLoading(true);
     try {
-      const lists = await DatabaseService.getAllWorkoutLists();
-      setWorkoutLists(lists);
+      if (user?.uid) {
+        const response = await DatabaseService.getAllWorkouts(user.uid, isOnline);
+        if (response.success && response.data) {
+          // Convert response data to the expected format
+          const lists = response.data.map(workout => ({
+            id: workout.id || '',
+            name: workout.name,
+            exercises: workout.exercises.map(ex => ex.id),
+            userId: workout.userId,
+            createdAt: workout.createdAt?.toString() || new Date().toISOString(),
+            updatedAt: workout.updatedAt?.toString() || new Date().toISOString()
+          }));
+          setWorkoutLists(lists);
+        }
+      }
     } catch (error) {
       console.error("Error loading workout lists:", error);
     } finally {
@@ -244,8 +249,29 @@ const WorkoutScreen: React.FC = () => {
   // Load user's recent workout history
   const loadRecentWorkouts = async (): Promise<void> => {
     try {
-      const history = await DatabaseService.getRecentWorkouts();
-      setRecentWorkouts(history?.slice(0, 5) || []);
+      if (user?.uid) {
+        const response = await DatabaseService.getRecentWorkouts(user.uid, isOnline);
+        if (response.success && response.data) {
+          // Convert Workout[] from API to LocalWorkout[]
+          const localWorkouts: LocalWorkout[] = response.data.map(workout => ({
+            id: workout.id || `workout_${Date.now()}_${Math.random()}`,
+            name: workout.name,
+            date: workout.date,
+            exercises: workout.exercises.map(ex => ({
+              exerciseId: ex.id,
+              sets: ex.sets.map(set => ({
+                weight: set.weight,
+                reps: set.reps,
+                completed: set.isCompleted
+              }))
+            })),
+            duration: workout.duration || 0,
+            userId: workout.userId,
+            notes: workout.description
+          }));
+          setRecentWorkouts(localWorkouts.slice(0, 5));
+        }
+      }
     } catch (error) {
       console.error("Error loading recent workouts:", error);
     }
@@ -273,13 +299,34 @@ const WorkoutScreen: React.FC = () => {
       return;
     }
     
+    if (!user?.uid) {
+      Alert.alert('Error', 'You must be logged in to create a workout.');
+      return;
+    }
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setLoading(true);
     
     try {
-      const newPlan = await DatabaseService.createWorkoutList(newListName.trim());
+      // Create an API-compatible Workout object
+      const newWorkout: Workout = {
+        name: newListName.trim(),
+        userId: user.uid,
+        date: new Date().toISOString(),
+        exercises: [],
+        duration: 0
+      };
+      
+      const response = await DatabaseService.saveWorkout(newWorkout, isOnline);
+      
       setNewListName('');
       await loadAllWorkouts();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      if (response.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        throw new Error(response.error?.message || 'Failed to create workout');
+      }
     } catch (error) {
       Alert.alert('Error', 'Could not create new workout list.');
       if(error instanceof Error){
@@ -360,17 +407,21 @@ const WorkoutScreen: React.FC = () => {
         {/* Create List Input */}
         <View style={styles.createListInput}>
             <TextInput
-              style={[styles.input, { backgroundColor: theme.input, color: theme.text }]}
+              style={[styles.input, { backgroundColor: theme.card, color: theme.text }]}
               placeholder="New workout name"
               placeholderTextColor={theme.textSecondary}
               value={newListName}
               onChangeText={setNewListName}
             />
-             <Button onPress={handleCreateList} disabled={!isOnline || loading} loading={loading} >
-                <Ionicons name="add" size={20} color={'#FFFFFF'} />
-                <Text style={styles.buttonText}>Create</Text>
-              </Button>
+            <Button 
+              title="Create"
+              onPress={handleCreateList} 
+              disabled={!isOnline || loading} 
+              loading={loading}
+              icon="add"
+            />
             {!isOnline && <Text style={{ color: theme.danger }}>You are offline. You can not create a new workout.</Text>}
+        </View>
 
         {/* Main content will go here... */}
       </Animated.ScrollView>
@@ -448,7 +499,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     marginLeft: Spacing.xs,
-    fontSize: Typography.body,
+    fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
   },

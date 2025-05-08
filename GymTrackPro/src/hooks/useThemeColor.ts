@@ -4,9 +4,12 @@
  */
 
 import Colors from '../constants/Colors';
-import { useColorScheme } from './useColorScheme';
+import { useColorScheme as nativeUseColorScheme } from 'react-native';
 
-// Define a type for our color scheme
+// Use the native hook directly to avoid circular dependencies with 'useColorScheme.ts'
+export const useColorScheme = nativeUseColorScheme;
+
+// Make the color scheme type more explicit
 type ColorScheme = {
   light: {
     text: string;
@@ -30,10 +33,10 @@ type ColorScheme = {
   };
 };
 
-// Fallback colors in case Colors is undefined
+// Fallback colors in case Colors is undefined or tests don't have Colors properly mocked
 const fallbackColors: ColorScheme = {
   light: {
-    text: '#333333',
+    text: '#1A202C',
     background: '#F8F9FA',
     primary: '#007AFF',
     secondary: '#5AC8FA',
@@ -61,8 +64,11 @@ export function useThemeColor(
   const theme = useColorScheme() ?? 'light';
   const colorFromProps = props[theme];
   
-  // Type assertion to ensure Colors has the right shape
-  const colorScheme = Colors as ColorScheme || fallbackColors;
+  // Safe check if Colors exists and has the expected structure
+  const colorScheme = (typeof Colors === 'object' && Colors !== null 
+    && 'light' in Colors && 'dark' in Colors) 
+      ? Colors as ColorScheme 
+      : fallbackColors;
 
   if (colorFromProps) {
     return colorFromProps;
