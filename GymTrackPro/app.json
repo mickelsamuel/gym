@@ -46,10 +46,36 @@
       ],
       "expo-sqlite",
       "expo-font",
-      "expo-router"
+      "expo-router",
+      [
+        "sentry-expo",
+        {
+          "organization": "yourorganization",
+          "project": "gymtrackpro",
+          "url": "https://sentry.io/",
+          "hooks": {
+            "postPublish": {
+              "sourceMaps": true,
+              "includes": ["dist"]
+            }
+          }
+        }
+      ]
     ],
     "jsEngine": "hermes",
     "description": "A comprehensive fitness tracking application for tracking workouts, weight, and connecting with friends.",
-    "newArchEnabled": true
+    "newArchEnabled": true,
+    "hooks": {
+      "postPublish": [
+        {
+          "file": "sentry-expo/upload-sourcemaps",
+          "config": {
+            "organization": "yourorganization",
+            "project": "gymtrackpro",
+            "authToken": "YOUR_SENTRY_AUTH_TOKEN"
+          }
+        }
+      ]
+    }
   }
 }

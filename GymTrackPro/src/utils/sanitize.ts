@@ -10,6 +10,7 @@ import {
   FriendRequest, 
   WorkoutPlan 
 } from '../types/mergedTypes';
+import { Timestamp } from 'firebase/firestore';
 
 /**
  * Sanitizes a string by escaping HTML special characters
@@ -172,28 +173,64 @@ export const sanitizeObject = <T extends Record<string, any>>(data: T, allowedFi
  * @param data The data to sanitize
  * @returns The sanitized data
  */
-export const sanitizeFirestoreData = <T extends Record<string, any>>(data: T): T => {
-  if (!data || typeof data !== 'object') return {} as T;
+export const sanitizeFirestoreData = <T>(data: any): T => {
+  // Handle null/undefined input by returning an empty object
+  if (!data) return {} as T;
   
-  const sanitized: Record<string, any> = {};
+  // Handle arrays
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeFirestoreData(item)) as unknown as T;
+  }
+  
+  // Handle string values directly
+  if (typeof data === 'string') {
+    return sanitizeString(data) as unknown as T;
+  }
+  
+  // Handle non-object types (except strings which are handled above)
+  if (typeof data !== 'object' || data === null) {
+    return data;
+  }
+  
+  // Process object properties
+  const result: Record<string, any> = {};
   
   for (const [key, value] of Object.entries(data)) {
-    if (typeof value === 'string') {
-      sanitized[key] = sanitizeString(value);
-    } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      sanitized[key] = sanitizeFirestoreData(value);
-    } else if (Array.isArray(value)) {
-      sanitized[key] = value.map(item => 
-        typeof item === 'string' ? sanitizeString(item) : 
-        typeof item === 'object' && item !== null ? sanitizeFirestoreData(item) : 
-        item
-      );
-    } else {
-      sanitized[key] = value;
+    // Handle Firestore Timestamp objects by checking their structure
+    if (value && 
+        typeof value === 'object' && 
+        'seconds' in value && 
+        'nanoseconds' in value && 
+        typeof value.seconds === 'number' && 
+        typeof value.nanoseconds === 'number') {
+      // Check if it has a toDate function
+      if (typeof (value as any).toDate === 'function') {
+        try {
+          result[key] = (value as any).toDate().toISOString();
+        } catch (e) {
+          // Fallback in case toDate fails
+          result[key] = new Date(value.seconds * 1000).toISOString();
+        }
+      } else {
+        // Fallback for objects with similar structure but no toDate function
+        result[key] = new Date(value.seconds * 1000).toISOString();
+      }
+    }
+    // Handle string values
+    else if (typeof value === 'string') {
+      result[key] = sanitizeString(value);
+    }
+    // Handle nested objects and arrays
+    else if (typeof value === 'object' && value !== null) {
+      result[key] = sanitizeFirestoreData(value);
+    }
+    // Handle all other value types
+    else {
+      result[key] = value;
     }
   }
   
-  return sanitized as T;
+  return result as T;
 };
 
 /**
@@ -489,23 +526,28 @@ export const isValidId = (id: string): boolean => {
 };
 
 /**
- * Strips any sensitive data from an object before storing or sending
- * @param data The data object to clean
- * @returns The cleaned data object
+ * Validate a JSON object and strip sensitive data
+ * @param data The data to validate
+ * @returns The validated data
  */
 export const stripSensitiveData = <T extends Record<string, any>>(data: T): Partial<T> => {
   if (!data || typeof data !== 'object') return {};
   
-  const result = { ...data };
-  const sensitiveFields = ['password', 'token', 'secret', 'key', 'auth', 'credential'];
+  const cleanedData: Record<string, any> = {};
   
-  sensitiveFields.forEach(field => {
-    if (field in result) {
-      delete result[field];
+  for (const [key, value] of Object.entries(data)) {
+    if (
+      !key.includes('password') &&
+      !key.includes('token') &&
+      !key.includes('auth') &&
+      !key.includes('secret') &&
+      !key.includes('key')
+    ) {
+      cleanedData[key] = value;
     }
-  });
+  }
   
-  return result;
+  return cleanedData as Partial<T>;
 };
 
 /**
@@ -556,7 +598,7 @@ export const validateForFirestore = <T extends Record<string, any>>(
   }
   
   // Strip sensitive data before sending to Firestore
-  const stripped = stripSensitiveData(sanitized);
+  const stripped = stripSensitiveData(sanitized as Record<string, any>);
   
   // Remove undefined or null values as they cause issues with Firestore
   const cleanedData: Record<string, any> = {};
@@ -568,4 +610,42 @@ export const validateForFirestore = <T extends Record<string, any>>(
   }
   
   return cleanedData as T;
+};
+
+/**
+ * Sanitizes user input to prevent XSS attacks
+ * @param input User input string
+ * @returns Sanitized string
+ */
+export const sanitizeUserInput = (input: string): string => {
+  if (!input) return '';
+  
+  // Replace known problematic characters
+  return input
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/`/g, '&#96;');
+};
+
+/**
+ * Sanitize numeric input to ensure it's a valid number
+ * @param input User input that should be a number
+ * @param defaultValue Default value if input is invalid
+ * @returns Sanitized number
+ */
+export const sanitizeNumericInput = (input: any, defaultValue: number = 0): number => {
+  const parsed = parseFloat(input);
+  return !isNaN(parsed) ? parsed : defaultValue;
+};
+
+/**
+ * Sanitize a date string to ensure it's valid
+ * @param dateString Date string to sanitize
+ * @returns Valid date string or current date
+ */
+export const sanitizeDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return !isNaN(date.getTime()) ? date.toISOString() : new Date().toISOString();
 };

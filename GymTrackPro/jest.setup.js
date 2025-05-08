@@ -132,4 +132,42 @@ jest.mock('firebase/analytics', () => ({
 jest.mock('react-native/Libraries/Utilities/Platform', () => ({
   OS: 'ios',
   select: jest.fn(obj => obj.ios)
+}));
+
+// Mock sentry-expo
+jest.mock('sentry-expo', () => ({
+  init: jest.fn(),
+  Native: {
+    nativeClientAvailable: false,
+    nativeSdkAvailable: false,
+  },
+  captureException: jest.fn(),
+  captureMessage: jest.fn(),
+  setTag: jest.fn(),
+  setUser: jest.fn(),
+  withScope: jest.fn((callback) => callback({ setTag: jest.fn() })),
+}));
+
+// Mock expo-constants
+jest.mock('expo-constants', () => ({
+  default: {
+    expoVersion: 'XX.X.X',
+    manifest: {
+      version: '1.0.0',
+      extra: {
+        sentryDsn: 'https://mock-dsn@sentry.io/123456',
+      },
+    },
+    appOwnership: 'standalone',
+    installationId: 'mock-installation-id',
+    sessionId: 'mock-session-id',
+    statusBarHeight: 20,
+    systemVersion: '14.0',
+    platform: { ios: {} },
+  },
+  ExecutionEnvironment: {
+    standalone: true,
+    storeClient: false,
+    debugger: false,
+  },
 })); 

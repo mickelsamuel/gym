@@ -44,9 +44,11 @@ import {
 import { getAnalytics, isSupported, Analytics } from 'firebase/analytics';
 import { Platform } from 'react-native';
 import { logError } from '../utils/logging';
+import { sanitizeFirestoreData } from '../utils/sanitize';
 import { AUTH_ERROR_CODES, FIRESTORE_ERROR_CODES, getErrorMessage as getErrorMessageFromCodes } from '../constants/errorCodes';
 import { firestoreSecurityRules, getFirestoreSecurityRules } from './firebaseSecurityRules';
 import { FirebaseTimestamp } from '../types/mergedTypes';
+import { isRequestAllowed, RateLimitError } from '../utils/rateLimiter';
 
 // Firebase configuration 
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -260,35 +262,45 @@ const createConverter = <T>(): FirestoreDataConverter<T> => ({
 const firebaseAuth: FirebaseAuthInterface = {
   login: async (email: string, password: string): Promise<User> => {
     try {
-      if (!email || !password) {
-        throw new Error('Email and password are required');
+      // Use a generic ID for unauthenticated users
+      const genericId = email.toLowerCase();
+      if (!isRequestAllowed(genericId, 'auth')) {
+        throw new RateLimitError('Too many login attempts. Please try again later.');
       }
       
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      return userCredential.user;
-    } catch (error: any) {
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      return result.user;
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        logError('rate_limit_exceeded', { operation: 'login' });
+        throw error;
+      }
+      
       console.error('Login error:', error);
       logError('login_error', error);
-      throw new Error(getErrorMessage(error));
+      throw error;
     }
   },
   
   register: async (email: string, password: string): Promise<User> => {
     try {
-      if (!email || !password) {
-        throw new Error('Email and password are required');
+      // Use a generic ID for unauthenticated users
+      const genericId = email.toLowerCase();
+      if (!isRequestAllowed(genericId, 'auth')) {
+        throw new RateLimitError('Too many registration attempts. Please try again later.');
       }
       
-      if (password.length < 8) {
-        throw new Error('Password must be at least 8 characters long');
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      return result.user;
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        logError('rate_limit_exceeded', { operation: 'register' });
+        throw error;
       }
       
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      return userCredential.user;
-    } catch (error: any) {
       console.error('Registration error:', error);
-      logError('registration_error', error);
-      throw new Error(getErrorMessage(error));
+      logError('register_error', error);
+      throw error;
     }
   },
   
@@ -422,54 +434,69 @@ const firebaseAuth: FirebaseAuthInterface = {
 const firebaseFirestore: FirebaseFirestoreInterface = {
   getDocument: async <T>(path: string, id: string): Promise<T | null> => {
     try {
-      if (!path || !id) {
-        throw new Error('Path and ID are required');
+      // Check if current user is allowed to make this request
+      const currentUser = auth.currentUser;
+      if (currentUser && !isRequestAllowed(currentUser.uid, 'read')) {
+        throw new RateLimitError();
       }
       
       const docRef = doc(db, path, id);
       const docSnap = await getDoc(docRef);
       
-      // Just check if we have data - this works reliably across all Firebase versions
-      if (docSnap && docSnap.data()) {
-        const data = docSnap.data();
-        return { id: docSnap.id, ...data } as unknown as T;
+      // Fix for compatibility with different Firebase versions
+      // In some versions exists is a method, in others it's a property
+      const docExists = docSnap && (
+        typeof docSnap.exists === 'function' ? docSnap.exists() : docSnap.exists
+      );
+      
+      if (docExists) {
+        // Return sanitized data
+        return sanitizeFirestoreData(docSnap.data() as T);
+      }
+      return null;
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        logError('rate_limit_exceeded', { path, id, operation: 'getDocument' });
+        throw error;
       }
       
-      return null;
-    } catch (error: any) {
       console.error(`Error getting document ${path}/${id}:`, error);
       logError('get_document_error', { path, id, error });
-      throw new Error(getErrorMessage(error));
+      throw error;
     }
   },
   
-  setDocument: async <T>(path: string, id: string, data: T, merge: boolean = true): Promise<void> => {
+  setDocument: async <T>(path: string, id: string, data: T, merge: boolean = false): Promise<void> => {
     try {
-      if (!path || !id) {
-        throw new Error('Path and ID are required');
-      }
-      
-      if (!data) {
-        throw new Error('Data is required');
-      }
-      
-      // Add timestamps
-      const docData = {
-        ...data,
-        updatedAt: serverTimestamp(),
-      } as T & { updatedAt: any; createdAt?: any };
-      
-      // Only add createdAt if this is a new document or merge is false
-      if (!merge) {
-        docData.createdAt = serverTimestamp();
+      // Check if current user is allowed to make this request
+      const currentUser = auth.currentUser;
+      if (currentUser && !isRequestAllowed(currentUser.uid, 'write')) {
+        throw new RateLimitError();
       }
       
       const docRef = doc(db, path, id);
-      await setDoc(docRef, docData, { merge });
-    } catch (error: any) {
+      
+      // Add timestamps
+      const dataWithTimestamps = {
+        ...data,
+        updatedAt: serverTimestamp()
+      };
+      
+      // Add createdAt only if this is a new document or merge is false
+      if (!merge) {
+        (dataWithTimestamps as any).createdAt = serverTimestamp();
+      }
+      
+      await setDoc(docRef, dataWithTimestamps, { merge });
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        logError('rate_limit_exceeded', { path, id, operation: 'setDocument' });
+        throw error;
+      }
+      
       console.error(`Error setting document ${path}/${id}:`, error);
       logError('set_document_error', { path, id, error });
-      throw new Error(getErrorMessage(error));
+      throw error;
     }
   },
   
@@ -556,7 +583,12 @@ const firebaseFirestore: FirebaseFirestoreInterface = {
         
         // Ensure we're properly handling the document data for Firebase v11
         return querySnapshot.docs.map(doc => {
-          if (doc.exists()) {
+          // Fix for compatibility with different Firebase versions
+          const docExists = doc && (
+            typeof doc.exists === 'function' ? doc.exists() : doc.exists
+          );
+          
+          if (docExists) {
             return { id: doc.id, ...doc.data() } as unknown as T;
           }
           return null;
@@ -567,7 +599,12 @@ const firebaseFirestore: FirebaseFirestoreInterface = {
         
         // Ensure we're properly handling the document data for Firebase v11
         return querySnapshot.docs.map(doc => {
-          if (doc.exists()) {
+          // Fix for compatibility with different Firebase versions
+          const docExists = doc && (
+            typeof doc.exists === 'function' ? doc.exists() : doc.exists
+          );
+          
+          if (docExists) {
             return { id: doc.id, ...doc.data() } as unknown as T;
           }
           return null;
@@ -591,7 +628,12 @@ const firebaseFirestore: FirebaseFirestoreInterface = {
       
       // Ensure we're properly handling the document data for Firebase v11
       return querySnapshot.docs.map(doc => {
-        if (doc.exists()) {
+        // Fix for compatibility with different Firebase versions
+        const docExists = doc && (
+          typeof doc.exists === 'function' ? doc.exists() : doc.exists
+        );
+        
+        if (docExists) {
           return { id: doc.id, ...doc.data() } as unknown as T;
         }
         return null;

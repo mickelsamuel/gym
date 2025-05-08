@@ -7,6 +7,9 @@ import { CacheEntry, DataCache } from '../../types/data';
 import { checkConnection } from '../firebase';
 import { logError } from '../../utils/logging';
 import { sanitizeFirestoreData } from '../../utils/sanitize';
+import { cacheService, createCacheKey } from '../CacheService';
+import { timeFunction } from '../../utils/monitoring';
+import { ValidationError, getValidator } from '../../utils/validation';
 
 // Cache expiration time in milliseconds (30 minutes)
 const CACHE_EXPIRATION = 30 * 60 * 1000;
@@ -14,13 +17,33 @@ const CACHE_EXPIRATION = 30 * 60 * 1000;
 // Maximum number of attempts for operations
 const MAX_RETRY_ATTEMPTS = 3;
 
+// Retry delay in milliseconds (exponential backoff)
+const RETRY_BASE_DELAY = 500;
+
 /**
- * BaseDatabaseService - foundational service class with shared database functionality
+ * BaseDatabaseService
+ * 
+ * This foundational service class provides shared database functionality across all database services.
+ * It handles:
+ * - Local storage (AsyncStorage) operations
+ * - In-memory caching with expiration
+ * - Firebase availability checking
+ * - Data validation
+ * - Error handling and response formatting
+ * - Retry logic for network operations
+ * - Offline/online sync mechanisms
  */
 export class BaseDatabaseService {
+  /** Flag indicating if Firebase is currently available */
   protected isFirebaseAvailable: boolean;
+  
+  /** In-memory cache for faster data access */
   protected cache: DataCache;
   
+  /**
+   * Creates a new instance of the BaseDatabaseService
+   * Initializes local cache and Firebase connection
+   */
   constructor() {
     this.isFirebaseAvailable = false;
     this.cache = {};
@@ -28,15 +51,22 @@ export class BaseDatabaseService {
   }
 
   /**
-   * Initialize the database connection
+   * Initialize the database connection and local storage
+   * 
+   * This asynchronous method:
+   * 1. Initializes local storage with default values if needed
+   * 2. Tests the connection to Firebase
+   * 3. Sets up the service for operation
    */
   protected async initDatabase(): Promise<void> {
     try {
-      // Initialize local storage
+      // Initialize local storage first
       await this.initializeStorage();
       
-      // Check Firebase connection
+      // Then check Firebase connection
       this.isFirebaseAvailable = await this.testFirebaseConnection();
+      
+      console.log(`Database service initialized. Firebase available: ${this.isFirebaseAvailable}`);
     } catch (error) {
       console.error('Error initializing database:', error);
       logError('database_init_error', error);
@@ -46,6 +76,9 @@ export class BaseDatabaseService {
 
   /**
    * Initialize AsyncStorage with default values if needed
+   * 
+   * This ensures that all required storage keys exist with appropriate
+   * default values before any operations are performed
    */
   protected async initializeStorage(): Promise<void> {
     try {
@@ -57,9 +90,11 @@ export class BaseDatabaseService {
         StorageKeys.CACHE_METADATA
       ];
       
+      // Create an array of promises for parallel execution
       const initPromises = keys.map(async (key) => {
         try {
           const value = await AsyncStorage.getItem(key);
+          // If key doesn't exist, initialize with empty value
           if (!value) {
             await AsyncStorage.setItem(key, JSON.stringify(key === StorageKeys.PROFILE ? {} : []));
           }
@@ -69,6 +104,7 @@ export class BaseDatabaseService {
         }
       });
       
+      // Execute all initialization promises in parallel
       await Promise.all(initPromises);
     } catch (error) {
       console.error('Error in initializeStorage:', error);
@@ -78,11 +114,17 @@ export class BaseDatabaseService {
 
   /**
    * Test the connection to Firebase
-   * @returns True if Firebase is available
+   * 
+   * This method attempts to connect to Firebase and check if
+   * the service is available for read/write operations
+   * 
+   * @returns True if Firebase is available, false otherwise
    */
   protected async testFirebaseConnection(): Promise<boolean> {
     try {
-      return await checkConnection();
+      return await timeFunction('firebase_connection_test', async () => {
+        return await checkConnection();
+      }, 'database');
     } catch (error) {
       console.error('Firebase connection test failed:', error);
       logError('firebase_connection_test_failed', error);
@@ -91,9 +133,11 @@ export class BaseDatabaseService {
   }
 
   /**
-   * Generic response creator with success status
-   * @param data The data to include in the response
-   * @returns A formatted API response with data
+   * Creates a formatted API response with success status
+   * 
+   * @template T - The type of data in the response
+   * @param data - The data to include in the response
+   * @returns A standardized API response object with the data
    */
   protected createSuccessResponse<T>(data: T): ApiResponse<T> {
     return {
@@ -103,11 +147,13 @@ export class BaseDatabaseService {
   }
 
   /**
-   * Generic response creator with error status
-   * @param code Error code
-   * @param message Error message
-   * @param details Additional error details (optional)
-   * @returns A formatted API response with error
+   * Creates a formatted API response with error status
+   * 
+   * @template T - The type of data that would have been returned
+   * @param code - A unique error code
+   * @param message - Human-readable error message
+   * @param details - Additional error details (optional)
+   * @returns A standardized API response object with error information
    */
   protected createErrorResponse<T>(code: string, message: string, details?: any): ApiResponse<T> {
     return {
@@ -121,9 +167,13 @@ export class BaseDatabaseService {
   }
 
   /**
-   * Check online status before making a network request
-   * @param online Current online status
-   * @throws Error if offline
+   * Checks if the app is online before making a network request
+   * 
+   * This method verifies both the provided online status flag and
+   * the last known Firebase availability status
+   * 
+   * @param online - Current online status from NetworkState
+   * @throws Error if offline or Firebase is unavailable
    */
   protected checkOnlineStatus(online: boolean): void {
     if (!online || !this.isFirebaseAvailable) {
@@ -132,9 +182,12 @@ export class BaseDatabaseService {
   }
 
   /**
-   * Safely store data in AsyncStorage
-   * @param key Storage key
-   * @param data Data to store
+   * Safely store data in AsyncStorage with error handling
+   * 
+   * @template T - The type of data to store
+   * @param key - AsyncStorage key
+   * @param data - Data to store
+   * @throws Error if storage operation fails
    */
   protected async saveToStorage<T>(key: string, data: T): Promise<void> {
     try {
@@ -147,8 +200,10 @@ export class BaseDatabaseService {
   }
 
   /**
-   * Safely retrieve data from AsyncStorage
-   * @param key Storage key
+   * Safely retrieve data from AsyncStorage with error handling
+   * 
+   * @template T - The expected type of the retrieved data
+   * @param key - AsyncStorage key
    * @returns Retrieved data or null if not found
    */
   protected async getFromStorage<T>(key: string): Promise<T | null> {
@@ -163,15 +218,24 @@ export class BaseDatabaseService {
   }
 
   /**
-   * Merge local and remote data, with remote data taking precedence
-   * @param local Local data
-   * @param remote Remote data
-   * @returns Merged data
+   * Merge local and remote data intelligently
+   * 
+   * This method handles data conflicts between local and remote sources
+   * It uses the following strategy:
+   * 1. If remote data doesn't exist, use local data
+   * 2. If local data doesn't exist, use remote data
+   * 3. If both exist, merge them with remote data taking precedence for overlapping fields
+   * 
+   * @template T - The type of data to merge
+   * @param local - Local data (from AsyncStorage)
+   * @param remote - Remote data (from Firestore)
+   * @returns Merged data object
    */
   protected mergeData<T>(local: T, remote: T): T {
     if (!remote) return local;
     if (!local) return remote;
     
+    // For complex objects, merge properties
     return {
       ...local,
       ...remote
@@ -179,149 +243,133 @@ export class BaseDatabaseService {
   }
   
   /**
-   * Add data to the in-memory cache
-   * @param key Cache key
-   * @param data Data to cache
-   * @param ttl Time to live in milliseconds (defaults to CACHE_EXPIRATION)
+   * Add data to the cache service with dependency tracking
+   * 
+   * @template T - Type of data to cache
+   * @param key - Cache key
+   * @param data - Data to cache
+   * @param ttl - Time to live in milliseconds (defaults to CACHE_EXPIRATION)
+   * @param dependencies - Other cache keys this entry depends on
    */
-  protected addToCache<T>(key: string, data: T, ttl: number = CACHE_EXPIRATION): void {
-    const now = Date.now();
-    this.cache[key] = {
-      data,
-      timestamp: now,
-      expires: now + ttl
-    };
-    
-    // Schedule cache cleanup
-    this.scheduleCacheCleanup();
+  protected addToCache<T>(
+    key: string, 
+    data: T, 
+    ttl: number = CACHE_EXPIRATION,
+    dependencies?: string[]
+  ): void {
+    cacheService.set(key, data, {
+      ttl,
+      persist: true,
+      dependencies
+    });
   }
   
   /**
-   * Get data from the in-memory cache
-   * @param key Cache key
+   * Get data from the cache service
+   * 
+   * @template T - Expected type of cached data
+   * @param key - Cache key
    * @returns Cached data or null if not found or expired
    */
   protected getFromCache<T>(key: string): T | null {
-    const entry = this.cache[key] as CacheEntry<T>;
-    
-    if (!entry) return null;
-    
-    const now = Date.now();
-    if (now > entry.expires) {
-      // Cache entry has expired
-      delete this.cache[key];
-      return null;
-    }
-    
-    return entry.data;
+    return cacheService.get<T>(key);
   }
   
   /**
    * Invalidate a specific cache entry
-   * @param key Cache key to invalidate
+   * 
+   * @param key - Cache key to invalidate
    */
   protected invalidateCache(key: string): void {
-    delete this.cache[key];
+    cacheService.remove(key);
   }
   
   /**
    * Invalidate all cache entries
+   * Useful when major data changes occur
    */
   protected invalidateAllCache(): void {
-    this.cache = {};
+    cacheService.clear();
   }
   
   /**
-   * Schedule a background task to clean up expired cache entries
-   */
-  private scheduleCacheCleanup(): void {
-    setTimeout(() => {
-      this.cleanupCache();
-    }, 60000); // Run cache cleanup every minute
-  }
-  
-  /**
-   * Clean up expired cache entries
-   */
-  private cleanupCache(): void {
-    const now = Date.now();
-    for (const key in this.cache) {
-      if (this.cache[key].expires < now) {
-        delete this.cache[key];
-      }
-    }
-  }
-  
-  /**
-   * Execute an operation with retry logic
-   * @param operation Function to execute
-   * @param retries Number of retries (default is MAX_RETRY_ATTEMPTS)
-   * @returns Result of the operation
+   * Executes an operation with automatic retries on failure
+   * 
+   * Uses exponential backoff strategy to retry failed operations:
+   * - First retry after 500ms
+   * - Second retry after 1500ms
+   * - Third retry after 3500ms
+   * 
+   * @template T - Return type of the operation
+   * @param operation - Async function to execute
+   * @param retries - Maximum number of retry attempts
+   * @returns Result of the operation if successful
+   * @throws Last encountered error if all retries fail
    */
   protected async withRetry<T>(operation: () => Promise<T>, retries: number = MAX_RETRY_ATTEMPTS): Promise<T> {
     let lastError: any;
     
-    for (let attempt = 1; attempt <= retries; attempt++) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         return await operation();
-      } catch (error: any) {
-        console.warn(`Operation failed (attempt ${attempt}/${retries}):`, error);
+      } catch (error) {
         lastError = error;
         
-        // Only retry on network-related errors
-        if (error.code === 'NETWORK_ERROR' || error.code === 'SERVER_ERROR') {
-          // Wait with exponential backoff
-          await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, attempt)));
-          continue;
+        // Don't retry if we've exhausted all attempts
+        if (attempt === retries) {
+          break;
         }
         
-        // Other errors should fail immediately
-        throw error;
+        // Don't retry for validation errors or specific types that won't benefit from retrying
+        if (error instanceof ValidationError) {
+          throw error;
+        }
+        
+        // Calculate exponential backoff delay: 500ms, 1500ms, 3500ms, etc.
+        const delay = RETRY_BASE_DELAY * Math.pow(2, attempt) + Math.random() * 500;
+        console.log(`Operation failed, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${retries})`, error);
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
     
-    // If we've exhausted all retries
+    // If we've exhausted all retries, throw the last error
+    logError('operation_max_retries_exceeded', lastError);
     throw lastError;
   }
-  
+
   /**
-   * Format any Firebase timestamp objects into ISO strings
-   * @param data Data containing potential Firebase timestamp objects
-   * @returns Same data with timestamps converted to strings
+   * Format timestamp fields in data objects
+   * 
+   * Converts Firebase Timestamp objects to ISO string format
+   * for consistent handling across the application
+   * 
+   * @template T - Type of data containing timestamps
+   * @param data - Data object that may contain timestamp fields
+   * @returns Data with formatted timestamps
    */
   protected formatTimestamps<T>(data: T): T {
     if (!data) return data;
     
-    if (Array.isArray(data)) {
-      return data.map(item => this.formatTimestamps(item)) as unknown as T;
-    }
-    
-    if (typeof data === 'object' && data !== null) {
-      const formatted: any = { ...data };
-      
-      for (const key in formatted) {
-        const value = formatted[key];
-        
-        // Check if this is a Firebase Timestamp
-        if (value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
-          formatted[key] = value.toDate().toISOString();
-        } else if (typeof value === 'object' && value !== null) {
-          formatted[key] = this.formatTimestamps(value);
-        }
-      }
-      
-      return formatted;
-    }
-    
-    return data;
+    // Use sanitizeFirestoreData for consistent handling
+    return sanitizeFirestoreData<T>(data);
   }
   
   /**
    * Safely execute a database operation with proper error handling
-   * @param operation Database operation function
-   * @param errorCode Error code for failures
-   * @param errorMessage Error message for failures
-   * @returns API response with result or error
+   * 
+   * This is a wrapper that:
+   * 1. Attempts to execute the provided operation
+   * 2. Returns a success response if successful
+   * 3. Returns a formatted error response if it fails
+   * 4. Logs the error for monitoring
+   * 
+   * @template T - Expected return type of the operation
+   * @param operation - Async database operation to execute
+   * @param errorCode - Error code to use if operation fails
+   * @param errorMessage - Error message to use if operation fails
+   * @returns ApiResponse containing either the data or error information
    */
   protected async executeOperation<T>(
     operation: () => Promise<T>,
@@ -329,23 +377,41 @@ export class BaseDatabaseService {
     errorMessage: string
   ): Promise<ApiResponse<T>> {
     try {
-      const result = await this.withRetry(operation);
-      return this.createSuccessResponse(result);
+      const data = await operation();
+      return this.createSuccessResponse(data);
     } catch (error) {
-      console.error(`${errorMessage}:`, error);
-      logError(errorCode, error);
-      return this.createErrorResponse<T>(errorCode, errorMessage, error);
+      console.error(errorMessage, error);
+      logError(errorCode, { error, message: errorMessage });
+      
+      // Use original error message if available, otherwise use default
+      const message = error instanceof Error ? error.message : errorMessage;
+      return this.createErrorResponse<T>(errorCode, message, error);
     }
   }
   
   /**
-   * Get data with caching strategy
-   * @param cacheKey Cache key
-   * @param fetchRemoteData Function to fetch remote data
-   * @param fetchLocalData Function to fetch local data
-   * @param mergeFunction Function to merge local and remote data
-   * @param isOnline Current online status
-   * @returns The data from cache, remote, or local source
+   * Complex data retrieval with cache, local storage, and remote fetching
+   * 
+   * This method implements a sophisticated data access strategy:
+   * 1. Check in-memory cache first for fastest access
+   * 2. If online and data not in cache or force refresh:
+   *    - Fetch from remote source (Firestore)
+   *    - Update local storage
+   *    - Update in-memory cache
+   * 3. If offline or remote fetch fails:
+   *    - Fall back to local storage
+   * 4. If both remote and local fail, return null
+   * 
+   * This ensures data is available offline while staying up-to-date
+   * when online, balancing performance and freshness.
+   * 
+   * @template T - Type of data to retrieve
+   * @param cacheKey - Key for cache and dependencies
+   * @param fetchRemoteData - Function to fetch data from remote source
+   * @param fetchLocalData - Function to fetch data from local storage
+   * @param mergeFunction - Function to merge local and remote data
+   * @param isOnline - Current online status
+   * @returns Retrieved data or null if not found
    */
   protected async getDataWithCache<T>(
     cacheKey: string,
@@ -354,115 +420,174 @@ export class BaseDatabaseService {
     mergeFunction: (local: T, remote: T) => T,
     isOnline: boolean
   ): Promise<T> {
-    // Check in-memory cache first
-    const cachedData = this.getFromCache<T>(cacheKey);
-    if (cachedData) {
-      return cachedData;
+    // Try cache first (fastest)
+    let data = this.getFromCache<T>(cacheKey);
+    if (data) {
+      console.log(`Cache hit for ${cacheKey}`);
+      return data;
     }
     
-    // Try to get data from remote if online
+    console.log(`Cache miss for ${cacheKey}, fetching data...`);
+    
+    // If online, try to fetch remote data
+    let remoteData: T | null = null;
+    let localData: T | null = null;
+    
     if (isOnline && this.isFirebaseAvailable) {
       try {
-        const remoteData = await fetchRemoteData();
+        // Fetch from remote source
+        remoteData = await timeFunction('remote_data_fetch', 
+          async () => await this.withRetry(fetchRemoteData),
+          'database'
+        );
         
-        // Sanitize data to prevent injection attacks
-        const sanitizedData = sanitizeFirestoreData(remoteData as any) as T;
-        
-        // Format any Firebase timestamps
-        const formattedData = this.formatTimestamps(sanitizedData);
-        
-        // Cache the remote data
-        this.addToCache(cacheKey, formattedData);
-        
-        // Also update local storage
-        const localData = await fetchLocalData();
-        if (localData) {
-          const mergedData = mergeFunction(localData, formattedData);
-          await this.saveLocalData(cacheKey, mergedData);
-        } else {
-          await this.saveLocalData(cacheKey, formattedData);
+        // Save to local storage for offline access
+        if (remoteData) {
+          this.saveLocalData(cacheKey, remoteData);
         }
-        
-        return formattedData;
       } catch (error) {
-        console.warn('Failed to fetch remote data, falling back to local:', error);
+        console.warn(`Failed to fetch remote data for ${cacheKey}:`, error);
         logError('remote_data_fetch_error', { cacheKey, error });
+        // Continue to try local data
       }
     }
     
-    // Fall back to local storage
-    const localData = await fetchLocalData();
-    if (localData) {
-      // Cache the local data
-      this.addToCache(cacheKey, localData);
-      return localData;
+    // If remote data not available or offline, use local storage
+    if (!remoteData) {
+      try {
+        localData = await timeFunction('local_data_fetch', 
+          async () => await fetchLocalData(),
+          'database'
+        );
+      } catch (error) {
+        console.warn(`Failed to fetch local data for ${cacheKey}:`, error);
+        logError('local_data_fetch_error', { cacheKey, error });
+      }
     }
     
-    // No data available
-    return null as unknown as T;
+    // Handle different data scenarios
+    if (remoteData && localData) {
+      // Have both - merge with remote taking precedence
+      data = mergeFunction(localData, remoteData);
+    } else if (remoteData) {
+      // Only have remote data
+      data = remoteData;
+    } else if (localData) {
+      // Only have local data
+      data = localData;
+    } else {
+      // No data available
+      return null as unknown as T;
+    }
+    
+    // Cache the result for future use
+    if (data) {
+      this.addToCache(cacheKey, data);
+    }
+    
+    return data;
   }
   
   /**
-   * Save data to local storage with key mapping
-   * @param cacheKey Cache key
-   * @param data Data to save
+   * Save data to local storage and update cache
+   * 
+   * Helper method that:
+   * 1. Determines the appropriate storage key based on data type
+   * 2. Saves the data to AsyncStorage
+   * 3. Updates the in-memory cache
+   * 
+   * @template T - Type of data to save
+   * @param cacheKey - Key to use for caching
+   * @param data - Data to save
    */
   private async saveLocalData<T>(cacheKey: string, data: T): Promise<void> {
-    // Map cache keys to storage keys
-    const storageKeyMap: Record<string, string> = {
-      'profile': StorageKeys.PROFILE,
-      'weightLog': StorageKeys.DAILY_WEIGHT_LOG,
-      'workouts': StorageKeys.WORKOUT_HISTORY,
-      'plans': StorageKeys.WORKOUT_PLANS
-    };
-    
-    // Extract the base key (remove user ID if present)
-    const baseKey = cacheKey.split(':')[0];
-    const storageKey = storageKeyMap[baseKey];
-    
-    if (storageKey) {
-      await this.saveToStorage(storageKey, data);
+    try {
+      // Determine storage key from cache key
+      const storageKey = this.getStorageKeyFromCacheKey(cacheKey);
+      
+      if (storageKey) {
+        await this.saveToStorage(storageKey, data);
+        
+        // Also update cache
+        this.addToCache(cacheKey, data);
+      }
+    } catch (error) {
+      console.error(`Error saving local data for ${cacheKey}:`, error);
+      logError('save_local_data_error', { cacheKey, error });
+      // Don't re-throw - this is a background operation
     }
   }
-
+  
   /**
-   * Validate data before sending to Firestore
-   * @param data Data to validate
-   * @param type Type of data being validated
-   * @returns Validated and sanitized data
-   * @throws Error if validation fails
+   * Extract storage key from cache key
+   * Simple helper to map cache keys to storage keys
+   * @param cacheKey Cache key
+   * @returns Storage key or undefined
+   */
+  private getStorageKeyFromCacheKey(cacheKey: string): string | undefined {
+    if (cacheKey.includes('profile')) return StorageKeys.PROFILE;
+    if (cacheKey.includes('weightLog')) return StorageKeys.DAILY_WEIGHT_LOG;
+    if (cacheKey.includes('workout')) return StorageKeys.WORKOUT_HISTORY;
+    if (cacheKey.includes('plan')) return StorageKeys.WORKOUT_PLANS;
+    return undefined;
+  }
+  
+  /**
+   * Validate data using appropriate validator for the data type
+   * 
+   * Ensures that data meets requirements before storage or transmission
+   * 
+   * @template T - Type of data to validate
+   * @param data - Data to validate
+   * @param type - Data type for selecting appropriate validator
+   * @returns Validated data if valid
+   * @throws ValidationError if validation fails
    */
   protected validateData<T extends Record<string, any>>(
     data: T,
     type: 'profile' | 'workout' | 'weightLog' | 'exercise' | 'plan' | 'friend' | 'friendRequest'
   ): T {
     try {
-      // Import validation function dynamically to avoid circular dependencies
-      const { validateForFirestore } = require('../../utils/sanitize');
-      return validateForFirestore(data, type);
+      // Get the appropriate validator function
+      const validator = getValidator(type);
+      
+      // Validate the data
+      return validator(data);
     } catch (error) {
-      console.error(`Validation error for ${type}:`, error);
-      logError(`validation_error_${type}`, { data, error });
-      throw error;
+      if (error instanceof ValidationError) {
+        throw error; // Re-throw validation errors
+      }
+      
+      // For unexpected errors, wrap in ValidationError
+      throw new ValidationError(`Validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
   
   /**
-   * Execute a write operation with validation
-   * @param data Data to write
-   * @param dataType Type of data
-   * @param writeOperation Function that performs the actual write
+   * Execute a write operation with data validation
+   * 
+   * This method:
+   * 1. Validates the data using the appropriate validator
+   * 2. Executes the write operation with the validated data
+   * 3. Handles any validation errors
+   * 
+   * @template T - Type of data to validate and write
+   * @template R - Return type of the write operation
+   * @param data - Data to validate and write
+   * @param dataType - Type of data for selecting appropriate validator
+   * @param writeOperation - Operation to execute with validated data
    * @returns Result of the write operation
+   * @throws ValidationError if validation fails
    */
   protected async executeValidatedWrite<T extends Record<string, any>, R>(
     data: T,
     dataType: 'profile' | 'workout' | 'weightLog' | 'exercise' | 'plan' | 'friend' | 'friendRequest',
     writeOperation: (validatedData: T) => Promise<R>
   ): Promise<R> {
-    // Validate data
+    // Validate data first
     const validatedData = this.validateData(data, dataType);
     
-    // Execute write operation
+    // Execute write operation with validated data
     return await writeOperation(validatedData);
   }
 }

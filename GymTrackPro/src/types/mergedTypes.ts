@@ -79,6 +79,7 @@ export interface WorkoutSet {
   id?: string;
   weight: number;
   reps: number;
+  duration?: number;
   isCompleted?: boolean;
   notes?: string;
   exerciseName?: string;
