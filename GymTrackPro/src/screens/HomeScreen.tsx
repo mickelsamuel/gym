@@ -12,11 +12,9 @@ import { Exercise } from '../types/mergedTypes';
 // Import our custom UI components from design system
 import {Text, Container} from '../components/ui';
 import ParallaxScrollView from '../components/ParallaxScrollView';
-import {Colors, Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
-;
-;
-;
-;
+import {Colors, Theme, Spacing, BorderRadius, createElevation, Animation} from '../constants/Theme';
+import { useAnimatedValue } from '../hooks';
+
 const { width, height } = Dimensions.get('window');
 // Types and interfaces
 interface HealthSummary {
@@ -72,7 +70,8 @@ const HomeScreen: React.FC = () => {
     recentWorkouts,
     loading,
     refreshWorkoutData,
-    getExerciseStats
+    getExerciseStats,
+    reducedMotion
   } = useContext(ExerciseContext);
   const [profile, setProfile] = useState<any>(null);
   const [recentExercises, setRecentExercises] = useState<Exercise[]>([]);
@@ -91,9 +90,9 @@ const HomeScreen: React.FC = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('weight');
   const confettiAnimation = useRef<LottieView>(null);
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+  // Use the useAnimatedValue hook instead of direct Animated.Value
+  const { value: fadeAnim, animate: animateFade } = useAnimatedValue(0);
+  const { value: slideAnim, animate: animateSlide } = useAnimatedValue(50);
   // Get theme colors based on dark mode
   const theme = darkMode ? Theme.dark : Theme.light;
   // Chart configuration
@@ -126,19 +125,19 @@ const HomeScreen: React.FC = () => {
     calculateWorkoutStreak();
     generateDemoHealthData();
     loadProgressData();
-    // Start entrance animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true
-      })
-    ]).start();
+    
+    // Start entrance animations - this will respect reduced motion
+    animateFade({
+      toValue: 1,
+      duration: Animation.medium,
+      useNativeDriver: true
+    }).start();
+    
+    animateSlide({
+      toValue: 0,
+      duration: Animation.medium,
+      useNativeDriver: true
+    }).start();
   }, [favorites, recentWorkouts]);
   // Show goal modal if no goal is set
   useEffect(() => {
@@ -323,6 +322,17 @@ const HomeScreen: React.FC = () => {
     };
     setLatestAchievement(demoAchievement);
   };
+  // When an achievement is unlocked
+  const showAchievementAnimation = () => {
+    // Only play animation if reduced motion is off
+    if (!reducedMotion && confettiAnimation.current) {
+      confettiAnimation.current.play();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      // Just trigger haptic for reduced motion users
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
   return (
     <Container>
       <ParallaxScrollView
@@ -345,16 +355,31 @@ const HomeScreen: React.FC = () => {
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={theme.primary}
-            colors={[theme.primary]}
           />
         }
         scrollEnabled={true}
       >
-        <View>
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }}
+        >
           {/* Content will go here in future improvements */}
           <Text>Dashboard content</Text>
-        </View>
+        </Animated.View>
       </ParallaxScrollView>
+      
+      {/* Conditionally render LottieView based on reduced motion preference */}
+      {!reducedMotion && (
+        <LottieView
+          ref={confettiAnimation}
+          source={require('../../assets/animations/confetti.json')}
+          style={styles.confettiAnimation}
+          autoPlay={false}
+          loop={false}
+        />
+      )}
     </Container>
   );
 };
@@ -520,6 +545,14 @@ const styles = StyleSheet.create({
   selectedGoal: {
     backgroundColor: 'rgba(10, 108, 255, 0.05)',
     borderColor: Colors.primaryBlue,
-  }
+  },
+  confettiAnimation: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: -1,
+  },
 });
 export default HomeScreen; 

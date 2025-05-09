@@ -1,120 +1,54 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
-import {View, ScrollView, TouchableOpacity, Image, Animated, StyleSheet, Dimensions, TextInput, ActivityIndicator, Modal, Platform, Share} from 'react-native';
+/**
+ * Exercise Detail Screen - Shows details for a specific exercise
+ */
+import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
+import {
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Animated,
+  StyleSheet,
+  TextInput,
+  ActivityIndicator,
+  Modal,
+  Share
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, ExerciseDetailRouteProp } from '../navigation/NavigationTypes';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import {Colors, Theme, Spacing, BorderRadius} from '../constants/Theme';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { Text, Button, Card, Container } from '../components/ui';
-// @ts-ignore
-import MuscleMap from '../components/MuscleMap';
-import { format } from 'date-fns';
-import * as Animations from '../components/ui/Animations';
-// Context and services
+import { Colors, Theme, Spacing, BorderRadius } from '../constants/Theme';
+import { WorkoutSet } from '../types/mergedTypes';
+import MuscleMap, { MuscleGroup } from '../components/MuscleMap';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ExerciseContext } from '../context/ExerciseContext';
-import DatabaseService from '../services/DatabaseService';
-import { WorkoutSet, Exercise } from '../types/mergedTypes';
-;
-;
-;
-;
-;
+
 // Types for exercise history and related data
 interface ExerciseHistoryEntry {
   id: string;
   date: string;
   sets: WorkoutSet[];
 }
-interface PersonalRecord {
-  value: number;
-  date: string | null;
-}
-interface PersonalRecords {
-  weight: PersonalRecord;
-  reps: PersonalRecord;
-  volume: PersonalRecord;
-}
-interface NextWorkoutRecommendation {
-  sets: number;
-  reps: number;
-  weight: number;
-}
-interface ChartDataset {
-  data: number[];
-  color: (opacity: number) => string;
-  strokeWidth: number;
-}
-interface ChartData {
-  labels: string[];
-  datasets: ChartDataset[];
-  legend: string[];
-}
+
+// Chart related types
 type ChartMetric = 'weight' | 'reps' | 'volume';
 type TimeRange = '7' | '30' | '90' | 'all';
-// Add this interface after the existing interfaces
+
+// Workout log data
 interface WorkoutLogData {
   date: string;
   weight: number;
   reps: number;
   notes: string;
 }
-// Destructure needed components
-const { FadeIn } = Animations;
-// Create interface for MuscleGroupSelector and MuscleGroupBadge since they're missing
-interface MuscleGroupSelectorProps {
-  selectedMuscleGroups: string[];
-  onSelectMuscleGroup: (muscleGroup: string) => void;
-}
-const MuscleGroupSelector: React.FC<MuscleGroupSelectorProps> = ({ selectedMuscleGroups, onSelectMuscleGroup }) => {
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-      {['chest', 'back', 'legs', 'shoulders', 'arms', 'core'].map(muscle => (
-        <TouchableOpacity
-          key={muscle}
-          onPress={() => onSelectMuscleGroup(muscle)}
-          style={{
-            backgroundColor: selectedMuscleGroups.includes(muscle) ? Colors.primaryBlue : '#f0f0f0',
-            padding: 8,
-            borderRadius: 8,
-            margin: 4
-          }}
-        >
-          <Text style={{ color: selectedMuscleGroups.includes(muscle) ? 'white' : 'black' }}>
-            {muscle.charAt(0).toUpperCase() + muscle.slice(1)}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-};
-interface MuscleGroupBadgeProps {
-  name: string;
-  isPrimary?: boolean;
-}
-const MuscleGroupBadge: React.FC<MuscleGroupBadgeProps> = ({ name, isPrimary = false }) => {
-  return (
-    <View style={{
-      backgroundColor: isPrimary ? Colors.primaryBlue : Colors.secondaryGreen,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 16,
-      marginRight: 8,
-      marginBottom: 8
-    }}>
-      <Text style={{ color: 'white', fontWeight: '500' }}>
-        {name.charAt(0).toUpperCase() + name.slice(1)}
-      </Text>
-    </View>
-  );
-};
+
 // Add the WorkoutLogModal component since it's used in the JSX
 interface WorkoutLogModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (data: WorkoutLogData) => void;
+  // eslint-disable-next-line no-unused-vars
+  onSave: (logData: WorkoutLogData) => void;
   initialData?: WorkoutLogData;
 }
 const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ 
@@ -229,754 +163,759 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
     </Modal>
   );
 };
+
+// Helper functions for metrics
+const getMetricLabel = (metric: ChartMetric): string => {
+  switch (metric) {
+    case 'weight':
+      return 'Weight';
+    case 'reps':
+      return 'Reps';
+    case 'volume':
+      return 'Volume';
+    default:
+      return '';
+  }
+};
+
+// Interface for route params
+interface ExerciseDetailRouteParams {
+  exerciseId: string;
+}
+
 // Main component
 const ExerciseDetailScreen: React.FC = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'ExerciseDetail'>>();
-  const route = useRoute<ExerciseDetailRouteProp>();
-  const { exerciseId } = route.params;
+  const navigation = useNavigation();
+  const route = useRoute();
+  const params = route.params as ExerciseDetailRouteParams;
+  const { exerciseId } = params;
+  
   const {
     getExerciseById,
-    getMuscleInfo,
     toggleFavorite,
     isFavorite,
-    userGoal,
     darkMode,
   } = useContext(ExerciseContext);
+  
   const exercise = getExerciseById(exerciseId);
   const insets = useSafeAreaInsets();
   const theme = darkMode ? Theme.dark : Theme.light;
-  const { width } = Dimensions.get('window');
-  // States for logging and history
-  const [logModalVisible, setLogModalVisible] = useState<boolean>(false);
-  const [editingSet, setEditingSet] = useState<WorkoutSet | null>(null);
-  const [exerciseHistory, setExerciseHistory] = useState<ExerciseHistoryEntry[]>([]);
-  const [personalRecords, setPersonalRecords] = useState<PersonalRecords>({
-    weight: { value: 0, date: null },
-    reps: { value: 0, date: null },
-    volume: { value: 0, date: null }
-  });
-  const [nextWorkout, setNextWorkout] = useState<NextWorkoutRecommendation | null>(null);
-  // States for progress filtering & chart
-  const [timeRange, setTimeRange] = useState<TimeRange>('30');
-  const [chartMetric, setChartMetric] = useState<ChartMetric>('weight');
-  const [chartData, setChartData] = useState<ChartData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [showFullDescription, setShowFullDescription] = useState<boolean>(false);
-  const [relatedExercises, setRelatedExercises] = useState<Exercise[]>([]);
+  
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
-  const headerOpacity = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  // Derived values for header animations
-  const HEADER_MAX_HEIGHT = 300;
-  const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 90 + insets.top : 70;
-  const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
-  // Setup animations
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 150],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  
+  // States for logging and history
+  const [logModalVisible, setLogModalVisible] = useState<boolean>(false);
+  const [exerciseHistory] = useState<ExerciseHistoryEntry[]>([]); // Keep this for reference in the render
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(true);
+  const [chartMetric, setChartMetric] = useState<ChartMetric>('weight');
+  const [timeRange, setTimeRange] = useState<TimeRange>('30');
+  
+  // Function to load exercise data
+  const loadExerciseData = useCallback(() => {
+    // Mock implementation - would be replaced with actual data loading
+    setIsLoadingHistory(false);
+  }, []); // Remove unnecessary dependency
+  
+  // Handle workout logging
+  const handleLogWorkout = useCallback(() => {
+    setLogModalVisible(true);
   }, []);
-  // Animation interpolations
-  const headerHeight = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE],
-    outputRange: [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
-    extrapolate: 'clamp',
-  });
-  const headerTitleOpacity = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE * 0.6, HEADER_SCROLL_DISTANCE],
-    outputRange: [0, 0, 1],
-    extrapolate: 'clamp',
-  });
-  const imageOpacity = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
-    outputRange: [1, 0.5, 0],
-    extrapolate: 'clamp',
-  });
-  const imageTranslateY = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE],
-    outputRange: [0, -50],
-    extrapolate: 'clamp',
-  });
-  const headerBackgroundColor = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE],
-    outputRange: ['transparent', theme.card],
-    extrapolate: 'clamp',
-  });
-  // Chart configuration
-  const chartConfig = {
-    backgroundGradientFrom: theme.card,
-    backgroundGradientTo: theme.card,
-    decimalPlaces: chartMetric === 'weight' || chartMetric === 'volume' ? 1 : 0,
-    color: (opacity = 1) => `rgba(10, 108, 255, ${opacity})`,
-    labelColor: (opacity = 1) => theme.textSecondary,
-    style: {
-      borderRadius: BorderRadius.lg,
-    },
-    propsForDots: {
-      r: '5',
-      strokeWidth: '2',
-      stroke: Colors.primaryBlue,
-    },
-    propsForBackgroundLines: {
-      stroke: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
-      strokeDasharray: '5, 5',
-    },
-  };
-  // Load exercise data
-  useEffect(() => {
-    async function loadExerciseData() {
-      setIsLoading(true);
-      try {
-        // Generate mock exercise history for now
-        const mockHistory = generateMockExerciseHistory();
-        setExerciseHistory(mockHistory);
-        // Calculate personal records
-        const records = calculatePersonalRecords(mockHistory);
-        setPersonalRecords(records);
-        // Update chart with current metric and time range
-        updateChartData(mockHistory, chartMetric, timeRange);
-        // Mock related exercises
-        setRelatedExercises([]);
-      } catch (error) {
-        console.error('Error loading exercise data', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadExerciseData();
-  }, [exerciseId, exercise]);
-  // Update chart data when metric or time range changes
-  useEffect(() => {
-    updateChartData(exerciseHistory, chartMetric, timeRange);
-  }, [chartMetric, timeRange, exerciseHistory]);
-  // Calculate personal records from history
-  const calculatePersonalRecords = (history: ExerciseHistoryEntry[]): PersonalRecords => {
-    if (!history || history.length === 0) {
-      return {
-        weight: { value: 0, date: null },
-        reps: { value: 0, date: null },
-        volume: { value: 0, date: null }
-      };
-    }
-    let records: PersonalRecords = {
-      weight: { value: 0, date: null },
-      reps: { value: 0, date: null },
-      volume: { value: 0, date: null }
-    };
-    history.forEach(session => {
-      // Find max weight for a single set
-      const maxWeightSet = session.sets.reduce((max, set) => 
-        (set.weight > max.weight) ? set : max, { weight: 0 } as WorkoutSet);
-      if (maxWeightSet.weight > records.weight.value) {
-        records.weight = { 
-          value: maxWeightSet.weight, 
-          date: session.date 
-        };
-      }
-      // Find max reps for a single set
-      const maxRepsSet = session.sets.reduce((max, set) => 
-        (set.reps > max.reps) ? set : max, { reps: 0 } as WorkoutSet);
-      if (maxRepsSet.reps > records.reps.value) {
-        records.reps = { 
-          value: maxRepsSet.reps, 
-          date: session.date 
-        };
-      }
-      // Calculate total volume for the session (weight × reps for all sets)
-      const totalVolume = session.sets.reduce((sum, set) => 
-        sum + (set.weight * set.reps), 0);
-      if (totalVolume > records.volume.value) {
-        records.volume = { 
-          value: totalVolume, 
-          date: session.date 
-        };
-      }
-    });
-    return records;
-  };
-  // Update chart data based on selected metric and time range
-  const updateChartData = (history: ExerciseHistoryEntry[], metric: ChartMetric, range: TimeRange): void => {
-    if (!history || history.length === 0) {
-      setChartData(null);
-      return;
-    }
-    // Filter history based on time range
-    const filteredHistory = getFilteredHistory(history, range);
-    if (filteredHistory.length === 0) {
-      setChartData(null);
-      return;
-    }
-    // Sort history by date (oldest first)
-    const sortedHistory = [...filteredHistory].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-    // Generate data points based on the selected metric
-    let labels: string[] = [];
-    let data: number[] = [];
-    // Limit to 7 data points for clarity
-    const step = Math.max(1, Math.floor(sortedHistory.length / 7));
-    const limitedHistory = sortedHistory.filter((_, index) => index % step === 0 || index === sortedHistory.length - 1);
-    limitedHistory.forEach(session => {
-      const date = new Date(session.date);
-      // Format the label based on time range
-      let label;
-      if (range === '7') {
-        label = format(date, 'E'); // Day of week (Mon, Tue, etc.)
-      } else if (range === '30') {
-        label = format(date, 'MM/dd'); // Month/day
-      } else {
-        label = format(date, 'MM/yy'); // Month/year
-      }
-      labels.push(label);
-      switch (metric) {
-        case 'weight':
-          // Use the max weight from the session
-          const maxWeight = session.sets.reduce((max, set) => 
-            Math.max(max, set.weight), 0);
-          data.push(maxWeight);
-          break;
-        case 'reps':
-          // Use the max reps from the session
-          const maxReps = session.sets.reduce((max, set) => 
-            Math.max(max, set.reps), 0);
-          data.push(maxReps);
-          break;
-        case 'volume':
-          // Calculate total volume (weight × reps for all sets)
-          const totalVolume = session.sets.reduce((sum, set) => 
-            sum + (set.weight * set.reps), 0);
-          data.push(totalVolume);
-          break;
-      }
-    });
-    setChartData({
-      labels,
-      datasets: [
-        {
-          data,
-          color: (opacity = 1) => `rgba(10, 108, 255, ${opacity})`,
-          strokeWidth: 2
-        }
-      ],
-      legend: [getMetricLabel(metric)]
-    });
-  };
-  // Utility: Filter history based on timeRange selection
-  const getFilteredHistory = (history: ExerciseHistoryEntry[], range: TimeRange): ExerciseHistoryEntry[] => {
-    if (!history) return [];
-    const now = new Date();
-    if (range === 'all') {
-      return history;
-    }
-    return history.filter(entry => {
-      const entryDate = new Date(entry.date);
-      const daysDiff = (now.getTime() - entryDate.getTime()) / (1000 * 3600 * 24);
-      return daysDiff <= Number(range);
-    });
-  };
-  // Get formatted label for the selected metric
-  const getMetricLabel = (metric: ChartMetric): string => {
-    switch (metric) {
-      case 'weight':
-        return 'Weight (kg)';
-      case 'reps':
-        return 'Repetitions';
-      case 'volume':
-        return 'Total Volume (kg)';
-      default:
-        return metric;
-    }
-  };
-  // Handle share exercise
-  const handleShareExercise = async (): Promise<void> => {
+  
+  // Handle sharing the exercise
+  const handleShareExercise = useCallback(async () => {
     if (!exercise) return;
+    
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await Share.share({
-        message: `Check out this exercise in GymTrackPro: ${exercise.name}\n\n${exercise.instructions}`,
-        title: `GymTrackPro - ${exercise.name}`
+        message: `Check out this exercise: ${exercise.name}`,
+        title: 'GymTrackPro Exercise'
       });
     } catch (error) {
       console.error('Error sharing exercise:', error);
     }
-  };
-  // De-structure data for muscles and rep ranges
-  const secondaryMuscles = exercise?.secondaryMuscles?.map((id: string) => getMuscleInfo(id)) || [];
-  // Toggle favorite with haptic feedback
-  const handleToggleFavorite = (): void => {
-    if (!exercise) return;
-    if (isFavorite(exercise.id)) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [exercise]);
+  
+  // Handle setting workout data
+  const setWorkoutSet = useCallback((data: WorkoutLogData) => {
+    // This would normally save the workout data
+    console.log('Saving workout data:', data);
+    // Update UI to reflect new data
+    setLogModalVisible(false);
+  }, []);
+  
+  // Generate mock data for demo purposes
+  useEffect(() => {
+    if (exercise) {
+      loadExerciseData();
     }
-    toggleFavorite(exercise.id);
-  };
-  // Handle log workout
-  const handleLogWorkout = (): void => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLogModalVisible(true);
-  };
-  // Helper function to generate mock exercise history
-  function generateMockExerciseHistory(): ExerciseHistoryEntry[] {
-    const today = new Date();
-    const history: ExerciseHistoryEntry[] = [];
-    // Create 5 workout entries spread over the last 30 days
-    for (let i = 0; i < 5; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i * 6); // Spread over the past 30 days
-      const sets: WorkoutSet[] = [];
-      // Generate random sets
-      const numSets = Math.floor(Math.random() * 3) + 2; // 2-4 sets
-      for (let j = 0; j < numSets; j++) {
-        sets.push({
-          id: `set-${i}-${j}`,
-          weight: Math.floor(Math.random() * 30) + 20, // 20-50 kg
-          reps: Math.floor(Math.random() * 8) + 6, // 6-13 reps
-          isCompleted: true,
-          type: 'normal'
-        });
-      }
-      history.push({
-        id: `workout-${i}`,
-        date: format(date, 'yyyy-MM-dd'),
-        sets
-      });
-    }
-    return history;
-  }
-  // Fix the completed prop to isCompleted in the setWorkoutSet call
-  const setWorkoutSet = (set: WorkoutSet) => {
-    // Code to set the workout set
-    return {
-      ...set,
-      isCompleted: true,
-    };
-  };
+  }, [exercise, loadExerciseData]);
+  
   if (!exercise) {
     return (
-      <Container>
-        <View style={styles.loadingContainer}>
-          <FadeIn>
-            <ActivityIndicator size="large" color={Colors.primaryBlue} />
-            <Text variant="body" style={styles.loadingText}>
-              Exercise not found
-            </Text>
-          </FadeIn>
-        </View>
+      <Container style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={{ marginTop: Spacing.md, color: theme.textSecondary }}>
+          Loading exercise details...
+        </Text>
       </Container>
     );
   }
-  return (
-    <Container>
-      {/* Animated Header */}
-      <Animated.View style={[styles.header, { height: headerHeight }]}>
-        {/* Background Image */}
-        <Animated.View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            opacity: imageOpacity,
-            transform: [{ translateY: imageTranslateY }],
-          }}
-        >
-          {exercise.image ? (
-            <Image source={{ uri: exercise.image }} style={styles.exerciseImage} />
-          ) : (
-            <View
-              style={[
-                styles.exerciseImage,
-                { backgroundColor: theme.primary }
-              ]}
-            />
-          )}
-          {/* Gradient overlay */}
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 100,
-            }}
+
+  // Function to render the header image section
+  const renderHeroSection = () => {
+    return (
+      <View style={styles.heroContainer}>
+        {exercise.imageUrl ? (
+          <Image 
+            source={{ uri: exercise.imageUrl }} 
+            style={styles.heroImage}
+            resizeMode="cover"
           />
-        </Animated.View>
-        {/* Back button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
-        </TouchableOpacity>
-        {/* Fixed header title (visible on scroll) */}
-        <Animated.View
-          style={[
-            styles.headerTitle,
-            {
-              opacity: headerTitleOpacity,
-              backgroundColor: headerBackgroundColor,
-            },
-          ]}
-        >
-          <Text variant="title" style={{ color: theme.text }}>
-            {exercise.name}
-          </Text>
-        </Animated.View>
-        {/* Header content (title and info) */}
-        <View style={styles.headerContent}>
-          <Text variant="heading2" style={{ color: '#FFF' }}>
-            {exercise.name}
-          </Text>
-        </View>
-      </Animated.View>
-      {/* Main scroll content */}
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { backgroundColor: theme.background }
-        ]}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
+        ) : (
+          <View style={[styles.heroImagePlaceholder, { backgroundColor: theme.cardElevated }]}>
+            <Ionicons name="barbell-outline" size={80} color={theme.textSecondary} />
+          </View>
         )}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Exercise information section */}
-        <FadeIn>
-          <View style={styles.section}>
-            <Text variant="heading3" style={[styles.sectionTitle, { color: theme.text }]}>
-              Information
-            </Text>
-            <View style={styles.chipContainer}>
-              {/* Equipment */}
-              <View style={[styles.chip, { backgroundColor: `${theme.primary}20` }]}>
-                <Ionicons name="barbell-outline" size={16} color={theme.primary} />
-                <Text variant="caption" style={[styles.chipText, { color: theme.text }]}>
-                  {exercise.equipment}
-                </Text>
-              </View>
-              {/* Difficulty */}
-              <View style={[styles.chip, { backgroundColor: `${theme.secondary}20` }]}>
-                <Ionicons name="speedometer-outline" size={16} color={theme.secondary} />
-                <Text variant="caption" style={[styles.chipText, { color: theme.text }]}>
-                  {exercise.difficulty}
-                </Text>
-              </View>
-            </View>
-            {/* Description */}
-            <Card style={{ marginBottom: Spacing.md }}>
-              <Text variant="body" style={{ color: theme.text }}>
-                {showFullDescription
-                  ? exercise.description
-                  : exercise.description?.length > 120
-                  ? exercise.description.substring(0, 120) + '...'
-                  : exercise.description}
-              </Text>
-              {exercise.description?.length > 120 && (
-                <TouchableOpacity
-                  onPress={() => setShowFullDescription(!showFullDescription)}
-                  style={{ marginTop: Spacing.sm }}
-                >
-                  <Text variant="caption" style={{ color: theme.primary }}>
-                    {showFullDescription ? 'Read less' : 'Read more'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </Card>
-          </View>
-        </FadeIn>
-        {/* Muscle Visualization Section */}
-        <FadeIn>
-          <View style={styles.section}>
-            <Text variant="heading3" style={[styles.sectionTitle, { color: theme.text }]}>
-              Muscle Groups
-            </Text>
-            <Card style={{ marginBottom: Spacing.md, alignItems: 'center' }}>
-              <MuscleGroupSelector
-                selectedMuscleGroups={[]}
-                onSelectMuscleGroup={() => {}}
-              />
-              {/* Muscle Group Badges */}
-              <View style={styles.muscleGroupBadges}>
-                {exercise.muscleGroups && exercise.muscleGroups.length > 0 && (
-                  <>
-                    <Text variant="bodySmall" style={{ marginRight: Spacing.sm, color: theme.textSecondary }}>
-                      Primary:
-                    </Text>
-                    <MuscleGroupBadge
-                      name={exercise.muscleGroups[0]}
-                      isPrimary={true}
-                    />
-                  </>
-                )}
-                {exercise.secondaryMuscles && exercise.secondaryMuscles.length > 0 && (
-                  <>
-                    <Text variant="bodySmall" style={{ marginRight: Spacing.sm, color: theme.textSecondary }}>
-                      Secondary:
-                    </Text>
-                    <View style={styles.scrollableBadges}>
-                      {exercise.secondaryMuscles.map((muscle) => (
-                        <MuscleGroupBadge
-                          key={muscle}
-                          name={muscle}
-                        />
-                      ))}
-                    </View>
-                  </>
-                )}
-              </View>
-            </Card>
-          </View>
-        </FadeIn>
-        {/* Log workout button for small screens */}
-        <View style={{ marginBottom: Spacing.xl }}>
-          <Button 
-            title="Log Exercise" 
-            icon="add-circle-outline"
-            type="primary"
-            onPress={handleLogWorkout}
-          />
-        </View>
-      </ScrollView>
-      {/* Bottom action bar */}
-      <View style={[
-        styles.buttonBar,
-        { 
-          backgroundColor: theme.background,
-          borderTopColor: theme.border,
-          paddingBottom: Platform.OS === 'ios' ? (insets.bottom + Spacing.sm) : Spacing.md
-        }
-      ]}>
-        <Button
-          title={isFavorite(exercise.id) ? 'Favorited' : 'Favorite'}
-          icon={isFavorite(exercise.id) ? 'heart' : 'heart-outline'}
-          type={isFavorite(exercise.id) ? 'secondary' : 'tertiary'}
-          onPress={handleToggleFavorite}
-          style={{ marginRight: Spacing.md }}
+        
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)']}
+          style={styles.heroGradient}
         />
+        
+        <View style={styles.heroContent}>
+          <View>
+            <Text style={styles.exerciseName}>{exercise.name}</Text>
+            
+            <View style={styles.exerciseMetaContainer}>
+              <View style={styles.difficultyBadge}>
+                <Text style={styles.difficultyText}>
+                  {exercise.difficulty.charAt(0).toUpperCase() + exercise.difficulty.slice(1)}
+                </Text>
+              </View>
+              
+              <Text style={styles.equipmentText}>
+                {Array.isArray(exercise.equipment)
+                  ? exercise.equipment[0].charAt(0).toUpperCase() + exercise.equipment[0].slice(1)
+                  : exercise.equipment.charAt(0).toUpperCase() + exercise.equipment.slice(1)
+                }
+              </Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.favoriteButton}
+            onPress={() => toggleFavorite(exerciseId)}
+          >
+            <Ionicons 
+              name={isFavorite(exerciseId) ? "heart" : "heart-outline"} 
+              size={28} 
+              color={isFavorite(exerciseId) ? Colors.accentOrange : "white"} 
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+  
+  // Function to render the muscle group visualization
+  const renderMuscleGroups = () => {
+    const primaryMuscle = exercise.primaryMuscleGroup || (exercise.primaryMuscles && exercise.primaryMuscles[0]);
+    const secondaryMuscles = exercise.secondaryMuscles || [];
+    
+    // Cast the muscle groups to the proper type
+    const primaryMuscleTyped = primaryMuscle as MuscleGroup;
+    const secondaryMusclesTyped = (secondaryMuscles as unknown) as MuscleGroup[];
+    
+    return (
+      <Card style={styles.sectionCard}>
+        <Text variant="subtitle" style={styles.sectionTitle}>
+          Target Muscles
+        </Text>
+        
+        <MuscleMap
+          primaryMuscle={primaryMuscleTyped}
+          secondaryMuscles={secondaryMusclesTyped}
+          onSelectMuscle={() => {}}
+        />
+        
+        <View style={styles.muscleLabels}>
+          <View style={styles.muscleLabelItem}>
+            <View style={[styles.muscleLabelDot, { backgroundColor: Colors.primaryBlue }]} />
+            <Text style={{ color: theme.text }}>Primary muscles</Text>
+          </View>
+          
+          <View style={styles.muscleLabelItem}>
+            <View style={[styles.muscleLabelDot, { backgroundColor: Colors.secondaryGreen }]} />
+            <Text style={{ color: theme.text }}>Secondary muscles</Text>
+          </View>
+        </View>
+      </Card>
+    );
+  };
+  
+  // Function to render instructions
+  const renderInstructions = () => {
+    return (
+      <Card style={styles.sectionCard}>
+        <Text variant="subtitle" style={styles.sectionTitle}>
+          Instructions
+        </Text>
+        
+        {exercise.instructions.map((instruction, index) => (
+          <View key={index} style={styles.instructionItem}>
+            <View style={styles.instructionNumber}>
+              <Text style={styles.instructionNumberText}>{index + 1}</Text>
+            </View>
+            <Text style={[styles.instructionText, { color: theme.text }]}>
+              {instruction}
+            </Text>
+          </View>
+        ))}
+      </Card>
+    );
+  };
+  
+  // Function to render the form tips
+  const renderFormTips = () => {
+    return (
+      <Card style={styles.sectionCard}>
+        <Text variant="subtitle" style={styles.sectionTitle}>
+          Form Tips
+        </Text>
+        
+        <View style={styles.formTipsContainer}>
+          <Ionicons name="information-circle-outline" size={20} color={theme.primary} />
+          <Text style={[styles.formTipText, { color: theme.text }]}>
+            Keep your back straight throughout the movement.
+          </Text>
+        </View>
+        
+        <View style={styles.formTipsContainer}>
+          <Ionicons name="information-circle-outline" size={20} color={theme.primary} />
+          <Text style={[styles.formTipText, { color: theme.text }]}>
+            Focus on controlled movement, rather than lifting heavy weights.
+          </Text>
+        </View>
+        
+        <View style={styles.formTipsContainer}>
+          <Ionicons name="information-circle-outline" size={20} color={theme.primary} />
+          <Text style={[styles.formTipText, { color: theme.text }]}>
+            Breathe out during the exertion phase of the exercise.
+          </Text>
+        </View>
+      </Card>
+    );
+  };
+  
+  // Function to render history chart
+  const renderHistoryChart = () => {
+    return (
+      <Card style={styles.sectionCard}>
+        <Text variant="subtitle" style={styles.sectionTitle}>
+          Your Performance
+        </Text>
+        
+        <View style={styles.chartControls}>
+          <View style={styles.metricSelector}>
+            {['weight', 'reps', 'volume'].map((metric) => (
+              <TouchableOpacity
+                key={metric}
+                style={[
+                  styles.metricButton,
+                  chartMetric === metric && styles.metricButtonActive,
+                  { borderColor: theme.border }
+                ]}
+                onPress={() => setChartMetric(metric as ChartMetric)}
+              >
+                <Text
+                  style={[
+                    styles.metricButtonText,
+                    chartMetric === metric && styles.metricButtonTextActive,
+                    { color: chartMetric === metric ? theme.primary : theme.textSecondary }
+                  ]}
+                >
+                  {getMetricLabel(metric as ChartMetric)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          
+          <View style={styles.timeRangeSelector}>
+            {['7', '30', '90', 'all'].map((range) => (
+              <TouchableOpacity
+                key={range}
+                style={[
+                  styles.timeButton,
+                  timeRange === range && styles.timeButtonActive,
+                  { borderColor: theme.border }
+                ]}
+                onPress={() => setTimeRange(range as TimeRange)}
+              >
+                <Text
+                  style={[
+                    styles.timeButtonText,
+                    timeRange === range && styles.timeButtonTextActive,
+                    { color: timeRange === range ? theme.primary : theme.textSecondary }
+                  ]}
+                >
+                  {range === 'all' ? 'All' : range + 'd'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        
+        {isLoadingHistory ? (
+          <View style={styles.chartPlaceholder}>
+            <ActivityIndicator size="large" color={theme.primary} />
+          </View>
+        ) : exerciseHistory.length === 0 ? (
+          <View style={styles.chartPlaceholder}>
+            <Ionicons name="analytics-outline" size={40} color={theme.textSecondary} />
+            <Text style={[styles.noDataText, { color: theme.textSecondary }]}>
+              No history data yet
+            </Text>
+            <Button 
+              title="Log your first set" 
+              onPress={handleLogWorkout} 
+              type="primary"
+              size="small"
+              style={styles.logButton}
+            />
+          </View>
+        ) : (
+          <View style={styles.chartContainer}>
+            {/* Chart component would go here */}
+            <View style={styles.chartPlaceholder}>
+              <Text style={{ color: theme.textSecondary }}>
+                Chart visualization
+              </Text>
+            </View>
+          </View>
+        )}
+      </Card>
+    );
+  };
+  
+  // Function to render similar exercises
+  const renderSimilarExercises = () => {
+    return (
+      <Card style={styles.sectionCard}>
+        <Text variant="subtitle" style={styles.sectionTitle}>
+          Similar Exercises
+        </Text>
+        
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.similarExercisesContainer}
+        >
+          {[1, 2, 3].map((_, index) => (
+            <TouchableOpacity key={index} style={styles.similarExerciseCard}>
+              <View style={styles.similarExerciseImageContainer}>
+                <View style={[styles.similarExerciseImage, { backgroundColor: theme.cardElevated }]}>
+                  <Ionicons name="barbell-outline" size={24} color={theme.textSecondary} />
+                </View>
+              </View>
+              <Text style={[styles.similarExerciseName, { color: theme.text }]}>
+                {index === 0 ? 'Dumbbell Press' : index === 1 ? 'Incline Press' : 'Push-ups'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </Card>
+    );
+  };
+  
+  // Render action button to add to workout
+  const renderActionButton = () => {
+    return (
+      <View style={[styles.actionButtonContainer, { paddingBottom: insets.bottom + Spacing.md }]}>
         <Button
-          title="Log Exercise"
-          icon="add-circle-outline"
+          title="Add to Workout"
+          onPress={() => {}}
           type="primary"
-          onPress={handleLogWorkout}
-          style={{ flex: 1 }}
+          fullWidth
+          icon="add-outline"
         />
       </View>
-      {/* Workout log modal */}
-      {logModalVisible && (
-        <WorkoutLogModal
-          visible={logModalVisible}
-          onClose={() => setLogModalVisible(false)}
-          onSave={(data) => {
-            console.log('Workout logged:', data);
-            setLogModalVisible(false);
-          }}
-        />
-      )}
-    </Container>
+    );
+  };
+  
+  // Main render
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Animated Header */}
+      <Animated.View
+        style={[
+          styles.animatedHeader,
+          {
+            backgroundColor: theme.background,
+            opacity: headerOpacity,
+            paddingTop: insets.top,
+            borderBottomColor: theme.border,
+          },
+        ]}
+      >
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color={theme.text} />
+          </TouchableOpacity>
+          <Text
+            style={[styles.headerTitle, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {exercise.name}
+          </Text>
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={handleShareExercise}
+          >
+            <Ionicons name="share-outline" size={24} color={theme.text} />
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+      
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + 100, // Extra space for the action button
+        }}
+      >
+        {/* Hero Section with Image */}
+        {renderHeroSection()}
+        
+        {/* Exercise Description */}
+        <View style={styles.contentContainer}>
+          <Card style={styles.descriptionCard}>
+            <Text style={[styles.descriptionText, { color: theme.text }]}>
+              {exercise.description}
+            </Text>
+          </Card>
+          
+          {/* Muscle Group Visualization */}
+          {renderMuscleGroups()}
+          
+          {/* Instructions */}
+          {renderInstructions()}
+          
+          {/* Form Tips */}
+          {renderFormTips()}
+          
+          {/* History Chart */}
+          {renderHistoryChart()}
+          
+          {/* Similar Exercises */}
+          {renderSimilarExercises()}
+        </View>
+      </Animated.ScrollView>
+      
+      {/* Back Button (absolute positioned) */}
+      <TouchableOpacity
+        style={[styles.absoluteBackButton, { top: insets.top + Spacing.sm }]}
+        onPress={() => navigation.goBack()}
+      >
+        <View style={[styles.backButtonCircle, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}>
+          <Ionicons name="arrow-back" size={24} color="#FFF" />
+        </View>
+      </TouchableOpacity>
+      
+      {/* Action Button at bottom */}
+      {renderActionButton()}
+      
+      {/* Log Workout Modal */}
+      <WorkoutLogModal
+        visible={logModalVisible}
+        onClose={() => setLogModalVisible(false)}
+        onSave={setWorkoutSet}
+      />
+    </View>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: Spacing.md,
-    textAlign: 'center',
-  },
-  header: {
+  animatedHeader: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    overflow: 'hidden',
-    zIndex: 10,
+    height: 60,
+    zIndex: 100,
+    borderBottomWidth: 1,
   },
   headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    height: 60,
+  },
+  backButton: {
+    padding: Spacing.xs,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
+  },
+  shareButton: {
+    padding: Spacing.xs,
+  },
+  heroContainer: {
+    height: 300,
+    position: 'relative',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroGradient: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+    height: 100,
   },
-  headerTitle: {
+  heroContent: {
     position: 'absolute',
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+    padding: Spacing.lg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  exerciseName: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: Spacing.xs,
+  },
+  exerciseMetaContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+  difficultyBadge: {
+    backgroundColor: Colors.accentOrange,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs / 2,
+    borderRadius: BorderRadius.pill,
+    marginRight: Spacing.sm,
+  },
+  difficultyText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  equipmentText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  favoriteButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'center',
-    margin: Spacing.md,
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 40 : 20,
-    left: 0,
-    zIndex: 20,
   },
-  exerciseImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+  contentContainer: {
+    padding: Spacing.lg,
   },
-  scrollContent: {
-    paddingTop: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-    paddingBottom: 100,
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
+  descriptionCard: {
+    marginBottom: Spacing.md,
   },
-  section: {
-    marginBottom: Spacing.xl,
+  descriptionText: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  sectionCard: {
+    marginBottom: Spacing.md,
   },
   sectionTitle: {
     marginBottom: Spacing.md,
+    fontWeight: '600',
   },
-  sectionSubtitle: {
-    marginBottom: Spacing.sm,
-  },
-  chipContainer: {
+  muscleLabels: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: Spacing.md,
+    marginTop: Spacing.md,
+    justifyContent: 'space-around',
   },
-  chip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.pill,
-    marginRight: 8,
-    marginBottom: 8,
+  muscleLabelItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  chipText: {
-    marginLeft: 4,
+  muscleLabelDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: Spacing.xs,
   },
-  instruction: {
+  instructionItem: {
+    flexDirection: 'row',
+    marginBottom: Spacing.md,
+  },
+  instructionNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.primaryBlue,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.sm,
+  },
+  instructionNumberText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  formTipsContainer: {
     flexDirection: 'row',
     marginBottom: Spacing.md,
     alignItems: 'flex-start',
   },
-  instructionNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.sm,
-  },
-  instructionText: {
+  formTipText: {
+    marginLeft: Spacing.xs,
     flex: 1,
+    fontSize: 16,
+    lineHeight: 24,
   },
-  statsCard: {
+  chartControls: {
     marginBottom: Spacing.md,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.md,
-  },
-  statItem: {
-    alignItems: 'center',
-    width: '30%',
-  },
-  recordValue: {
-    textAlign: 'center',
-  },
-  recordLabel: {
-    textAlign: 'center',
-  },
-  recordDate: {
-    textAlign: 'center',
-  },
-  chartContainer: {
-    marginVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
-  },
-  timeRangeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: Spacing.md,
-  },
-  timeRangeButton: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.pill,
   },
   metricSelector: {
     flexDirection: 'row',
-    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   metricButton: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
+    paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.pill,
-    marginRight: 8,
+    borderWidth: 1,
+    marginRight: Spacing.xs,
   },
-  buttonBar: {
+  metricButtonActive: {
+    backgroundColor: `${Colors.primaryBlue}15`,
+    borderColor: Colors.primaryBlue,
+  },
+  metricButtonText: {
+    fontSize: 14,
+  },
+  metricButtonTextActive: {
+    fontWeight: '600',
+  },
+  timeRangeSelector: {
+    flexDirection: 'row',
+  },
+  timeButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.pill,
+    borderWidth: 1,
+    marginRight: Spacing.xs,
+  },
+  timeButtonActive: {
+    backgroundColor: `${Colors.primaryBlue}15`,
+    borderColor: Colors.primaryBlue,
+  },
+  timeButtonText: {
+    fontSize: 14,
+  },
+  timeButtonTextActive: {
+    fontWeight: '600',
+  },
+  chartContainer: {
+    minHeight: 200,
+  },
+  chartPlaceholder: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noDataText: {
+    marginVertical: Spacing.md,
+    fontSize: 16,
+  },
+  logButton: {
+    marginTop: Spacing.sm,
+  },
+  similarExercisesContainer: {
+    paddingBottom: Spacing.xs,
+  },
+  similarExerciseCard: {
+    width: 120,
+    marginRight: Spacing.md,
+  },
+  similarExerciseImageContainer: {
+    height: 90,
+    width: 120,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+    marginBottom: Spacing.xs,
+  },
+  similarExerciseImage: {
+    height: '100%',
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  similarExerciseName: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  absoluteBackButton: {
+    position: 'absolute',
+    left: Spacing.md,
+    zIndex: 50,
+  },
+  backButtonCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionButtonContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     padding: Spacing.md,
     borderTopWidth: 1,
-  },
-  favoriteButton: {
-    marginRight: Spacing.md,
-  },
-  relatedExerciseCard: {
-    marginRight: Spacing.md,
-  },
-  relatedExerciseImage: {
-    width: '100%',
-    height: 120,
-    marginBottom: Spacing.sm,
-  },
-  muscleGroupBadges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    marginTop: Spacing.md,
-    paddingHorizontal: Spacing.sm,
-  },
-  scrollableBadges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
   },
 });
+
 export default ExerciseDetailScreen; 

@@ -10,7 +10,8 @@ import {
   Animated,
   RefreshControl,
   ActivityIndicator,
-  ImageStyle
+  ImageStyle,
+  Dimensions
 } from 'react-native';
 import { db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -19,7 +20,7 @@ import { ExerciseContext } from '../context/ExerciseContext';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import {Theme, Spacing, BorderRadius} from '../constants/Theme';
+import {Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
 import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
 import {formatDistance} from 'date-fns';
@@ -29,7 +30,8 @@ import {
   Button, 
   Card, 
   Container, 
-  FadeIn 
+  FadeIn,
+  ProgressBar
 } from '../components/ui';
 // Types
 import { RootStackParamList } from '../navigation/NavigationTypes';
@@ -78,13 +80,51 @@ interface Achievement {
 // Screen params type
 type FriendProfileScreenRouteProp = RouteProp<RootStackParamList, 'FriendProfileScreen'>;
 type FriendProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'FriendProfileScreen'>;
+// Define types for Friend data
+interface FriendProfile {
+  id: string;
+  username: string;
+  profilePic?: string;
+  joinDate: string;
+  stats: {
+    workouts: number;
+    streak: number;
+    followers: number;
+    following: number;
+  };
+  bio?: string;
+  isFollowing: boolean;
+  recentActivity?: Activity[];
+  sharedWorkouts?: SharedWorkout[];
+  firestoreSets?: WorkoutSet[];
+  firestoreWeightLog?: WeightLogEntry[];
+}
+
+interface Activity {
+  id: string;
+  type: 'workout' | 'achievement' | 'follow';
+  date: string;
+  description: string;
+  details?: any;
+}
+
+interface SharedWorkout {
+  id: string;
+  name: string;
+  date: string;
+  exerciseCount: number;
+  duration: number;
+  muscleGroups: string[];
+}
+
 const FriendProfileScreen: React.FC = () => {
   const navigation = useNavigation<FriendProfileScreenNavigationProp>();
   const route = useRoute<FriendProfileScreenRouteProp>();
   const { userId } = route.params;
   const { user } = useContext(AuthContext);
   const { darkMode } = useContext(ExerciseContext);
-  const [friendData, setFriendData] = useState<UserData | null>(null);
+  const { width } = Dimensions.get('window');
+  const [friendProfile, setFriendProfile] = useState<FriendProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -115,7 +155,7 @@ const FriendProfileScreen: React.FC = () => {
       const snap = await getDoc(ref);
       if (snap.exists()) {
         const data = snap.data() as UserData;
-        setFriendData(data);
+        setFriendProfile(data as FriendProfile);
         generateAchievements(data);
       } else {
         Alert.alert('Error', 'Friend profile not found.');
@@ -293,7 +333,7 @@ const FriendProfileScreen: React.FC = () => {
             <ActivityIndicator size="large" color={theme.primary} />
           </View>
         </FadeIn>
-      ) : friendData ? (
+      ) : friendProfile ? (
         <>
           <Animated.View
             style={[
@@ -311,30 +351,28 @@ const FriendProfileScreen: React.FC = () => {
               <Ionicons name="chevron-back" size={24} color={customColors.textLight} />
             </TouchableOpacity>
             <View style={styles.profileImageContainer}>
-              {friendData.profilePic ? (
+              {friendProfile.profilePic ? (
                 <Image
-                  source={{ uri: friendData.profilePic }}
+                  source={{ uri: friendProfile.profilePic }}
                   style={styles.profileImage as ImageStyle}
                 />
               ) : (
                 <View style={[styles.profileImage, { backgroundColor: theme.accent1 }]}>
                   <Text style={styles.profileInitial}>
-                    {friendData.username ? friendData.username.charAt(0).toUpperCase() : 'U'}
+                    {friendProfile.username ? friendProfile.username.charAt(0).toUpperCase() : 'U'}
                   </Text>
                 </View>
               )}
             </View>
             <View style={styles.userInfo}>
               <Text variant="heading2" style={{ color: customColors.textLight }}>
-                {friendData.username || 'Gym Friend'}
+                {friendProfile.username || 'Gym Friend'}
               </Text>
               <Text 
                 variant="body"
                 style={{ color: 'rgba(255, 255, 255, 0.8)', marginTop: 4 }}
               >
-                {friendData.userGoal ? 
-                  `Goal: ${friendData.userGoal.charAt(0).toUpperCase() + friendData.userGoal.slice(1)}` : 
-                  'Fitness Enthusiast'}
+                {friendProfile.bio ? friendProfile.bio : 'Fitness Enthusiast'}
               </Text>
             </View>
             <View style={styles.socialActions}>
@@ -399,7 +437,7 @@ const FriendProfileScreen: React.FC = () => {
                         Their Workouts
                       </Text>
                       <Text variant="heading3" style={{ color: theme.text }}>
-                        {friendData.firestoreSets?.length || 0}
+                        {friendProfile.stats.workouts}
                       </Text>
                     </View>
                   </View>
@@ -421,7 +459,7 @@ const FriendProfileScreen: React.FC = () => {
                         Their Streak
                       </Text>
                       <Text variant="heading3" style={{ color: theme.text }}>
-                        {friendData.streak || 0}
+                        {friendProfile.stats.streak}
                       </Text>
                     </View>
                   </View>
@@ -501,9 +539,9 @@ const FriendProfileScreen: React.FC = () => {
                 <Text variant="heading3" style={{ color: theme.text, marginBottom: Spacing.md }}>
                   Recent Workouts
                 </Text>
-                {friendData.firestoreSets && friendData.firestoreSets.length > 0 ? (
+                {friendProfile.firestoreSets && friendProfile.firestoreSets.length > 0 ? (
                   <FlatList
-                    data={friendData.firestoreSets.slice(0, 5)}
+                    data={friendProfile.firestoreSets.slice(0, 5)}
                     renderItem={renderWorkoutItem}
                     keyExtractor={(item, index) => `workout-${index}`}
                     scrollEnabled={false}
@@ -526,14 +564,14 @@ const FriendProfileScreen: React.FC = () => {
               </View>
             </FadeIn>
             {/* Weight Progress Section (if available) */}
-            {friendData.firestoreWeightLog && friendData.firestoreWeightLog.length > 0 && (
+            {friendProfile.firestoreWeightLog && friendProfile.firestoreWeightLog.length > 0 && (
               <FadeIn delay={300}>
                 <View style={styles.section}>
                   <Text variant="heading3" style={{ color: theme.text, marginBottom: Spacing.md }}>
                     Weight Progress
                   </Text>
                   <FlatList
-                    data={friendData.firestoreWeightLog.slice(0, 3)}
+                    data={friendProfile.firestoreWeightLog.slice(0, 3)}
                     renderItem={renderWeightLogItem}
                     keyExtractor={(item, index) => `weight-${index}`}
                     scrollEnabled={false}

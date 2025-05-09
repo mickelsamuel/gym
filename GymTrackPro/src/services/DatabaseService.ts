@@ -15,6 +15,23 @@ import {
   FriendRequest,
   NetworkStatus 
 } from '../types/mergedTypes';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { v4 as uuidv4 } from 'uuid';
+import NetInfo from '@react-native-community/netinfo';
+import { db } from './firebase';
+import { StorageKeys } from '../constants';
+import { NetworkState } from './NetworkState';
+
+// Define the pending operation interface
+export interface PendingOperation {
+  id: string;
+  type: 'create' | 'update' | 'delete';
+  collection: string;
+  documentId?: string;
+  data?: any;
+  timestamp: number;
+}
+
 /**
  * DatabaseService - Main service that coordinates all database operations
  * This class provides a unified interface for all database operations
@@ -26,12 +43,32 @@ class DatabaseService {
   private weightLogService: WeightLogDatabaseService;
   private exerciseService: ExerciseDatabaseService;
   private friendService: FriendDatabaseService;
+  // Instead of exposing the NetworkState instance directly, we'll expose a getter function
+  private _networkConnection = NetworkState;
+  
   constructor() {
     this.userService = new UserDatabaseService();
     this.weightLogService = new WeightLogDatabaseService();
     this.workoutService = new WorkoutDatabaseService();
     this.exerciseService = new ExerciseDatabaseService();
     this.friendService = new FriendDatabaseService();
+  }
+
+  /**
+   * Get the current network state
+   * @returns The current network state
+   */
+  public getNetworkStatus(): NetworkStatus {
+    return this._networkConnection.getState();
+  }
+
+  /**
+   * Check if network is currently connected
+   * @returns True if connected
+   */
+  public isNetworkConnected(): boolean {
+    const state = this._networkConnection.getState();
+    return state.isConnected && !!state.isInternetReachable;
   }
   // ======================================================
   // USER PROFILE OPERATIONS
@@ -192,7 +229,7 @@ class DatabaseService {
   }
   /**
    * Delete a workout
-   * @param workoutId Workout ID
+   * @param workoutId Workout ID to delete
    * @param userId User ID
    * @param isOnline Current online status
    * @returns API response indicating success or failure
@@ -262,12 +299,83 @@ class DatabaseService {
    * @param isOnline Current online status
    * @returns API response with all exercises
    */
-  async getAllExercises(isOnline: boolean): Promise<ApiResponse<Exercise[]>> {
-    const result = await this.exerciseService.getAllExercises(isOnline);
-    return {
-      ...result,
-      data: result.data as unknown as Exercise[]
-    };
+  async getAllExercises(isOnline: boolean = true): Promise<ApiResponse<Exercise[]>> {
+    try {
+      let exercises: Exercise[] = [];
+
+      if (isOnline) {
+        // Attempt to get from network
+        // In a real implementation, this would fetch from Firestore
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+        exercises = [
+          {
+            id: '1',
+            name: 'Bench Press',
+            description: 'A compound exercise that primarily targets the chest',
+            muscleGroups: ['chest', 'triceps', 'shoulders'],
+            primaryMuscleGroup: 'chest',
+            category: 'strength',
+            difficulty: 'intermediate',
+            equipment: ['barbell', 'bench'],
+            instructions: [
+              'Lie on a flat bench with your feet firmly on the ground',
+              'Grip the barbell slightly wider than shoulder-width',
+              'Lower the barbell to your chest',
+              'Press the barbell back up to the starting position'
+            ],
+            media: {
+              images: ['bench_press.jpg'],
+              videos: ['bench_press.mp4']
+            },
+            variations: ['Incline Bench Press', 'Decline Bench Press', 'Dumbbell Bench Press'],
+            tips: ['Keep your wrists straight', 'Maintain a slight arch in your lower back']
+          },
+          {
+            id: '2',
+            name: 'Squat',
+            description: 'A compound exercise that primarily targets the legs',
+            muscleGroups: ['quadriceps', 'hamstrings', 'glutes'],
+            primaryMuscleGroup: 'quadriceps',
+            category: 'strength',
+            difficulty: 'intermediate',
+            equipment: ['barbell', 'squat rack'],
+            instructions: [
+              'Position the barbell on your upper back',
+              'Stand with feet shoulder-width apart',
+              'Bend your knees and hips to lower your body',
+              'Return to the starting position by extending your knees and hips'
+            ],
+            media: {
+              images: ['squat.jpg'],
+              videos: ['squat.mp4']
+            },
+            variations: ['Front Squat', 'Goblet Squat', 'Bulgarian Split Squat'],
+            tips: ['Keep your chest up', 'Push through your heels']
+          },
+          // More exercises would be here in a real implementation
+        ];
+      } else {
+        // Get from local storage
+        const storedExercises = await AsyncStorage.getItem(StorageKeys.EXERCISES);
+        if (storedExercises) {
+          exercises = JSON.parse(storedExercises);
+        }
+      }
+
+      return {
+        success: true,
+        data: exercises
+      };
+    } catch (error: any) {
+      console.error('Error getting exercises:', error);
+      return {
+        success: false,
+        error: {
+          code: 'database/get-exercises',
+          message: error.message || 'Failed to get exercises'
+        }
+      };
+    }
   }
   /**
    * Get exercise by ID
@@ -598,8 +706,6 @@ class DatabaseService {
   }
   /**
    * Get workout history
-   * @param workoutId Workout ID
-   * @returns Promise with workout history
    */
   async getWorkoutHistory(workoutId: string): Promise<any[]> {
     try {
@@ -615,7 +721,176 @@ class DatabaseService {
       return [];
     }
   }
+
+  // Methods previously added via prototype
+  async getPendingSyncOperations(): Promise<PendingOperation[]> {
+    try {
+      const pendingData = await AsyncStorage.getItem(StorageKeys.PENDING_OPERATIONS);
+      if (!pendingData) return [];
+      return JSON.parse(pendingData);
+    } catch (error) {
+      console.error('Error getting pending operations:', error);
+      return [];
+    }
+  }
+
+  async addPendingOperation(operation: Omit<PendingOperation, 'id' | 'timestamp'>): Promise<string> {
+    try {
+      const pendingOperations = await this.getPendingSyncOperations();
+      
+      const newOperation: PendingOperation = {
+        ...operation,
+        id: uuidv4(),
+        timestamp: Date.now()
+      };
+      
+      const updatedOperations = [...pendingOperations, newOperation];
+      await AsyncStorage.setItem(StorageKeys.PENDING_OPERATIONS, JSON.stringify(updatedOperations));
+      
+      return newOperation.id;
+    } catch (error) {
+      console.error('Error adding pending operation:', error);
+      throw error;
+    }
+  }
+
+  async removePendingOperation(operationId: string): Promise<void> {
+    try {
+      const pendingOperations = await this.getPendingSyncOperations();
+      const updatedOperations = pendingOperations.filter(op => op.id !== operationId);
+      await AsyncStorage.setItem(StorageKeys.PENDING_OPERATIONS, JSON.stringify(updatedOperations));
+    } catch (error) {
+      console.error('Error removing pending operation:', error);
+      throw error;
+    }
+  }
+
+  async processPendingOperation(operation: PendingOperation): Promise<void> {
+    try {
+      const { type, collection, documentId, data } = operation;
+      
+      switch (type) {
+        case 'create':
+          await this.createDocument(collection, data);
+          break;
+        case 'update':
+          if (!documentId) throw new Error('Document ID is required for update operation');
+          await this.updateDocument(collection, documentId, data);
+          break;
+        case 'delete':
+          if (!documentId) throw new Error('Document ID is required for delete operation');
+          await this.deleteDocument(collection, documentId);
+          break;
+        default:
+          throw new Error(`Unknown operation type: ${type}`);
+      }
+    } catch (error) {
+      console.error('Error processing pending operation:', error);
+      throw error;
+    }
+  }
+
+  async createDocument(collection: string, data: any): Promise<any> {
+    try {
+      // Check if we're online
+      const netInfo = await NetInfo.fetch();
+      
+      if (netInfo.isConnected && netInfo.isInternetReachable) {
+        // We're online, create directly
+        // @ts-ignore
+        const docRef = await db.collection(collection).add(data);
+        return { id: docRef.id, ...data };
+      } else {
+        // We're offline, queue for later
+        await this.addPendingOperation({
+          type: 'create',
+          collection,
+          data
+        });
+        
+        // Return a temporary local ID
+        const tempId = uuidv4();
+        return { id: tempId, ...data, _pending: true };
+      }
+    } catch (error) {
+      console.error('Error creating document:', error);
+      
+      // If there's an error, queue for later
+      await this.addPendingOperation({
+        type: 'create',
+        collection,
+        data
+      });
+      
+      // Return a temporary local ID
+      const tempId = uuidv4();
+      return { id: tempId, ...data, _pending: true };
+    }
+  }
+
+  async updateDocument(collection: string, documentId: string, data: any): Promise<void> {
+    try {
+      // Check if we're online
+      const netInfo = await NetInfo.fetch();
+      
+      if (netInfo.isConnected && netInfo.isInternetReachable) {
+        // We're online, update directly
+        // @ts-ignore
+        const docRef = db.collection(collection).doc(documentId);
+        await docRef.update(data);
+      } else {
+        // We're offline, queue for later
+        await this.addPendingOperation({
+          type: 'update',
+          collection,
+          documentId,
+          data
+        });
+      }
+    } catch (error) {
+      console.error('Error updating document:', error);
+      
+      // If there's an error, queue for later
+      await this.addPendingOperation({
+        type: 'update',
+        collection,
+        documentId,
+        data
+      });
+    }
+  }
+
+  async deleteDocument(collection: string, documentId: string): Promise<void> {
+    try {
+      // Check if we're online
+      const netInfo = await NetInfo.fetch();
+      
+      if (netInfo.isConnected && netInfo.isInternetReachable) {
+        // We're online, delete directly
+        // @ts-ignore
+        const docRef = db.collection(collection).doc(documentId);
+        await docRef.delete();
+      } else {
+        // We're offline, queue for later
+        await this.addPendingOperation({
+          type: 'delete',
+          collection,
+          documentId
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      
+      // If there's an error, queue for later
+      await this.addPendingOperation({
+        type: 'delete',
+        collection,
+        documentId
+      });
+    }
+  }
 }
+
 // Export a singleton instance
 const databaseService = new DatabaseService();
 export default databaseService;

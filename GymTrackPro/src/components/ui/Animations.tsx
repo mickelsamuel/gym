@@ -1,48 +1,55 @@
 import React, { ReactNode, useEffect, useRef } from 'react';
-import {ViewStyle, Animated as RNAnimated} from 'react-native';
+import {ViewStyle, Animated as RNAnimated, Easing} from 'react-native';
 import { Animation } from '../../constants/Theme';
+import { useExercise } from '../../context/ExerciseContext';
+
 interface FadeInProps {
   children: ReactNode;
   duration?: number;
   delay?: number;
   style?: ViewStyle;
-  onAnimationComplete?: () => void;
+  initialOpacity?: number;
+  finalOpacity?: number;
 }
 /**
  * FadeIn animation component for smooth entrance animations
  * Using React Native's Animated API instead of Reanimated
  */
-export function FadeIn({
+export const FadeIn: React.FC<FadeInProps> = ({
   children,
-  duration = Animation.normal,
+  duration = Animation.medium,
   delay = 0,
   style,
-  onAnimationComplete,
-}: FadeInProps) {
-  const opacity = useRef(new RNAnimated.Value(0)).current;
+  initialOpacity = 0,
+  finalOpacity = 1,
+}) => {
+  const { reducedMotion } = useExercise();
+  const opacity = useRef(new RNAnimated.Value(initialOpacity)).current;
+  
   useEffect(() => {
-    const animation = RNAnimated.timing(opacity, {
-      toValue: 1,
-      duration: duration,
-      delay: delay,
-      easing: RNEasing.bezier(0.16, 1, 0.3, 1),
+    // If reduced motion is enabled, set opacity immediately without animation
+    if (reducedMotion) {
+      opacity.setValue(finalOpacity);
+      return;
+    }
+    
+    // Otherwise, animate with the specified duration and delay
+    RNAnimated.timing(opacity, {
+      toValue: finalOpacity,
+      duration,
+      delay,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-    });
-    animation.start(({ finished }) => {
-      if (finished && onAnimationComplete) {
-        onAnimationComplete();
-      }
-    });
-    return () => {
-      animation.stop();
-    };
-  }, []);
+    }).start();
+  }, [opacity, duration, delay, finalOpacity, reducedMotion]);
+  
   return (
     <RNAnimated.View style={[{ opacity }, style]}>
       {children}
     </RNAnimated.View>
   );
 }
+
 interface SlideInProps {
   children: ReactNode;
   direction?: 'up' | 'down' | 'left' | 'right';
@@ -52,147 +59,193 @@ interface SlideInProps {
   style?: ViewStyle;
 }
 /**
- * SlideIn animation component for smooth entrance animations
- * Using React Native's Animated API instead of Reanimated
+ * SlideIn animation for smooth entrance animations with directional slide
  */
 export function SlideIn({
   children,
   direction = 'up',
   distance = 20,
-  duration = Animation.normal,
+  duration = Animation.medium,
   delay = 0,
   style,
 }: SlideInProps) {
+  const { reducedMotion } = useExercise();
   const opacity = useRef(new RNAnimated.Value(0)).current;
   const translateValue = useRef(new RNAnimated.Value(
-    direction === 'up' ? distance : 
-    direction === 'down' ? -distance : 
-    direction === 'left' ? distance : 
+    direction === 'up' ? distance :
+    direction === 'down' ? -distance :
+    direction === 'left' ? distance :
     -distance
   )).current;
+  
   useEffect(() => {
+    // If reduced motion is enabled, set position immediately without animation
+    if (reducedMotion) {
+      opacity.setValue(1);
+      translateValue.setValue(0);
+      return;
+    }
+    
+    // Otherwise, animate with parallel animations
     const animations = RNAnimated.parallel([
       RNAnimated.timing(opacity, {
         toValue: 1,
-        duration: duration,
-        delay: delay,
-        easing: RNEasing.bezier(0.16, 1, 0.3, 1),
+        duration,
+        delay,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
         useNativeDriver: true,
       }),
       RNAnimated.timing(translateValue, {
         toValue: 0,
-        duration: duration,
-        delay: delay,
-        easing: RNEasing.bezier(0.16, 1, 0.3, 1),
+        duration,
+        delay,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
         useNativeDriver: true,
       })
     ]);
+    
     animations.start();
     return () => {
       animations.stop();
     };
-  }, []);
+  }, [opacity, translateValue, duration, delay, direction, distance, reducedMotion]);
+  
   const animatedStyle = {
     opacity,
     transform: [
-      direction === 'up' || direction === 'down' 
-        ? { translateY: translateValue } 
-        : { translateX: translateValue }
+      direction === 'left' || direction === 'right'
+        ? { translateX: translateValue }
+        : { translateY: translateValue }
     ]
-  } as any;
+  } as any; // Type assertion to avoid TS errors with animated transforms
+  
   return (
     <RNAnimated.View style={[animatedStyle, style]}>
       {children}
     </RNAnimated.View>
   );
 }
+
 interface PulseProps {
   children: ReactNode;
   intensity?: number;
   duration?: number;
   style?: ViewStyle;
-  isActive?: boolean;
+  repeat?: boolean;
 }
 /**
- * Pulse animation component for skeleton loading states
- * Using React Native's Animated API instead of Reanimated
+ * Pulse animation for attention-grabbing elements
  */
 export function Pulse({
   children,
-  intensity = 0.2,
+  intensity = 1.05,
   duration = 1000,
   style,
-  isActive = true,
+  repeat = true,
 }: PulseProps) {
-  const opacity = useRef(new RNAnimated.Value(1)).current;
+  const { reducedMotion } = useExercise();
+  const scale = useRef(new RNAnimated.Value(1)).current;
+  
   useEffect(() => {
-    if (!isActive) {
-      opacity.setValue(1);
+    // Skip animation if reduced motion is enabled
+    if (reducedMotion) {
       return;
     }
-    const animation = RNAnimated.loop(
+    
+    const pulseAnimation = () => {
       RNAnimated.sequence([
-        RNAnimated.timing(opacity, {
-          toValue: 1 - intensity,
+        RNAnimated.timing(scale, {
+          toValue: intensity,
           duration: duration / 2,
-          easing: RNEasing.ease,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-        RNAnimated.timing(opacity, {
+        RNAnimated.timing(scale, {
           toValue: 1,
           duration: duration / 2,
-          easing: RNEasing.ease,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         })
-      ])
-    );
-    animation.start();
-    return () => {
-      animation.stop();
+      ]).start(({ finished }) => {
+        if (finished && repeat) {
+          pulseAnimation();
+        }
+      });
     };
-  }, [isActive]);
+    
+    pulseAnimation();
+    
+    return () => {
+      // No need for explicit cleanup as animations are automatically stopped
+    };
+  }, [scale, intensity, duration, repeat, reducedMotion]);
+  
   return (
-    <RNAnimated.View style={[{ opacity }, style]}>
+    <RNAnimated.View style={[{ transform: [{ scale }] } as any, style]}>
       {children}
     </RNAnimated.View>
   );
 }
+
 interface ScaleProps {
   children: ReactNode;
-  scale?: number;
   duration?: number;
+  delay?: number;
   style?: ViewStyle;
-  isActive?: boolean;
+  initialScale?: number;
+  finalScale?: number;
 }
 /**
- * Scale animation component for micro-interactions
- * Using React Native's Animated API instead of Reanimated
+ * Scale animation for interactive elements
  */
 export function Scale({
   children,
-  scale = 0.95,
-  duration = Animation.fast,
+  duration = Animation.medium,
+  delay = 0,
   style,
-  isActive = false,
+  initialScale = 0.9,
+  finalScale = 1,
 }: ScaleProps) {
-  const scaleValue = useRef(new RNAnimated.Value(1)).current;
+  const { reducedMotion } = useExercise();
+  const scaleValue = useRef(new RNAnimated.Value(initialScale)).current;
+  
   useEffect(() => {
-    RNAnimated.spring(scaleValue, {
-      toValue: isActive ? scale : 1,
-      friction: 7,
-      tension: 300,
+    // If reduced motion is enabled, set scale immediately without animation
+    if (reducedMotion) {
+      scaleValue.setValue(finalScale);
+      return;
+    }
+    
+    // Otherwise, animate with the specified duration and delay
+    RNAnimated.timing(scaleValue, {
+      toValue: finalScale,
+      duration,
+      delay,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [isActive]);
+  }, [scaleValue, duration, delay, initialScale, finalScale, reducedMotion]);
+  
   return (
-    <RNAnimated.View style={[{ transform: [{ scale: scaleValue }] }, style]}>
+    <RNAnimated.View style={[{ transform: [{ scale: scaleValue }] } as any, style]}>
       {children}
     </RNAnimated.View>
   );
 }
+
+// Animation helper that conditionally applies animations based on reduced motion setting
+export const conditionalAnimation = (
+  animatedStyle: any,
+  staticStyle: any,
+  shouldReduceMotion: boolean
+) => {
+  return shouldReduceMotion ? staticStyle : animatedStyle;
+};
+
 export default {
   FadeIn,
   SlideIn,
   Pulse,
   Scale,
+  conditionalAnimation,
 }; 

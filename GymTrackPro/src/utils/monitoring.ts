@@ -212,6 +212,19 @@ class MonitoringService {
           break;
       }
     }
+    // Add diagnostic tag for all errors
+    try {
+      // Note: sentry-expo doesn't directly expose the getCurrentHub API
+      // We use addBreadcrumb instead to add diagnostic info
+      Sentry.addBreadcrumb({
+        category: 'error_diagnostics',
+        message: `Error diagnostics collected`,
+        level: Sentry.Severity.Info,
+        data
+      });
+    } catch (e) {
+      console.warn('Could not add diagnostic data to Sentry:', e);
+    }
   }
   /**
    * Log a debug message
@@ -325,7 +338,7 @@ class MonitoringService {
    * @returns Metric ID
    */
   public startPerformanceMetric(name: string, category: string = 'performance', data?: any): string {
-    const id = `metric_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const id = `perf_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     this.performanceMetrics[id] = {
       id,
       name,
@@ -336,20 +349,15 @@ class MonitoringService {
     // Start Sentry performance transaction if available
     if (!__DEV__) {
       try {
-        const transaction = Sentry.startTransaction({
-          name,
-          op: category
-        });
-        // Store transaction ID in the data
-        if (transaction) {
-          this.performanceMetrics[id].data = {
-            ...data,
-            sentryTransactionId: transaction.traceId
-          };
-        }
+        // Note: sentry-expo doesn't directly expose the transaction API like full Sentry SDK
+        // We're tracking this internally instead
+        this.performanceMetrics[id].data = {
+          ...data,
+          sentryTransactionId: id
+        };
       } catch (e) {
         // Sentry performance monitoring might not be available
-        console.warn('Could not start Sentry transaction:', e);
+        console.warn('Could not start performance tracking:', e);
       }
     }
     return id;
@@ -381,17 +389,20 @@ class MonitoringService {
     // Finish Sentry transaction for performance monitoring
     if (!__DEV__ && metric.data?.sentryTransactionId) {
       try {
-        const scope = Sentry.getCurrentHub().getScope();
-        const transaction = scope?.getTransaction();
-        if (transaction && transaction.traceId === metric.data.sentryTransactionId) {
-          if (additionalData?.error) {
-            transaction.setStatus('internal_error');
+        // Note: sentry-expo doesn't directly expose the transaction API like full Sentry SDK
+        // We're just logging this as breadcrumb instead
+        Sentry.addBreadcrumb({
+          category: 'performance',
+          message: `${metric.name} completed in ${duration}ms`,
+          level: Sentry.Severity.Info,
+          data: {
+            duration,
+            category: metric.category,
+            ...additionalData
           }
-          transaction.finish();
-        }
+        });
       } catch (e) {
-        // Sentry performance monitoring might not be available
-        console.warn('Could not finish Sentry transaction:', e);
+        console.warn('Could not log performance metric to Sentry:', e);
       }
     }
     // Log slow operations
@@ -548,17 +559,20 @@ class MonitoringService {
     // Save any unsaved logs before destruction
     this.saveLogs();
     this.savePerformanceMetrics();
+    
     // Close Sentry transaction if active
     if (!__DEV__) {
       try {
-        const scope = Sentry.getCurrentHub().getScope();
-        const transaction = scope?.getTransaction();
-        if (transaction) {
-          transaction.finish();
-        }
+        // Note: sentry-expo doesn't directly expose the transaction API
+        // We're just adding a breadcrumb to indicate monitoring service shutdown
+        Sentry.addBreadcrumb({
+          category: 'monitoring',
+          message: 'Monitoring service shutdown',
+          level: Sentry.Severity.Info
+        });
       } catch (e) {
-        // Sentry transaction API might not be available
-        console.warn('Could not finish Sentry transaction:', e);
+        // Sentry API might not be available
+        console.warn('Could not log monitoring shutdown:', e);
       }
     }
   }

@@ -1,93 +1,133 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNetworkState } from '../hooks/useNetworkState';
 import { Ionicons } from '@expo/vector-icons';
-import { Theme, Spacing, BorderRadius } from '../constants/Theme';
+import { Text } from './ui';
+import { Colors, Spacing, Theme, BorderRadius } from '../constants/Theme';
 import { useExercise } from '../context/ExerciseContext';
+import { useAnimatedValue } from '../hooks';
+
 interface NetworkStateIndicatorProps {
-  onRetry?: () => void;
+  isOffline?: boolean;
+  isLimitedConnectivity?: boolean;
+  isConnected?: boolean;
+  hasPendingSync?: boolean;
   isSyncing?: boolean;
+  syncCount?: number;
   pendingOperations?: number;
+  onRetry?: () => void;
   onSyncNow?: () => void;
 }
-/**
- * Network state indicator that shows when the app is offline
- * or has limited connectivity. Also displays sync status.
- */
+
 const NetworkStateIndicator: React.FC<NetworkStateIndicatorProps> = ({ 
-  onRetry, 
+  isOffline = false,
+  isLimitedConnectivity = false,
+  isConnected = true,
+  hasPendingSync = false,
   isSyncing = false,
+  syncCount = 0,
   pendingOperations = 0,
-  onSyncNow
+  onRetry,
+  onSyncNow,
 }) => {
-  const { isConnected, isInternetReachable, type } = useNetworkState();
-  const { darkMode } = useExercise();
-  const theme = darkMode ? Theme.dark : Theme.light;
   const insets = useSafeAreaInsets();
-  // Animation values
-  const translateY = useRef(new Animated.Value(-100)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  // Determine network state and message
-  const isOffline = !isConnected;
-  const hasLimitedConnectivity = isConnected && !isInternetReachable;
-  const hasPendingSync = pendingOperations > 0;
-  const shouldShow = isOffline || hasLimitedConnectivity || (hasPendingSync && isConnected);
-  // Network type display
-  const getNetworkTypeText = () => {
-    if (isSyncing) return 'Syncing data...';
-    if (hasPendingSync && isConnected) return `Syncing pending changes (${pendingOperations})`;
-    if (!isConnected) return 'No connection';
-    if (type === 'unknown') return 'Limited connectivity';
-    if (type === 'none') return 'Offline mode';
-    return `${type} connection`;
-  };
-  // Animation when network state changes
+  const { darkMode, reducedMotion } = useExercise();
+  
+  // Animated values using our custom hook
+  const { value: translateY, animate: animateTranslateY } = useAnimatedValue(-100);
+  const { value: opacity, animate: animateOpacity } = useAnimatedValue(0);
+  
+  // For the rotating sync icon
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const rotateInterpolation = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
+  
+  // Decide if we should show the indicator
+  const shouldShow = isOffline || isLimitedConnectivity || hasPendingSync || isSyncing;
+  
+  // Animate appearance based on showing state
   useEffect(() => {
+    // If we should show the banner
     if (shouldShow) {
-      // Show the indicator
-      Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      animateTranslateY({
+        toValue: 0,
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+      
+      animateOpacity({
+        toValue: 1,
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true
+      }).start();
     } else {
-      // Hide the indicator
-      Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: -100,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      // Animate out
+      animateTranslateY({
+        toValue: -100,
+        duration: 300,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+      
+      animateOpacity({
+        toValue: 0,
+        duration: 300,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true
+      }).start();
     }
-  }, [shouldShow, isConnected, isInternetReachable, isSyncing, hasPendingSync]);
-  // Determine colors based on connection state
+  }, [shouldShow, animateTranslateY, animateOpacity]);
+  
+  // Rotation animation for sync icon
+  useEffect(() => {
+    if (isSyncing && !reducedMotion) {
+      // Create a rotating animation for the sync icon
+      Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.linear,
+          useNativeDriver: true
+        })
+      ).start();
+    } else {
+      // Reset rotation when not syncing
+      rotateAnim.setValue(0);
+    }
+    
+    return () => {
+      rotateAnim.setValue(0);
+    };
+  }, [isSyncing, reducedMotion, rotateAnim]);
+  
+  // Get the appropriate banner color based on status
   const getBannerColor = () => {
-    if (isSyncing) return theme.info;
-    if (hasPendingSync && isConnected) return theme.info; 
-    if (isOffline) return theme.danger;
-    if (hasLimitedConnectivity) return theme.warning;
-    return theme.success;
+    if (isOffline) return Colors.danger;
+    if (isSyncing) return Colors.info;
+    if (hasPendingSync) return Colors.warning;
+    return Colors.info; // Limited connectivity
   };
+  
+  // Get the icon name based on connection status
   const getIconName = () => {
-    if (isSyncing || (hasPendingSync && isConnected)) return 'sync-outline';
     if (isOffline) return 'cloud-offline-outline';
-    if (hasLimitedConnectivity) return 'wifi-outline';
-    return 'wifi';
+    if (isSyncing) return 'sync-outline';
+    if (hasPendingSync) return 'cloud-upload-outline';
+    return 'wifi-outline'; // Limited connectivity
   };
+  
+  // Get the network status text
+  const getNetworkTypeText = () => {
+    if (isOffline) return 'You are offline';
+    if (isSyncing) return `Syncing ${syncCount > 0 ? `(${syncCount} items)` : ''}`;
+    if (hasPendingSync) return `Changes pending`;
+    return 'Limited connectivity';
+  };
+  
   // Get appropriate action button based on status
   const getActionButton = () => {
     if (isOffline && onRetry) {
@@ -117,6 +157,7 @@ const NetworkStateIndicator: React.FC<NetworkStateIndicatorProps> = ({
     }
     return null;
   };
+  
   // Get appropriate subtitle text
   const getSubText = () => {
     if (isSyncing) return 'Please wait while your data is being synchronized...';
@@ -124,8 +165,10 @@ const NetworkStateIndicator: React.FC<NetworkStateIndicatorProps> = ({
     if (isOffline) return 'Your changes will be saved locally and synced when you\'re back online.';
     return 'Limited connectivity. Some features may not work properly.';
   };
+  
   // Don't render anything if we're fully connected and no sync is needed
   if (!shouldShow) return null;
+  
   return (
     <Animated.View
       style={[
@@ -141,64 +184,91 @@ const NetworkStateIndicator: React.FC<NetworkStateIndicatorProps> = ({
       accessibilityRole="alert"
     >
       <View style={styles.content}>
-        <Ionicons 
-          name={getIconName()} 
-          size={20} 
-          color="#FFFFFF" 
-          style={[isSyncing && styles.rotatingIcon]} 
-        />
+        <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
+          <Ionicons 
+            name={getIconName()} 
+            size={20} 
+            color="#FFFFFF" 
+          />
+        </Animated.View>
         <Text style={styles.text}>{getNetworkTypeText()}</Text>
         {getActionButton()}
       </View>
       <Text style={styles.subText}>{getSubText()}</Text>
+      
+      {/* Progress bar for syncing status */}
+      {isSyncing && (
+        <View style={styles.progressBarContainer}>
+          <View style={styles.progressBarTrack}>
+            <Animated.View 
+              style={[
+                styles.progressBarFill,
+                { width: '30%' } // This would be dynamic based on sync progress
+              ]}
+            />
+          </View>
+        </View>
+      )}
     </Animated.View>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
+    zIndex: 1000,
+    paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.md,
-    zIndex: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.md,
+    justifyContent: 'flex-start',
   },
   text: {
     color: '#FFFFFF',
-    fontSize: 16,
     fontWeight: '600',
-    marginLeft: Spacing.xs,
+    marginLeft: Spacing.sm,
+    flex: 1,
   },
   subText: {
-    color: '#FFFFFF',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 12,
-    textAlign: 'center',
     marginTop: Spacing.xs,
-    opacity: 0.8,
-    paddingHorizontal: Spacing.lg,
   },
   actionButton: {
-    marginLeft: Spacing.md,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs - 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: BorderRadius.pill,
-    minWidth: 80,
-    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: BorderRadius.sm,
   },
   actionText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
-  rotatingIcon: {
-    // Animation will be added via React Native Animated API in the component
+  progressBarContainer: {
+    marginTop: Spacing.md,
+  },
+  progressBarTrack: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
   },
 });
+
 export default NetworkStateIndicator; 

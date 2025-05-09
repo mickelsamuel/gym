@@ -3,22 +3,23 @@ import { View, StyleSheet, ViewStyle, Animated, Easing } from 'react-native';
 import { useExercise } from '../../context/ExerciseContext';
 import {Theme, BorderRadius, Spacing} from '../../constants/Theme';
 import Text from './Text';
+
 interface ProgressBarProps {
   progress: number; // 0 to 1
   height?: number;
   backgroundColor?: string;
   progressColor?: string;
   style?: ViewStyle;
-  animate?: boolean;
-  duration?: number;
+  animated?: boolean;
+  animationDuration?: number;
+  borderRadius?: number;
   showPercentage?: boolean;
   label?: string;
 }
 /**
  * ProgressBar component
  * 
- * A customizable progress bar with animation support
- * following the design specification.
+ * Displays a horizontal progress bar with customizable colors and animation
  */
 const ProgressBar: React.FC<ProgressBarProps> = ({
   progress,
@@ -26,45 +27,55 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
   backgroundColor,
   progressColor,
   style,
-  animate = true,
-  duration = 500,
+  animated = true,
+  animationDuration = 300,
+  borderRadius,
   showPercentage = false,
   label,
 }) => {
   const { darkMode } = useExercise();
   const theme = darkMode ? Theme.dark : Theme.light;
-  // Normalize progress to 0-1 range
-  const normalizedProgress = Math.min(Math.max(progress, 0), 1);
-  // Animation setup
-  const animatedProgress = useRef(new Animated.Value(0)).current;
-  // Set default colors based on theme
-  const defaultBackgroundColor = darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)';
-  const defaultProgressColor = theme.primary;
-  // Use provided colors or defaults
-  const bgColor = backgroundColor || defaultBackgroundColor;
-  const pgColor = progressColor || defaultProgressColor;
-  // Calculate percentage for display
-  const percentage = Math.round(normalizedProgress * 100);
-  // Set border radius based on height
-  const borderRadius = Math.min(height / 2, BorderRadius.sm);
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  
+  // Set default colors if not provided
+  const bgColor = backgroundColor || (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)');
+  const fgColor = progressColor || theme.primary;
+  const roundness = borderRadius !== undefined ? borderRadius : BorderRadius.pill;
+  
+  // Animate progress changes
   useEffect(() => {
-    if (animate) {
-      Animated.timing(animatedProgress, {
-        toValue: normalizedProgress,
-        duration,
-        easing: Easing.out(Easing.cubic),
+    if (animated) {
+      Animated.timing(progressAnim, {
+        toValue: progress,
+        duration: animationDuration,
         useNativeDriver: false,
       }).start();
     } else {
-      animatedProgress.setValue(normalizedProgress);
+      progressAnim.setValue(progress);
     }
-  }, [normalizedProgress, animate, duration, animatedProgress]);
-  const width = animatedProgress.interpolate({
+  }, [progress, animated, animationDuration]);
+  
+  const progressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
   });
+  
+  // Calculate percentage for display
+  const percentage = Math.round(progress * 100);
+  
   return (
-    <View style={[styles.container, style]}>
+    <View 
+      style={[
+        styles.container, 
+        { 
+          height, 
+          backgroundColor: bgColor,
+          borderRadius: roundness
+        },
+        style
+      ]}
+    >
       {(label || showPercentage) && (
         <View style={styles.labelContainer}>
           {label && (
@@ -79,35 +90,24 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
           )}
         </View>
       )}
-      <View
+      <Animated.View 
         style={[
-          styles.progressBackground,
-          {
-            backgroundColor: bgColor,
-            height,
-            borderRadius,
-          },
+          styles.progress, 
+          { 
+            width: progressWidth,
+            backgroundColor: fgColor,
+            borderRadius: roundness
+          }
         ]}
-      >
-        <Animated.View
-          style={[
-            styles.progressFill,
-            {
-              backgroundColor: pgColor,
-              width,
-              height: '100%',
-              borderRadius,
-            },
-          ]}
-        />
-      </View>
+      />
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    marginVertical: Spacing.xs,
+    overflow: 'hidden',
   },
   labelContainer: {
     flexDirection: 'row',
@@ -117,10 +117,9 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: '500',
   },
-  progressBackground: {
-    overflow: 'hidden',
-    width: '100%',
+  progress: {
+    height: '100%',
   },
-  progressFill: {},
 });
+
 export default ProgressBar; 

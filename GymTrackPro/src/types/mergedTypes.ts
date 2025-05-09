@@ -136,12 +136,18 @@ export interface Exercise extends FirestoreDocument {
   description: string;
   muscleGroups: string[];
   primaryMuscleGroup: string;
-  equipment: string;
+  equipment: string | string[];
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   category: string;
   instructions: string[];
   videoUrl?: string;
   imageUrl?: string;
+  media?: {
+    images?: string[];
+    videos?: string[];
+  };
+  variations?: string[];
+  tips?: string[];
   // Additional fields from globalTypes.ts
   type?: 'strength' | 'cardio' | 'stretching' | 'plyometric';
   primaryMuscles?: string[];

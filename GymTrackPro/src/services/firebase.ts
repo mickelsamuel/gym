@@ -146,7 +146,7 @@ try {
 const initializeAnalytics = async (): Promise<void> => {
   try {
     // Check if Analytics is supported in current environment
-    if (Platform.OS === 'web' && await isSupported()) {
+    if (Platform?.OS === 'web' && await isSupported()) {
       analytics = getAnalytics(app);
       console.log('Firebase Analytics initialized');
     } else {

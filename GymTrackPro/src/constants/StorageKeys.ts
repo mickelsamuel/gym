@@ -13,5 +13,10 @@ export const StorageKeys = {
   DARK_MODE: 'dark_mode',
   FAVORITES: 'favorites',
   RECENT_EXERCISES: 'recent_exercises',
-  EXERCISES: 'exercises'
+  EXERCISES: 'exercises',
+  REDUCED_MOTION: 'reduced_motion',
+  REDUCED_MOTION_USER_SET: 'reduced_motion_user_set',
+  THEME_MODE: 'theme_mode',
+  LAST_ONLINE: 'last_online',
+  PENDING_OPERATIONS: 'pending_operations'
 };

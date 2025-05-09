@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
-import {View, TextInput, StyleSheet, TouchableOpacity, Alert, Dimensions, ScrollView, Image, Platform, Animated, Easing, RefreshControl} from 'react-native';
+import {View, TextInput, StyleSheet, TouchableOpacity, Alert, Dimensions, ScrollView, Image, Platform, Animated, Easing, RefreshControl, Switch} from 'react-native';
 import DatabaseService from '../services/DatabaseService';
 import MockDataService from '../services/MockDataService';
 import { ExerciseContext } from '../context/ExerciseContext';
@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import {Text, Button, Container} from '../components/ui';
+import {Text, Button, Container, Card} from '../components/ui';
 import { BlurView } from 'expo-blur';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {ref} from 'firebase/database';
@@ -17,6 +17,8 @@ import {ref as storageRef} from 'firebase/storage';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { useColorScheme } from 'react-native';
 import {Colors, Theme, Typography, Spacing} from '../constants/Theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useExercise } from '../context/ExerciseContext';
 ;
 ;
 ;
@@ -129,7 +131,16 @@ const ProfileScreen: React.FC = () => {
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
-  const { darkMode: exerciseDarkMode, userGoal: exerciseUserGoal, setGoal } = useContext(ExerciseContext);
+  const { 
+    darkMode: exerciseDarkMode, 
+    toggleDarkMode,
+    reducedMotion, 
+    setReducedMotion,
+    themeMode,
+    setThemeMode,
+    userGoal: exerciseUserGoal, 
+    setGoal 
+  } = useExercise();
   const [dailyWeight, setDailyWeight] = useState<string>('');
   const [weightLog, setWeightLog] = useState<WeightLogEntry[]>([]);
   const [weightHistory, setWeightHistory] = useState<number[]>([]); // For weight chart
@@ -474,29 +485,183 @@ const ProfileScreen: React.FC = () => {
     const scrollOffset = event.nativeEvent.contentOffset.y;
     scrollY.setValue(scrollOffset);
   };
+  // Handle reduced motion toggle
+  const handleReducedMotionToggle = (value: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setReducedMotion(value);
+  };
+  // Handle theme mode selection
+  const handleThemeModeSelection = () => {
+    Alert.alert(
+      'Theme Mode',
+      'Choose your preferred theme mode',
+      [
+        {
+          text: 'System',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setThemeMode('system');
+          }
+        },
+        {
+          text: 'Light',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setThemeMode('light');
+          }
+        },
+        {
+          text: 'Dark',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setThemeMode('dark');
+          }
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+  // Render settings section
+  const renderSettingsSection = () => {
+    return (
+      <Card style={styles.settingsCard}>
+        <Text variant="heading3" style={styles.sectionTitle}>Settings</Text>
+        
+        {/* Theme Mode Selection */}
+        <TouchableOpacity 
+          style={styles.settingRow}
+          onPress={handleThemeModeSelection}
+          activeOpacity={0.7}
+        >
+          <View style={styles.settingLabelContainer}>
+            <Ionicons 
+              name={exerciseDarkMode ? "moon" : "sunny"} 
+              size={24} 
+              color={exerciseDarkMode ? Colors.accentPurple : Colors.accentOrange} 
+              style={styles.settingIcon} 
+            />
+            <View>
+              <Text variant="body">Theme Mode</Text>
+              <Text variant="bodySmall" style={{color: theme.textSecondary}}>
+                {themeMode === 'system' ? 'System default' : 
+                 themeMode === 'dark' ? 'Dark mode' : 'Light mode'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.settingValueContainer}>
+            <Text variant="bodySmall" style={{color: theme.textSecondary}}>
+              {themeMode.charAt(0).toUpperCase() + themeMode.slice(1)}
+            </Text>
+            <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+          </View>
+        </TouchableOpacity>
+        
+        {/* Reduced Motion Toggle */}
+        <View style={styles.settingRow}>
+          <View style={styles.settingLabelContainer}>
+            <Ionicons 
+              name="accessibility-outline" 
+              size={24} 
+              color={Colors.secondaryGreen} 
+              style={styles.settingIcon} 
+            />
+            <View>
+              <Text variant="body">Reduced Motion</Text>
+              <Text variant="bodySmall" style={{color: theme.textSecondary}}>
+                Minimize animations for accessibility
+              </Text>
+            </View>
+          </View>
+          <Switch
+            value={reducedMotion}
+            onValueChange={handleReducedMotionToggle}
+            trackColor={{ false: '#767577', true: Colors.secondaryGreen + '80' }}
+            thumbColor={reducedMotion ? Colors.secondaryGreen : '#f4f3f4'}
+            ios_backgroundColor="#3e3e3e"
+          />
+        </View>
+        
+        {/* Logout Button */}
+        <Button
+          title="Sign Out"
+          onPress={() => {
+            Alert.alert(
+              'Sign Out',
+              'Are you sure you want to sign out?',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+                {
+                  text: 'Sign Out',
+                  onPress: () => logout(),
+                  style: 'destructive',
+                },
+              ]
+            );
+          }}
+          type="danger"
+          icon="log-out-outline"
+          style={styles.logoutButton}
+        />
+        
+        {/* Delete Account Button */}
+        <Button
+          title="Delete Account"
+          onPress={() => {
+            Alert.alert(
+              'Delete Account',
+              'Are you sure you want to delete your account? This action cannot be undone.',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+                {
+                  text: 'Delete',
+                  onPress: () => deleteAccount(),
+                  style: 'destructive',
+                },
+              ]
+            );
+          }}
+          type="tertiary"
+          icon="trash-outline"
+          style={styles.deleteAccountButton}
+        />
+      </Card>
+    );
+  };
   // A simplified render implementation for now, to be completed later
   return (
     <Container>
-      {/* Background header */}
+      {/* Header Background with Gradient */}
       <Animated.View
         style={[
           styles.headerBackground,
           {
-            opacity: headerAnimatedOpacity,
             transform: [{ translateY: headerTranslateY }],
-            backgroundColor: theme.primary
+            opacity: headerAnimatedOpacity,
+            height: headerHeight
           }
         ]}
       >
+        <LinearGradient
+          colors={[Colors.primaryBlue, Colors.primaryDarkBlue]}
+          style={StyleSheet.absoluteFill}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+        
+        {/* Blur Overlay for Scrolling Effect */}
         {Platform.OS === 'ios' && (
-          <Animated.View 
-            style={[
-              styles.blurOverlay,
-              { opacity: blurAnimatedOpacity }
-            ]}
-          >
+          <Animated.View style={[styles.blurOverlay, { opacity: blurAnimatedOpacity }]}>
             <BlurView 
-              intensity={80} 
+              intensity={15} 
               tint={darkMode ? 'dark' : 'light'}
               style={StyleSheet.absoluteFill} 
             />
@@ -624,9 +789,10 @@ const ProfileScreen: React.FC = () => {
                 </Text>
               </View>
             </View>
-            {/* The rest of the profile page will come here */}
+            
+            {/* Profile Body Content */}
             <View style={styles.bodyContent}>
-              <Text variant="heading3">Profile Content</Text>
+              {renderSettingsSection()}
             </View>
           </Animated.View>
         )}
@@ -747,7 +913,41 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.sm,
   },
   bodyContent: {
+    paddingHorizontal: Spacing.lg,
+  },
+  // New styles for settings
+  settingsCard: {
     padding: Spacing.lg,
-  }
+    marginBottom: Spacing.lg,
+  },
+  sectionTitle: {
+    marginBottom: Spacing.md,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(150, 150, 150, 0.1)',
+  },
+  settingLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingIcon: {
+    marginRight: Spacing.md,
+  },
+  logoutButton: {
+    marginTop: Spacing.xl,
+  },
+  deleteAccountButton: {
+    marginTop: Spacing.md,
+  },
+  settingValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 });
 export default ProfileScreen; 

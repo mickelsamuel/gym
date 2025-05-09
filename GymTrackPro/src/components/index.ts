@@ -17,5 +17,11 @@ export { default as ParallaxScrollView } from './ParallaxScrollView';
 export { Collapsible } from './Collapsible';
 export { default as NetworkStateIndicator } from './NetworkStateIndicator';
 export { default as MuscleGroupSelector } from './MuscleGroupSelector';
+export { default as WorkoutProgressTracker } from './WorkoutProgressTracker';
+export { default as CalendarHeatmap } from './CalendarHeatmap';
+export { default as WeightChart } from './WeightChart';
+export { default as WorkoutVolumeChart } from './WorkoutVolumeChart';
+export { default as ProgressGauge } from './ProgressGauge';
+export { default as SetEntry } from './SetEntry';
 // HOCs and Providers
 export { default as SyncStatusProvider } from './SyncStatusProvider'; 

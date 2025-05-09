@@ -1,40 +1,36 @@
 {
   "expo": {
     "name": "GymTrackPro",
-    "slug": "GymTrackPro",
+    "slug": "gymtrackpro",
     "version": "1.0.0",
+    "sdkVersion": "53.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "gymtrackpro",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF",
-      "dark": {
-        "backgroundColor": "#1C1C1E"
-      }
-    },
-    "backgroundColor": "#F5F7FA",
-    "primaryColor": "#3772FF",
-    "updates": {
-      "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/yourprojectid"
+      "backgroundColor": "#3772FF"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.gymtrackpro",
-      "buildNumber": "1.0.0",
+      "bundleIdentifier": "com.gymtrackpro.app",
+      "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to let you take profile pictures.",
-        "NSPhotoLibraryUsageDescription": "This app uses the photo library to let you select profile pictures and share workout images.",
-        "NSPhotoLibraryAddUsageDescription": "This app saves photos to your library when you share workout images.",
-        "NSHealthShareUsageDescription": "This app reads your health data to track your workouts and activity.",
-        "NSHealthUpdateUsageDescription": "This app writes your workout data to Health to keep your fitness information up to date.",
-        "UIBackgroundModes": ["fetch"]
+        "UIBackgroundModes": [
+          "fetch"
+        ],
+        "NSCameraUsageDescription": "GymTrackPro uses the camera to allow you to take progress photos and scan exercise QR codes.",
+        "NSPhotoLibraryUsageDescription": "GymTrackPro needs access to your photo library to save progress photos and import profile pictures."
+      },
+      "icon": "./assets/images/icon.png",
+      "splash": {
+        "image": "./assets/images/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#3772FF"
       }
     },
     "android": {
@@ -42,83 +38,53 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#3772FF"
       },
-      "package": "com.yourcompany.gymtrackpro",
-      "versionCode": 1,
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.INTERNET",
-        "android.permission.VIBRATE"
-      ]
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "package": "com.gymtrackpro.app",
+      "versionCode": 1
     },
     "web": {
-      "bundler": "metro",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app accesses your photos to let you share them with your friends and set profile pictures.",
-          "cameraPermission": "The app accesses your camera to let you take profile pictures."
-        }
-      ],
-      [
         "expo-camera",
         {
-          "cameraPermission": "Allow GymTrackPro to access your camera."
+          "cameraPermission": "GymTrackPro needs access to your camera to take progress photos and scan exercise QR codes."
         }
       ],
       [
         "expo-media-library",
         {
-          "photosPermission": "Allow GymTrackPro to access your photos.",
-          "savePhotosPermission": "Allow GymTrackPro to save photos.",
+          "photosPermission": "GymTrackPro needs access to your media library to save progress photos.",
+          "savePhotosPermission": "GymTrackPro needs access to save photos to your media library.",
           "isAccessMediaLocationEnabled": true
         }
       ],
-      "expo-sqlite",
-      "expo-font",
-      "expo-router",
       [
-        "sentry-expo",
-        {
-          "organization": "yourorganization",
-          "project": "gymtrackpro",
-          "url": "https://sentry.io/",
-          "hooks": {
-            "postPublish": {
-              "sourceMaps": true,
-              "includes": ["dist"]
-            }
-          }
-        }
-      ]
+        "sentry-expo"
+      ],
+      "expo-router"
     ],
-    "jsEngine": "hermes",
-    "description": "A comprehensive fitness tracking application for tracking workouts, weight, and connecting with friends.",
-    "newArchEnabled": true,
-    "extra": {
-      "eas": {
-        "projectId": "your-project-id"
-      }
-    },
-    "owner": "yourexpoorganization",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
     "hooks": {
       "postPublish": [
         {
           "file": "sentry-expo/upload-sourcemaps",
           "config": {
-            "organization": "yourorganization",
-            "project": "gymtrackpro",
-            "authToken": "YOUR_SENTRY_AUTH_TOKEN"
+            "organization": "gymtrackpro",
+            "project": "gymtrackpro-mobile"
           }
         }
       ]
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "12345678-1234-1234-1234-123456789012"
+      }
+    },
+    "owner": "gymtrackpro"
   }
 }

@@ -132,7 +132,12 @@ jest.mock('firebase/analytics', () => ({
 // Mock Platform
 jest.mock('react-native/Libraries/Utilities/Platform', () => ({
   OS: 'ios',
-  select: jest.fn(obj => obj.ios)
+  select: jest.fn(obj => obj.ios),
+  // Add these default values to ensure they're available across all tests
+  Version: 14,
+  isPad: false,
+  isTV: false,
+  constants: { reactNativeVersion: { major: 0, minor: 79, patch: 2 } }
 }));
 
 // Mock sentry-expo

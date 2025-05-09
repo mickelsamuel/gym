@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Text, Card, CircleProgress } from './ui';
+import { Text, Card } from './ui';
 import { useExercise } from '../context/ExerciseContext';
 import { Theme, Spacing, BorderRadius } from '../constants/Theme';
+import CircleProgress from './ui/CircleProgress';
 
 type StatItem = {
   label: string;
@@ -83,11 +84,9 @@ export default function StatsCard({
                 <CircleProgress
                   progress={stat.progress}
                   size={70}
-                  strokeWidth={8}
+                  thickness={8}
                   color={statColor}
-                  showValue={true}
-                  valuePrefix={stat.prefix || ''}
-                  valueSuffix={stat.suffix || ''}
+                  showPercentage={true}
                   label={stat.label}
                 />
               </View>

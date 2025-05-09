@@ -1,4 +1,5 @@
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
+import { Exercise as ExerciseType } from '../types/mergedTypes';
 
 export interface Exercise {
   id: string;
@@ -68,62 +69,35 @@ export interface ExerciseStat {
 }
 
 export interface ExerciseContextValue {
-  // Theme
+  exercises: ExerciseType[];
+  favorites: string[];
+  recentExercises: ExerciseType[];
+  isLoading: boolean;
+  error: string | null;
+  refreshExercises: () => Promise<void>;
+  getExerciseById: (id: string) => ExerciseType | undefined;
+  addFavorite: (id: string) => void;
+  removeFavorite: (id: string) => void;
+  getAllExercises: () => ExerciseType[];
   darkMode: boolean;
   toggleDarkMode: () => void;
-  
-  // Exercise data
-  exercises: Exercise[];
-  muscleGroups: any[];
-  workoutCategories: any[];
-  goals: any[];
-  loading: boolean;
-  error: Error | null;
-  
-  // Favorites
-  favorites: string[];
-  toggleFavorite: (exerciseId: string) => void;
-  isFavorite: (exerciseId: string) => boolean;
-  addFavorite: (exerciseId: string) => void;
-  removeFavorite: (exerciseId: string) => void;
-  
-  // Goals
-  userGoal: string;
-  setGoal: (goal: string) => void;
-  getGoalInfo: (goalId: string) => any;
-  
-  // Workout data
-  recentWorkouts: Workout[];
-  refreshWorkoutData: () => Promise<void>;
-  
-  // Exercise stats and suggestions
-  exerciseStats: Record<string, ExerciseStat>;
-  getExerciseStats: (exerciseId: string) => ExerciseStat | null;
-  getSuggestedWeight: (exerciseId: string) => number;
-  getSuggestedReps: (exerciseId: string) => number;
-  
-  // Filters
-  activeFilters: {
-    type: string | null;
-    category: string | null;
-    muscle: string | null;
-    equipment: string | null;
-    difficulty: string | null;
-    search: string | null;
-  };
-  setFilter: (filterType: string, value: string | null) => void;
-  clearFilters: () => void;
-  
-  // Utility methods
-  getAllExercises: () => Exercise[];
-  getExercisesByType: (type: string) => Exercise[];
-  getExercisesByCategory: (category: string) => Exercise[];
-  getExercisesByMuscle: (muscleGroup: string) => Exercise[];
-  getExercisesByEquipment: (equipment: string) => Exercise[];
-  getExercisesByGoal: (goalId: string) => Exercise[];
-  getFilteredExercises: () => Exercise[];
-  getExerciseById: (id: string) => Exercise | null;
-  getMuscleInfo: (muscleId: string) => any;
+  isFavorite: (id: string) => boolean;
+  reducedMotion: boolean;
+  setReducedMotion: (value: boolean) => void;
+  themeMode: 'system' | 'light' | 'dark';
+  setThemeMode: (mode: 'system' | 'light' | 'dark') => void;
+  // Additional backward compatibility properties/methods
+  userGoal?: string;
+  getMuscleInfo?: (id: string) => any;
+  toggleFavorite?: (id: string) => void;
+  getGoalInfo?: () => any;
+  setGoal?: (goal: string) => void;
+  recentWorkouts?: any[];
+  loading?: boolean;
+  refreshWorkoutData?: () => Promise<void>;
+  getExerciseStats?: () => any;
+  getSuggestedWeight?: (exerciseId: string) => number;
+  getSuggestedReps?: (exerciseId: string) => number;
 }
 
 export interface ExerciseProviderProps {
@@ -132,4 +106,4 @@ export interface ExerciseProviderProps {
 
 export function useExercise(): ExerciseContextValue;
 export const ExerciseContext: React.Context<ExerciseContextValue>;
-export function ExerciseProvider(props: ExerciseProviderProps): JSX.Element; 
+export function ExerciseProvider(props: ExerciseProviderProps): React.ReactElement; 

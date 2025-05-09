@@ -18,7 +18,7 @@ export const Colors = {
   lightBackground: '#F5F7FA', // Light mode background
   darkBackground: '#1C1C1E', // Dark mode background
   lightCardBackground: '#FFFFFF',
-  darkCardBackground: '#1E2235',
+  darkCardBackground: '#2C2C2E',
   // Text Colors
   primaryTextLight: '#202020', // Primary text in light mode
   secondaryTextLight: '#616161', // Secondary text in light mode
@@ -44,7 +44,7 @@ export const Colors = {
   muscleCardio: '#FF4081', // Pink
 };
 // Define the theme interface
-interface ThemeColors {
+export interface ThemeColors {
   primary: string;
   primaryDark: string;
   secondary: string;
@@ -57,17 +57,20 @@ interface ThemeColors {
   warning: string;
   danger: string;
   error: string;
+  info: string;
   text: string;
   textSecondary: string;
   textTertiary: string;
   border: string;
   shadow: string;
+  overlay: string;
   tabBar: string;
   tabBarActive: string;
+  tabBarInactive: string;
   inputBackground: string;
 }
 // Theme configuration
-export const Theme = {
+export const Theme: { light: ThemeColors; dark: ThemeColors } = {
   light: {
     // Primary colors
     primary: Colors.primaryBlue,
@@ -84,6 +87,7 @@ export const Theme = {
     success: Colors.success,
     warning: Colors.warning,
     danger: Colors.danger,
+    error: Colors.danger,
     info: Colors.info,
     // Text
     text: Colors.primaryTextLight,
@@ -97,6 +101,8 @@ export const Theme = {
     tabBar: Colors.lightCardBackground,
     tabBarInactive: Colors.tertiaryTextLight,
     tabBarActive: Colors.primaryBlue,
+    // Inputs
+    inputBackground: '#F8F9FB',
   },
   dark: {
     // Primary colors
@@ -114,6 +120,7 @@ export const Theme = {
     success: Colors.success,
     warning: Colors.warning,
     danger: Colors.danger,
+    error: Colors.danger,
     info: Colors.info,
     // Text
     text: Colors.primaryTextDark,
@@ -127,13 +134,15 @@ export const Theme = {
     tabBar: 'rgba(30, 34, 53, 0.95)',
     tabBarInactive: Colors.tertiaryTextDark,
     tabBarActive: Colors.primaryBlue,
+    // Inputs
+    inputBackground: 'rgba(255, 255, 255, 0.05)',
   }
 };
 // Typography
 export const Typography = {
   // Font Families
   fontFamily: 'Inter',
-  fontFamilyFallback: Platform.OS === 'ios' ? 'San Francisco' : 'Roboto',
+  fontFamilyFallback: Platform?.OS === 'ios' ? 'San Francisco' : 'Roboto',
   // Font Sizes
   display: { fontSize: 36, fontWeight: '700', fontFamily: 'Inter-Bold' },
   heading1: { fontSize: 32, fontWeight: '700', fontFamily: 'Inter-Bold' },
@@ -249,52 +258,6 @@ export const MuscleGroupColors = {
   core: Colors.muscleCore,
   fullBody: Colors.muscleFullBody,
   cardio: Colors.muscleCardio,
-};
-// Define light theme
-export const lightTheme: ThemeColors = {
-  primary: Colors.primaryBlue,
-  primaryDark: Colors.primaryDarkBlue,
-  secondary: Colors.secondaryGreen,
-  accent1: Colors.accentOrange,
-  accent2: Colors.accentPurple,
-  background: Colors.lightBackground,
-  card: Colors.lightCardBackground,
-  cardElevated: '#FFFFFF',
-  success: Colors.success,
-  warning: Colors.warning,
-  danger: Colors.danger,
-  error: Colors.danger,
-  text: Colors.primaryTextLight,
-  textSecondary: Colors.secondaryTextLight,
-  textTertiary: Colors.tertiaryTextLight,
-  border: 'rgba(0, 0, 0, 0.08)',
-  shadow: 'rgba(15, 34, 67, 0.1)',
-  tabBar: Colors.lightCardBackground,
-  tabBarActive: Colors.primaryBlue,
-  inputBackground: 'rgba(0, 0, 0, 0.02)',
-};
-// Define dark theme
-export const darkTheme: ThemeColors = {
-  primary: Colors.primaryBlue,
-  primaryDark: Colors.primaryDarkBlue,
-  secondary: Colors.secondaryGreen,
-  accent1: Colors.accentOrange,
-  accent2: Colors.accentPurple,
-  background: Colors.darkBackground,
-  card: Colors.darkCardBackground,
-  cardElevated: '#252A3F',
-  success: Colors.success,
-  warning: Colors.warning,
-  danger: Colors.danger,
-  error: Colors.danger,
-  text: Colors.primaryTextDark,
-  textSecondary: Colors.secondaryTextDark,
-  textTertiary: Colors.tertiaryTextDark,
-  border: 'rgba(255, 255, 255, 0.1)',
-  shadow: 'rgba(0, 0, 0, 0.25)',
-  tabBar: 'rgba(30, 34, 53, 0.95)',
-  tabBarActive: Colors.primaryBlue,
-  inputBackground: 'rgba(255, 255, 255, 0.05)',
 };
 // Default export of the full theme
 export default {

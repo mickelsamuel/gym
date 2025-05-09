@@ -6,6 +6,7 @@ import {doc, getDoc, updateDoc, collection, query, where, getDocs, arrayUnion, o
 import { Ionicons } from '@expo/vector-icons';
 import { ExerciseContext } from '../context/ExerciseContext';
 import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import * as Haptics from 'expo-haptics';
@@ -60,6 +61,7 @@ const SocialScreen: React.FC = () => {
   const { darkMode } = useContext(ExerciseContext);
   const { user, userProfile } = useContext(AuthContext);
   const navigation = useNavigation<SocialScreenNavigationProp>();
+  const router = useRouter();
   const [myProfile, setMyProfile] = useState<UserProfile | null>(null);
   const [searchUsername, setSearchUsername] = useState<string>('');
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
@@ -288,6 +290,12 @@ const SocialScreen: React.FC = () => {
     const isWorkout = item.type === 'workout';
     const workoutSet = isWorkout ? item.data as WorkoutSet : null;
     const weightLog = !isWorkout ? item.data as WeightLog : null;
+    let avatarSource = null;
+    if (item.profilePic) {
+      avatarSource = { uri: item.profilePic };
+    } else {
+      avatarSource = require('../../assets/default-avatar.png');
+    }
     return (
       <Card 
         style={{
@@ -300,17 +308,11 @@ const SocialScreen: React.FC = () => {
             style={styles.activityHeader}
             onPress={() => {
               if (item.userId) {
-                navigation.navigate('FriendProfile', { userId: item.userId });
+                navigateToScreen('FriendProfile', { userId: item.userId });
               }
             }}
           >
-            {item.profilePic ? (
-              <Image source={{ uri: item.profilePic }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }]}>
-                <Ionicons name="person" size={24} color={theme.textSecondary} />
-              </View>
-            )}
+            <Image source={avatarSource} style={styles.avatar} />
             <View style={styles.activityUserInfo}>
               <Text 
                 variant="subtitle" 
@@ -448,6 +450,26 @@ const SocialScreen: React.FC = () => {
       </Card>
     );
   };
+  // Function to handle navigation that works with both navigation systems
+  const navigateToScreen = (screen: string, params?: any) => {
+    try {
+      // Try expo-router first
+      if (router) {
+        if (screen === 'FriendRequests') {
+          router.push('/(details)/friend-requests');
+        } else if (screen === 'FriendProfile' && params?.userId) {
+          router.push(`/(details)/friend-profile/${params.userId}`);
+        } else if (screen === 'ExerciseDetail' && params?.exerciseId) {
+          router.push(`/(details)/exercise/${params.exerciseId}`);
+        }
+      } else if (navigation) {
+        // Fallback to React Navigation
+        navigation.navigate(screen as any, params);
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
+  };
   return (
     <Container>
       {/* Fixed header with search bar */}
@@ -480,7 +502,7 @@ const SocialScreen: React.FC = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.requestsButton}
-            onPress={() => navigation.navigate('FriendRequests')}
+            onPress={() => navigateToScreen('FriendRequests')}
           >
             <Ionicons name="people" size={22} color={theme.text} />
             {requestsCount > 0 && (
@@ -603,7 +625,7 @@ const SocialScreen: React.FC = () => {
                       ]}
                       onPress={() => {
                         if (item.id) {
-                          navigation.navigate('FriendProfile', { userId: item.id });
+                          navigateToScreen('FriendProfile', { userId: item.id });
                         }
                       }}
                     >

@@ -3,7 +3,7 @@ import { useSyncOnReconnect, SyncOperation } from '../hooks/useSyncOnReconnect';
 import NetworkStateIndicator from './NetworkStateIndicator';
 import { getFirestore, writeBatch, doc, collection, serverTimestamp } from 'firebase/firestore';
 import { Alert } from 'react-native';
-;
+
 interface SyncContextType {
   isSyncing: boolean;
   lastSynced: Date | null;

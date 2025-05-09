@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import {View, StyleSheet, Animated, ViewStyle, TextStyle, Text as RNText, } from 'react-native';
+import {View, StyleSheet, Animated, ViewStyle, TextStyle, Text as RNText} from 'react-native';
 import { useExercise } from '../../context/ExerciseContext';
 import {Theme, BorderRadius, createElevation} from '../../constants/Theme';
 import Svg, { Circle, G, Rect } from 'react-native-svg';
 import Text from './Text';
-;
+
 // Common props for progress components
 interface CommonProgressProps {
   progress: number; // 0 to 1
@@ -15,7 +15,7 @@ interface CommonProgressProps {
   animationDuration?: number;
 }
 // Props specific to circle progress
-interface CircleProgressProps extends CommonProgressProps {
+export interface CircleProgressProps extends CommonProgressProps {
   size?: number;
   strokeWidth?: number;
   showValue?: boolean;
