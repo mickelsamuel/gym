@@ -1,257 +1,218 @@
-import React, { useState } from 'react';
-import {
-  View,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  TextStyle,
-  ViewStyle,
-  TextInputProps,
-  Platform,
-} from 'react-native';
+import React, { useState, useRef, forwardRef, useImperativeHandle } from 'react';
+import {TextInput, View, StyleSheet, TextInputProps, TextStyle, ViewStyle, TouchableOpacity, NativeSyntheticEvent, TextInputFocusEventData, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useExercise } from '../../context/ExerciseContext';
-import { Theme, Typography, BorderRadius, Spacing, createElevation } from '../../constants/Theme';
+import { Theme, Colors, BorderRadius, Spacing } from '../../constants/Theme';
 import Text from './Text';
-
-interface InputProps extends Omit<TextInputProps, 'style'> {
+export interface InputProps extends TextInputProps {
   label?: string;
+  hint?: string;
+  error?: string;
+  leftIcon?: string;
+  rightIcon?: string;
   iconLeft?: string;
   iconRight?: string;
+  onRightIconPress?: () => void;
   onIconRightPress?: () => void;
-  error?: string;
-  helper?: string;
   containerStyle?: ViewStyle;
   inputStyle?: TextStyle;
-  rounded?: boolean;
-  variant?: 'filled' | 'outlined';
-  touched?: boolean;
-  onBlur?: () => void;
-  onFocus?: () => void;
+  labelStyle?: TextStyle;
+  valid?: boolean;
   testID?: string;
+  touched?: boolean;
 }
-
+export interface InputRef {
+  focus: () => void;
+  blur: () => void;
+  clear: () => void;
+}
 /**
- * Input component following the GymTrackPro design system
+ * Input component
+ * 
+ * A custom text input component following the design specification
  */
-export default function Input({
-  label,
-  iconLeft,
-  iconRight,
-  onIconRightPress,
-  error,
-  helper,
-  containerStyle,
-  inputStyle,
-  rounded = false,
-  variant = 'filled',
-  secureTextEntry = false,
-  touched,
-  onBlur,
-  onFocus,
-  testID,
-  ...props
-}: InputProps) {
+const Input = forwardRef<InputRef, InputProps>((props, ref) => {
+  const {
+    label,
+    hint,
+    error,
+    leftIcon,
+    rightIcon,
+    iconLeft,
+    iconRight,
+    onRightIconPress,
+    onIconRightPress,
+    containerStyle,
+    inputStyle,
+    labelStyle,
+    valid,
+    testID,
+    touched,
+    ...restProps
+  } = props;
   const { darkMode } = useExercise();
-  const colors = darkMode ? Theme.dark : Theme.light;
-  
+  const theme = darkMode ? Theme.dark : Theme.light;
   const [isFocused, setIsFocused] = useState(false);
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  
-  // Handle focus event
-  const handleFocus = () => {
+  const inputRef = useRef<TextInput>(null);
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current?.focus(),
+    blur: () => inputRef.current?.blur(),
+    clear: () => inputRef.current?.clear(),
+  }));
+  // Determine input state for styling
+  const hasError = !!error;
+  const isValid = !!valid && !hasError;
+  // Handle focus
+  const handleFocus = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
     setIsFocused(true);
-    if (onFocus) onFocus();
+    if (props.onFocus) props.onFocus(e);
   };
-  
-  // Handle blur event
-  const handleBlur = () => {
+  // Handle blur
+  const handleBlur = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
     setIsFocused(false);
-    if (onBlur) onBlur();
+    if (props.onBlur) props.onBlur(e);
   };
-  
-  // Toggle password visibility
-  const togglePasswordVisibility = () => {
-    setIsPasswordVisible(!isPasswordVisible);
-  };
-  
-  // Determine if there is an error
-  const hasError = touched && error ? true : false;
-  
-  // Get background color based on variant, state, and theme
-  const getBackgroundColor = () => {
-    if (variant === 'outlined') {
-      return 'transparent';
-    }
-    
-    if (darkMode) {
-      return isFocused ? 'rgba(255, 255, 255, 0.07)' : 'rgba(255, 255, 255, 0.04)';
-    }
-    
-    return isFocused ? 'rgba(0, 0, 0, 0.04)' : 'rgba(0, 0, 0, 0.02)';
-  };
-  
-  // Get border styles based on variant, focus state, and error
-  const getBorderStyles = () => {
-    const defaultBorderColor = isFocused ? colors.primary : 'transparent';
-    const borderColor = hasError ? colors.danger : defaultBorderColor;
-
-    if (variant === 'outlined') {
-      return {
-        borderWidth: 1.5,
-        borderColor: hasError ? colors.danger : (isFocused ? colors.primary : colors.border)
-      };
-    }
-
-    return {
-      borderWidth: 0,
-      borderBottomWidth: 2,
-      borderBottomColor: borderColor,
-    };
-  };
-
-  
-  
-  
-
-  
-  // Get text color based on theme
-  const getTextColor = () => {
-    return darkMode ? colors.text : colors.text;
-  };
-  
-  // Get placeholder color based on theme
-  const getPlaceholderColor = () => {
-    return darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)';
-  };
-  
-  // Get icon color based on focus state and theme
-  const getIconColor = () => {
-    if (hasError) return colors.danger;
-    if (isFocused) return colors.primary;
-    return darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)';
-  };
-  
-  // Determine whether to show password toggle icon
-  const showPasswordIcon = secureTextEntry && !iconRight;
-  
-  // Get password icon based on visibility
-  const getPasswordIcon = () => {
-    return isPasswordVisible ? 'eye-off-outline' : 'eye-outline';
-  };
-  
+  // Determine border and icon colors based on component state
+  const borderColor = hasError ? Colors.danger : 
+                     isValid ? Colors.success : 
+                     isFocused ? theme.primary : 
+                     theme.border;
+  const iconColor = hasError ? Colors.danger : 
+                    isValid ? Colors.success : 
+                    isFocused ? theme.primary : 
+                    theme.textSecondary;
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View style={[styles.container, containerStyle]} testID={testID}>
       {label && (
         <Text
-          variant="caption"
-          style={{ 
-            ...styles.label,
-            color: hasError ? colors.danger : colors.textSecondary 
-          }}
+          variant="bodySmall"
+          style={[
+            styles.label,
+            { color: hasError ? Colors.danger : theme.textSecondary },
+            labelStyle,
+          ]}
         >
           {label}
         </Text>
       )}
-      
       <View
         style={[
           styles.inputContainer,
           {
-            backgroundColor: getBackgroundColor(),
-            borderRadius: rounded ? 100 : BorderRadius.md,
-            ...getBorderStyles(),
+            backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
+            borderColor,
+            borderWidth: 1,
           },
-          isFocused && !hasError && variant === 'filled' && createElevation(1, darkMode),
+          isFocused && styles.focused,
         ]}
       >
-        {iconLeft && (
-          <Ionicons
-            name={iconLeft as any}
-            size={18}
-            color={getIconColor()}
-            style={styles.iconLeft}
-          />
+        {(leftIcon || iconLeft) && (
+          <View style={styles.leftIconContainer}>
+            <Ionicons 
+              name={(leftIcon || iconLeft) as any} 
+              size={20} 
+              color={iconColor} 
+            />
+          </View>
         )}
-        
         <TextInput
+          ref={inputRef}
           style={[
             styles.input,
             {
-              color: getTextColor(),
-              paddingLeft: iconLeft ? 8 : 16,
-              paddingRight: (iconRight || showPasswordIcon) ? 8 : 16,
+              color: theme.text,
+              paddingLeft: (leftIcon || iconLeft) ? 0 : Spacing.sm,
+              paddingRight: (rightIcon || iconRight || hasError || isValid) ? 0 : Spacing.sm,
             },
             inputStyle,
           ]}
-          selectionColor={colors.primary}
-          placeholderTextColor={getPlaceholderColor()}
+          placeholderTextColor={theme.textSecondary}
+          selectionColor={theme.primary}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          secureTextEntry={secureTextEntry && !isPasswordVisible}
-          testID={testID}
-          {...props}
+          {...restProps}
         />
-        
-        {(showPasswordIcon || iconRight) && (
-          <TouchableOpacity
-            onPress={showPasswordIcon ? togglePasswordVisibility : onIconRightPress}
-            style={styles.iconRight}
-            activeOpacity={0.7}
+        {(rightIcon || iconRight || hasError || isValid) && (
+          <TouchableOpacity 
+            style={styles.rightIconContainer} 
+            onPress={onIconRightPress || onRightIconPress}
+            disabled={!(onIconRightPress || onRightIconPress)}
           >
-            <Ionicons
-              name={(showPasswordIcon ? getPasswordIcon() : iconRight) as any}
-              size={18}
-              color={getIconColor()}
+            <Ionicons 
+              name={
+                hasError ? 'alert-circle' : 
+                isValid ? 'checkmark-circle' : 
+                (rightIcon || iconRight) as any
+              } 
+              size={20} 
+              color={iconColor} 
             />
           </TouchableOpacity>
         )}
       </View>
-      
-      {(hasError || helper) && (
+      {error && (
         <Text
-          variant="tiny"
-          style={{ 
-            ...styles.helperText,
-            color: hasError ? colors.danger : colors.textTertiary 
-          }}
+          variant="caption"
+          color={Colors.danger}
+          style={styles.helperText}
         >
-          {hasError ? error : helper}
+          {error}
+        </Text>
+      )}
+      {!error && hint && (
+        <Text
+          variant="caption"
+          color={theme.textSecondary}
+          style={styles.helperText}
+        >
+          {hint}
         </Text>
       )}
     </View>
   );
-}
+});
+
+// Add display name
+Input.displayName = 'Input';
 
 const styles = StyleSheet.create({
   container: {
     marginBottom: Spacing.md,
-    width: '100%',
-  },
-  label: {
-    marginBottom: 4,
-    marginLeft: 4,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: BorderRadius.sm,
+    height: 56,
     overflow: 'hidden',
   },
   input: {
     flex: 1,
-    paddingVertical: 12,
-    fontSize: Typography.body,
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+    height: '100%',
+    fontSize: 16,
+    fontFamily: 'Inter',
   },
-  iconLeft: {
-    marginLeft: 16,
+  label: {
+    marginBottom: Spacing.xs,
   },
-  iconRight: {
-    padding: 8,
-    marginRight: 8,
+  focused: {
+    borderWidth: 2,
+  },
+  leftIconContainer: {
+    paddingHorizontal: Spacing.sm,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rightIconContainer: {
+    paddingHorizontal: Spacing.sm,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   helperText: {
-    marginTop: 4,
-    marginLeft: 4,
+    marginTop: Spacing.xs,
   },
-}); 
+});
+export default Input; 

@@ -1,25 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { db, firebaseFirestore, FIREBASE_PATHS } from '../firebase';
-import { doc, getDoc, setDoc, serverTimestamp, DocumentReference } from 'firebase/firestore';
 import { StorageKeys } from '../../constants';
-import { ApiResponse, FirebaseTimestamp } from '../../types/global';
-import { CacheEntry, DataCache } from '../../types/data';
+import {ApiResponse} from '../../types/global';
+import {DataCache} from '../../types/data';
 import { checkConnection } from '../firebase';
 import { logError } from '../../utils/logging';
 import { sanitizeFirestoreData } from '../../utils/sanitize';
-import { cacheService, createCacheKey } from '../CacheService';
+import {cacheService} from '../CacheService';
 import { timeFunction } from '../../utils/monitoring';
 import { ValidationError, getValidator } from '../../utils/validation';
-
+;
+;
 // Cache expiration time in milliseconds (30 minutes)
 const CACHE_EXPIRATION = 30 * 60 * 1000;
-
 // Maximum number of attempts for operations
 const MAX_RETRY_ATTEMPTS = 3;
-
 // Retry delay in milliseconds (exponential backoff)
 const RETRY_BASE_DELAY = 500;
-
 /**
  * BaseDatabaseService
  * 
@@ -36,10 +32,8 @@ const RETRY_BASE_DELAY = 500;
 export class BaseDatabaseService {
   /** Flag indicating if Firebase is currently available */
   protected isFirebaseAvailable: boolean;
-  
   /** In-memory cache for faster data access */
   protected cache: DataCache;
-  
   /**
    * Creates a new instance of the BaseDatabaseService
    * Initializes local cache and Firebase connection
@@ -49,7 +43,6 @@ export class BaseDatabaseService {
     this.cache = {};
     this.initDatabase();
   }
-
   /**
    * Initialize the database connection and local storage
    * 
@@ -62,10 +55,8 @@ export class BaseDatabaseService {
     try {
       // Initialize local storage first
       await this.initializeStorage();
-      
       // Then check Firebase connection
       this.isFirebaseAvailable = await this.testFirebaseConnection();
-      
       console.log(`Database service initialized. Firebase available: ${this.isFirebaseAvailable}`);
     } catch (error) {
       console.error('Error initializing database:', error);
@@ -73,7 +64,6 @@ export class BaseDatabaseService {
       this.isFirebaseAvailable = false;
     }
   }
-
   /**
    * Initialize AsyncStorage with default values if needed
    * 
@@ -89,7 +79,6 @@ export class BaseDatabaseService {
         StorageKeys.WORKOUT_PLANS,
         StorageKeys.CACHE_METADATA
       ];
-      
       // Create an array of promises for parallel execution
       const initPromises = keys.map(async (key) => {
         try {
@@ -103,7 +92,6 @@ export class BaseDatabaseService {
           logError('storage_init_error', { key, error });
         }
       });
-      
       // Execute all initialization promises in parallel
       await Promise.all(initPromises);
     } catch (error) {
@@ -111,7 +99,6 @@ export class BaseDatabaseService {
       logError('storage_init_error', error);
     }
   }
-
   /**
    * Test the connection to Firebase
    * 
@@ -131,7 +118,6 @@ export class BaseDatabaseService {
       return false;
     }
   }
-
   /**
    * Creates a formatted API response with success status
    * 
@@ -145,7 +131,6 @@ export class BaseDatabaseService {
       success: true
     };
   }
-
   /**
    * Creates a formatted API response with error status
    * 
@@ -165,7 +150,6 @@ export class BaseDatabaseService {
       success: false
     };
   }
-
   /**
    * Checks if the app is online before making a network request
    * 
@@ -180,7 +164,6 @@ export class BaseDatabaseService {
       throw new Error('Offline: Cannot perform write operations offline.');
     }
   }
-
   /**
    * Safely store data in AsyncStorage with error handling
    * 
@@ -198,7 +181,6 @@ export class BaseDatabaseService {
       throw error;
     }
   }
-
   /**
    * Safely retrieve data from AsyncStorage with error handling
    * 
@@ -216,7 +198,6 @@ export class BaseDatabaseService {
       return null;
     }
   }
-
   /**
    * Merge local and remote data intelligently
    * 
@@ -234,14 +215,12 @@ export class BaseDatabaseService {
   protected mergeData<T>(local: T, remote: T): T {
     if (!remote) return local;
     if (!local) return remote;
-    
     // For complex objects, merge properties
     return {
       ...local,
       ...remote
     };
   }
-  
   /**
    * Add data to the cache service with dependency tracking
    * 
@@ -263,7 +242,6 @@ export class BaseDatabaseService {
       dependencies
     });
   }
-  
   /**
    * Get data from the cache service
    * 
@@ -274,7 +252,6 @@ export class BaseDatabaseService {
   protected getFromCache<T>(key: string): T | null {
     return cacheService.get<T>(key);
   }
-  
   /**
    * Invalidate a specific cache entry
    * 
@@ -283,7 +260,6 @@ export class BaseDatabaseService {
   protected invalidateCache(key: string): void {
     cacheService.remove(key);
   }
-  
   /**
    * Invalidate all cache entries
    * Useful when major data changes occur
@@ -291,7 +267,6 @@ export class BaseDatabaseService {
   protected invalidateAllCache(): void {
     cacheService.clear();
   }
-  
   /**
    * Executes an operation with automatic retries on failure
    * 
@@ -308,37 +283,30 @@ export class BaseDatabaseService {
    */
   protected async withRetry<T>(operation: () => Promise<T>, retries: number = MAX_RETRY_ATTEMPTS): Promise<T> {
     let lastError: any;
-    
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         return await operation();
       } catch (error) {
         lastError = error;
-        
         // Don't retry if we've exhausted all attempts
         if (attempt === retries) {
           break;
         }
-        
         // Don't retry for validation errors or specific types that won't benefit from retrying
         if (error instanceof ValidationError) {
           throw error;
         }
-        
         // Calculate exponential backoff delay: 500ms, 1500ms, 3500ms, etc.
         const delay = RETRY_BASE_DELAY * Math.pow(2, attempt) + Math.random() * 500;
         console.log(`Operation failed, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${retries})`, error);
-        
         // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
-    
     // If we've exhausted all retries, throw the last error
     logError('operation_max_retries_exceeded', lastError);
     throw lastError;
   }
-
   /**
    * Format timestamp fields in data objects
    * 
@@ -351,11 +319,9 @@ export class BaseDatabaseService {
    */
   protected formatTimestamps<T>(data: T): T {
     if (!data) return data;
-    
     // Use sanitizeFirestoreData for consistent handling
     return sanitizeFirestoreData<T>(data);
   }
-  
   /**
    * Safely execute a database operation with proper error handling
    * 
@@ -382,13 +348,11 @@ export class BaseDatabaseService {
     } catch (error) {
       console.error(errorMessage, error);
       logError(errorCode, { error, message: errorMessage });
-      
       // Use original error message if available, otherwise use default
       const message = error instanceof Error ? error.message : errorMessage;
       return this.createErrorResponse<T>(errorCode, message, error);
     }
   }
-  
   /**
    * Complex data retrieval with cache, local storage, and remote fetching
    * 
@@ -426,13 +390,10 @@ export class BaseDatabaseService {
       console.log(`Cache hit for ${cacheKey}`);
       return data;
     }
-    
     console.log(`Cache miss for ${cacheKey}, fetching data...`);
-    
     // If online, try to fetch remote data
     let remoteData: T | null = null;
     let localData: T | null = null;
-    
     if (isOnline && this.isFirebaseAvailable) {
       try {
         // Fetch from remote source
@@ -440,7 +401,6 @@ export class BaseDatabaseService {
           async () => await this.withRetry(fetchRemoteData),
           'database'
         );
-        
         // Save to local storage for offline access
         if (remoteData) {
           this.saveLocalData(cacheKey, remoteData);
@@ -451,7 +411,6 @@ export class BaseDatabaseService {
         // Continue to try local data
       }
     }
-    
     // If remote data not available or offline, use local storage
     if (!remoteData) {
       try {
@@ -464,7 +423,6 @@ export class BaseDatabaseService {
         logError('local_data_fetch_error', { cacheKey, error });
       }
     }
-    
     // Handle different data scenarios
     if (remoteData && localData) {
       // Have both - merge with remote taking precedence
@@ -479,15 +437,12 @@ export class BaseDatabaseService {
       // No data available
       return null as unknown as T;
     }
-    
     // Cache the result for future use
     if (data) {
       this.addToCache(cacheKey, data);
     }
-    
     return data;
   }
-  
   /**
    * Save data to local storage and update cache
    * 
@@ -504,10 +459,8 @@ export class BaseDatabaseService {
     try {
       // Determine storage key from cache key
       const storageKey = this.getStorageKeyFromCacheKey(cacheKey);
-      
       if (storageKey) {
         await this.saveToStorage(storageKey, data);
-        
         // Also update cache
         this.addToCache(cacheKey, data);
       }
@@ -517,7 +470,6 @@ export class BaseDatabaseService {
       // Don't re-throw - this is a background operation
     }
   }
-  
   /**
    * Extract storage key from cache key
    * Simple helper to map cache keys to storage keys
@@ -531,7 +483,6 @@ export class BaseDatabaseService {
     if (cacheKey.includes('plan')) return StorageKeys.WORKOUT_PLANS;
     return undefined;
   }
-  
   /**
    * Validate data using appropriate validator for the data type
    * 
@@ -550,19 +501,16 @@ export class BaseDatabaseService {
     try {
       // Get the appropriate validator function
       const validator = getValidator(type);
-      
       // Validate the data
       return validator(data);
     } catch (error) {
       if (error instanceof ValidationError) {
         throw error; // Re-throw validation errors
       }
-      
       // For unexpected errors, wrap in ValidationError
       throw new ValidationError(`Validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
   /**
    * Execute a write operation with data validation
    * 
@@ -586,10 +534,8 @@ export class BaseDatabaseService {
   ): Promise<R> {
     // Validate data first
     const validatedData = this.validateData(data, dataType);
-    
     // Execute write operation with validated data
     return await writeOperation(validatedData);
   }
 }
-
 export default BaseDatabaseService; 

@@ -1,51 +1,36 @@
 import React, { useEffect, useRef } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  Animated, 
-  Dimensions,
-  Platform,
-  StatusBar,
-  TextStyle
-} from 'react-native';
+import {View, StyleSheet, Animated, Dimensions, StatusBar, TextStyle} from 'react-native';
 import { Text } from '../components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useExercise } from '../context/ExerciseContext';
 import { Theme } from '../constants/Theme';
 import * as SplashScreen from 'expo-splash-screen';
 import { LinearGradient } from 'expo-linear-gradient';
-
 // Keep splash screen visible until we manually hide it
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* reloading the app might trigger some race conditions, ignore them */
 });
-
 interface SplashScreenProps {
   onAnimationComplete?: () => void;
 }
-
 const { width, height } = Dimensions.get('window');
-
 /**
  * Animated splash screen component
  */
 export default function AnimatedSplashScreen({ onAnimationComplete }: SplashScreenProps) {
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
-  
   // Animation values
   const logoScale = useRef(new Animated.Value(0.8)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textTranslateY = useRef(new Animated.Value(20)).current;
   const fadeOut = useRef(new Animated.Value(1)).current;
-  
   useEffect(() => {
     // Start animations sequence
     Animated.sequence([
       // Wait a bit to ensure all resources are ready
       Animated.delay(300),
-      
       // Fade in logo with spring scaling
       Animated.parallel([
         Animated.spring(logoScale, {
@@ -60,7 +45,6 @@ export default function AnimatedSplashScreen({ onAnimationComplete }: SplashScre
           useNativeDriver: true,
         }),
       ]),
-      
       // Fade in text slightly later
       Animated.parallel([
         Animated.timing(textOpacity, {
@@ -75,10 +59,8 @@ export default function AnimatedSplashScreen({ onAnimationComplete }: SplashScre
           useNativeDriver: true,
         }),
       ]),
-      
       // Hold for a moment
       Animated.delay(800),
-      
       // Fade out everything
       Animated.timing(fadeOut, {
         toValue: 0,
@@ -88,14 +70,12 @@ export default function AnimatedSplashScreen({ onAnimationComplete }: SplashScre
     ]).start(async () => {
       // Hide the native splash screen
       await SplashScreen.hideAsync();
-      
       // Notify parent when complete
       if (onAnimationComplete) {
         onAnimationComplete();
       }
     });
   }, []);
-  
   return (
     <Animated.View 
       style={[
@@ -111,7 +91,6 @@ export default function AnimatedSplashScreen({ onAnimationComplete }: SplashScre
         backgroundColor="transparent"
         translucent
       />
-      
       {/* Background gradient */}
       <LinearGradient
         colors={[
@@ -120,7 +99,6 @@ export default function AnimatedSplashScreen({ onAnimationComplete }: SplashScre
         ]}
         style={styles.gradient}
       />
-      
       <View style={styles.content}>
         {/* Logo */}
         <Animated.View 
@@ -139,7 +117,6 @@ export default function AnimatedSplashScreen({ onAnimationComplete }: SplashScre
             <Ionicons name="barbell" size={60} color="#FFFFFF" />
           </View>
         </Animated.View>
-        
         {/* App Name */}
         <Animated.View 
           style={[
@@ -174,7 +151,6 @@ export default function AnimatedSplashScreen({ onAnimationComplete }: SplashScre
     </Animated.View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

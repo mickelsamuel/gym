@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, ViewStyle, Image, TextStyle } from 
 import { Ionicons } from '@expo/vector-icons';
 import { Text, Card } from './ui';
 import { useExercise } from '../context/ExerciseContext';
-import { Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
+import { Theme, Typography, Spacing, BorderRadius, createElevation, Colors } from '../constants/Theme';
 
 interface ExerciseCardProps {
   exercise: any; // Replace with your exercise type
@@ -42,12 +42,14 @@ export default function ExerciseCard({
     
     const muscleKey = muscle.toLowerCase().replace(/\s/g, '');
     
-    if (muscleKey.includes('chest')) return '#FF5A5F'; // Red
-    if (muscleKey.includes('back') || muscleKey.includes('lats')) return '#38D9A9'; // Green
-    if (muscleKey.includes('shoulder') || muscleKey.includes('delt')) return '#A66EFC'; // Purple
-    if (muscleKey.includes('bicep') || muscleKey.includes('tricep') || muscleKey.includes('arm')) return '#FF9F5A'; // Orange
-    if (muscleKey.includes('leg') || muscleKey.includes('quad') || muscleKey.includes('hamstring') || muscleKey.includes('calv')) return '#3772FF'; // Blue
-    if (muscleKey.includes('abs') || muscleKey.includes('core')) return '#FFC43D'; // Yellow
+    if (muscleKey.includes('chest')) return Colors.muscleChest;
+    if (muscleKey.includes('back') || muscleKey.includes('lats')) return Colors.muscleBack;
+    if (muscleKey.includes('shoulder') || muscleKey.includes('delt')) return Colors.muscleShoulders;
+    if (muscleKey.includes('bicep') || muscleKey.includes('tricep') || muscleKey.includes('arm')) return Colors.muscleArms;
+    if (muscleKey.includes('leg') || muscleKey.includes('quad') || muscleKey.includes('hamstring') || muscleKey.includes('calv')) return Colors.muscleLegs;
+    if (muscleKey.includes('abs') || muscleKey.includes('core')) return Colors.muscleCore;
+    if (muscleKey.includes('cardio')) return Colors.muscleCardio;
+    if (muscleKey.includes('full') || muscleKey.includes('compound')) return Colors.muscleFullBody;
     
     return colors.textSecondary;
   };

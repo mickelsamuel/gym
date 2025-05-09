@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, firebaseAuth, db } from '../services/firebase';
 import { 
   onAuthStateChanged,
-  User,
+  // User, // Commented out as this is not exported from firebase/auth
   EmailAuthProvider,
   reauthenticateWithCredential,
   sendEmailVerification
@@ -676,14 +676,45 @@ export const AuthProvider = ({ children }) => {
     }
   };
   
+  // Delete user account
+  const deleteAccount = async () => {
+    try {
+      setIsLoading(true);
+      
+      if (!currentUser) {
+        throw new Error('No user is currently logged in');
+      }
+      
+      // Delete user from Firebase Authentication
+      await currentUser.delete();
+      
+      // Clear local storage
+      await clearUserDataFromStorage();
+      
+      setCurrentUser(null);
+      setUserProfile(null);
+      setIsLoggedIn(false);
+      setIsLoading(false);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      setError(error.message);
+      setIsLoading(false);
+      return { success: false, error: error.message };
+    }
+  };
+  
   // Context value
   const value = {
     currentUser,
+    user: currentUser,
     userProfile,
     isLoggedIn,
-    isLoading,
+    loading: isLoading,
     error,
     isOnline,
+    emailVerified: currentUser?.emailVerified || false,
     storageInitialized,
     register,
     login,
@@ -694,6 +725,7 @@ export const AuthProvider = ({ children }) => {
     changeEmail,
     resendVerificationEmail,
     tryAutoLogin,
+    deleteAccount,
     clearError: () => setError(null)
   };
   

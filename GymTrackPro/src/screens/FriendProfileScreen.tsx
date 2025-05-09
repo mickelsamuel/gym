@@ -19,11 +19,10 @@ import { ExerciseContext } from '../context/ExerciseContext';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
+import {Theme, Spacing, BorderRadius} from '../constants/Theme';
 import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
-import { format, formatDistance } from 'date-fns';
-
+import {formatDistance} from 'date-fns';
 // UI Components
 import { 
   Text, 
@@ -32,19 +31,15 @@ import {
   Container, 
   FadeIn 
 } from '../components/ui';
-
 // Types
 import { RootStackParamList } from '../navigation/NavigationTypes';
 import { UserData, WorkoutSet, WeightLogEntry } from '../types/data';
-
 // Define types for icon names
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
-
 // Custom animation
 const SlideIn = ({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) => {
   const slideAnim = useRef(new Animated.Value(20)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -61,7 +56,6 @@ const SlideIn = ({ children, delay = 0 }: { children: React.ReactNode; delay?: n
       }),
     ]).start();
   }, []);
-  
   return (
     <Animated.View
       style={{
@@ -73,7 +67,6 @@ const SlideIn = ({ children, delay = 0 }: { children: React.ReactNode; delay?: n
     </Animated.View>
   );
 };
-
 // Achievement type
 interface Achievement {
   id: string;
@@ -82,11 +75,9 @@ interface Achievement {
   icon: IoniconsName;
   color: string;
 }
-
 // Screen params type
 type FriendProfileScreenRouteProp = RouteProp<RootStackParamList, 'FriendProfileScreen'>;
 type FriendProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'FriendProfileScreen'>;
-
 const FriendProfileScreen: React.FC = () => {
   const navigation = useNavigation<FriendProfileScreenNavigationProp>();
   const route = useRoute<FriendProfileScreenRouteProp>();
@@ -99,7 +90,6 @@ const FriendProfileScreen: React.FC = () => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [processingIds, setProcessingIds] = useState<string[]>([]);
   const [showCelebration, setShowCelebration] = useState<boolean>(false);
-  
   // Animation refs
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerHeight = scrollY.interpolate({
@@ -107,24 +97,19 @@ const FriendProfileScreen: React.FC = () => {
     outputRange: [180, 100],
     extrapolate: 'clamp'
   });
-  
   // Theme
   const theme = darkMode ? Theme.dark : Theme.light;
-  
   // Custom colors
   const customColors = {
     textLight: '#FFFFFF',
     overlay: 'rgba(0,0,0,0.2)'
   };
-
   useEffect(() => {
     loadFriendProfile();
   }, []);
-
   async function loadFriendProfile() {
     setLoading(true);
     if (!user) return;
-    
     try {
       const ref = doc(db, 'users', userId);
       const snap = await getDoc(ref);
@@ -143,16 +128,13 @@ const FriendProfileScreen: React.FC = () => {
       setLoading(false);
     }
   }
-  
   const onRefresh = async () => {
     setRefreshing(true);
     await loadFriendProfile();
     setRefreshing(false);
   };
-  
   const generateAchievements = (data: UserData) => {
     const newAchievements: Achievement[] = [];
-    
     // Check for workout consistency
     if (data.firestoreSets && data.firestoreSets.length > 10) {
       newAchievements.push({
@@ -163,7 +145,6 @@ const FriendProfileScreen: React.FC = () => {
         color: theme.warning
       });
     }
-    
     if (data.firestoreSets && data.firestoreSets.length > 20) {
       newAchievements.push({
         id: 'workout-20',
@@ -173,7 +154,6 @@ const FriendProfileScreen: React.FC = () => {
         color: theme.primary
       });
     }
-    
     // Check for weight logging consistency
     if (data.firestoreWeightLog && data.firestoreWeightLog.length > 5) {
       newAchievements.push({
@@ -184,7 +164,6 @@ const FriendProfileScreen: React.FC = () => {
         color: theme.success
       });
     }
-    
     // Heavy lifter achievement (simplified example)
     const heavyLift = data.firestoreSets && data.firestoreSets.find((set: WorkoutSet) => set.weight > 200);
     if (heavyLift) {
@@ -196,10 +175,8 @@ const FriendProfileScreen: React.FC = () => {
         color: theme.accent1
       });
     }
-    
     setAchievements(newAchievements);
   };
-  
   const celebrateAchievement = () => {
     setShowCelebration(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -207,12 +184,10 @@ const FriendProfileScreen: React.FC = () => {
       setShowCelebration(false);
     }, 3000);
   };
-  
   const formatRelativeTime = (dateString: string) => {
     const date = new Date(dateString);
     return formatDistance(date, new Date(), { addSuffix: true });
   };
-  
   const renderWorkoutItem = ({ item, index }: { item: WorkoutSet; index: number }) => {
     return (
       <SlideIn delay={index * 50}>
@@ -264,11 +239,9 @@ const FriendProfileScreen: React.FC = () => {
       </SlideIn>
     );
   };
-  
   const renderWeightLogItem = ({ item, index }: { item: WeightLogEntry; index: number }) => {
     // Calculate weight change from previous entry
     const weightChange = item.change ?? 0;
-
     return (
       <SlideIn delay={index * 50}>
         <Card 
@@ -312,7 +285,6 @@ const FriendProfileScreen: React.FC = () => {
       </SlideIn>
     );
   };
-
   return (
     <Container>
       {loading ? (
@@ -338,7 +310,6 @@ const FriendProfileScreen: React.FC = () => {
             >
               <Ionicons name="chevron-back" size={24} color={customColors.textLight} />
             </TouchableOpacity>
-            
             <View style={styles.profileImageContainer}>
               {friendData.profilePic ? (
                 <Image
@@ -353,12 +324,10 @@ const FriendProfileScreen: React.FC = () => {
                 </View>
               )}
             </View>
-            
             <View style={styles.userInfo}>
               <Text variant="heading2" style={{ color: customColors.textLight }}>
                 {friendData.username || 'Gym Friend'}
               </Text>
-              
               <Text 
                 variant="body"
                 style={{ color: 'rgba(255, 255, 255, 0.8)', marginTop: 4 }}
@@ -368,7 +337,6 @@ const FriendProfileScreen: React.FC = () => {
                   'Fitness Enthusiast'}
               </Text>
             </View>
-            
             <View style={styles.socialActions}>
               <Button
                 title="Message"
@@ -378,7 +346,6 @@ const FriendProfileScreen: React.FC = () => {
                 onPress={() => Alert.alert('Message', 'Messaging feature coming soon!')}
                 style={{ marginRight: Spacing.sm }}
               />
-              
               <Button
                 title="Challenge"
                 type="secondary"
@@ -388,7 +355,6 @@ const FriendProfileScreen: React.FC = () => {
               />
             </View>
           </Animated.View>
-          
           <ScrollView
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingTop: 200, paddingBottom: 20 }}
@@ -422,14 +388,12 @@ const FriendProfileScreen: React.FC = () => {
                         Your Workouts
                       </Text>
                       <Text variant="heading3" style={{ color: theme.text }}>
-                        {user?.firestoreSets?.length || 0}
+                        {(user as any)?.firestoreSets?.length ?? 0}
                       </Text>
                     </View>
-                    
                     <View style={[styles.vsCircle, { backgroundColor: theme.primary + '20' }]}>
                       <Text style={{ color: theme.primary, fontWeight: "700" as const }}>VS</Text>
                     </View>
-                    
                     <View style={styles.comparisonColumn}>
                       <Text variant="caption" style={{ color: theme.textSecondary }}>
                         Their Workouts
@@ -439,23 +403,19 @@ const FriendProfileScreen: React.FC = () => {
                       </Text>
                     </View>
                   </View>
-                  
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  
                   <View style={styles.comparisonRow}>
                     <View style={styles.comparisonColumn}>
                       <Text variant="caption" style={{ color: theme.textSecondary }}>
                         Your Streak
                       </Text>
                       <Text variant="heading3" style={{ color: theme.text }}>
-                        {user?.streak || 0}
+                        {(user as any)?.streak ?? 0}
                       </Text>
                     </View>
-                    
                     <View style={[styles.vsCircle, { backgroundColor: theme.primary + '20' }]}>
                       <Text style={{ color: theme.primary, fontWeight: "700" as const }}>VS</Text>
                     </View>
-                    
                     <View style={styles.comparisonColumn}>
                       <Text variant="caption" style={{ color: theme.textSecondary }}>
                         Their Streak
@@ -468,7 +428,6 @@ const FriendProfileScreen: React.FC = () => {
                 </Card>
               </View>
             </FadeIn>
-            
             {/* Achievements Section */}
             <FadeIn delay={100}>
               <View style={styles.section}>
@@ -480,7 +439,6 @@ const FriendProfileScreen: React.FC = () => {
                     {achievements.length} Badges
                   </Text>
                 </View>
-                
                 {achievements.length > 0 ? (
                   <ScrollView
                     horizontal
@@ -537,14 +495,12 @@ const FriendProfileScreen: React.FC = () => {
                 )}
               </View>
             </FadeIn>
-            
             {/* Recent Workouts Section */}
             <FadeIn delay={200}>
               <View style={styles.section}>
                 <Text variant="heading3" style={{ color: theme.text, marginBottom: Spacing.md }}>
                   Recent Workouts
                 </Text>
-                
                 {friendData.firestoreSets && friendData.firestoreSets.length > 0 ? (
                   <FlatList
                     data={friendData.firestoreSets.slice(0, 5)}
@@ -569,7 +525,6 @@ const FriendProfileScreen: React.FC = () => {
                 )}
               </View>
             </FadeIn>
-            
             {/* Weight Progress Section (if available) */}
             {friendData.firestoreWeightLog && friendData.firestoreWeightLog.length > 0 && (
               <FadeIn delay={300}>
@@ -587,7 +542,6 @@ const FriendProfileScreen: React.FC = () => {
               </FadeIn>
             )}
           </ScrollView>
-          
           {/* Celebration Animation */}
           {showCelebration && (
             <View style={styles.celebrationOverlay}>
@@ -626,7 +580,6 @@ const FriendProfileScreen: React.FC = () => {
     </Container>
   );
 };
-
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
@@ -793,5 +746,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-
 export default FriendProfileScreen; 

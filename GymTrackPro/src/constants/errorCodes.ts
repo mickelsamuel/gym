@@ -1,7 +1,6 @@
 /**
  * Firebase and application error codes
  */
-
 // Firebase Auth Error Codes
 export const AUTH_ERROR_CODES = {
   INVALID_EMAIL: 'auth/invalid-email',
@@ -17,7 +16,6 @@ export const AUTH_ERROR_CODES = {
   EXPIRED_ACTION_CODE: 'auth/expired-action-code',
   INVALID_ACTION_CODE: 'auth/invalid-action-code',
 };
-
 // Firebase Firestore Error Codes
 export const FIRESTORE_ERROR_CODES = {
   PERMISSION_DENIED: 'permission-denied',
@@ -37,42 +35,35 @@ export const FIRESTORE_ERROR_CODES = {
   UNIMPLEMENTED: 'unimplemented',
   INTERNAL: 'internal',
 };
-
 // App-specific error codes
 export const APP_ERROR_CODES = {
   // Network errors
   NETWORK_DISCONNECTED: 'network_disconnected',
   SERVER_UNREACHABLE: 'server_unreachable',
   TIMEOUT: 'request_timeout',
-  
   // Validation errors
   INVALID_INPUT: 'invalid_input',
   REQUIRED_FIELD_MISSING: 'required_field_missing',
   INVALID_FORMAT: 'invalid_format',
-  
   // Authentication errors
   AUTH_EXPIRED: 'auth_expired',
   NOT_AUTHENTICATED: 'not_authenticated',
   MISSING_PERMISSIONS: 'missing_permissions',
-  
   // Data errors
   DATA_NOT_FOUND: 'data_not_found',
   DUPLICATE_ENTRY: 'duplicate_entry',
   STALE_DATA: 'stale_data',
-  
   // Application errors
   INITIALIZATION_FAILED: 'initialization_failed',
   UNEXPECTED_ERROR: 'unexpected_error',
   FEATURE_DISABLED: 'feature_disabled',
 };
-
 // Combine all error codes for easy import
 export const ERROR_CODES = {
   ...AUTH_ERROR_CODES,
   ...FIRESTORE_ERROR_CODES,
   ...APP_ERROR_CODES,
 };
-
 /**
  * Map an error code to a user-friendly message
  * @param errorCode The error code
@@ -99,7 +90,6 @@ export const getErrorMessage = (errorCode: string): string => {
       return 'Invalid credentials. Please try again.';
     case AUTH_ERROR_CODES.OPERATION_NOT_ALLOWED:
       return 'This operation is not allowed.';
-      
     // Firestore error messages
     case FIRESTORE_ERROR_CODES.PERMISSION_DENIED:
       return 'Permission denied. You do not have access to this resource.';
@@ -117,7 +107,6 @@ export const getErrorMessage = (errorCode: string): string => {
       return 'Invalid argument provided to the operation.';
     case FIRESTORE_ERROR_CODES.FAILED_PRECONDITION:
       return 'Operation failed due to a failed precondition.';
-      
     // App-specific error messages
     case APP_ERROR_CODES.NETWORK_DISCONNECTED:
       return 'You appear to be offline. Please check your internet connection.';
@@ -131,7 +120,6 @@ export const getErrorMessage = (errorCode: string): string => {
       return 'Required field is missing. Please fill in all required fields.';
     case APP_ERROR_CODES.DATA_NOT_FOUND:
       return 'The requested data could not be found.';
-      
     // Default error message
     default:
       return 'An unexpected error occurred. Please try again.';

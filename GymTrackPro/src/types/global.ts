@@ -1,23 +1,22 @@
 // Global type definitions for Firebase and app data models
-
 // Firebase Timestamp type (from Firestore)
 export interface FirebaseTimestamp {
   toDate: () => Date;
   seconds: number;
   nanoseconds: number;
+  toMillis: () => number;
+  isEqual: (other: FirebaseTimestamp) => boolean;
+  toJSON: () => { seconds: number; nanoseconds: number };
 }
-
 // Base document interface for all Firestore documents
 export interface FirestoreDocument {
   id?: string;
   createdAt?: FirebaseTimestamp;
   updatedAt?: FirebaseTimestamp;
 }
-
 //=================================================
 // USER RELATED TYPES
 //=================================================
-
 export interface User extends FirestoreDocument {
   uid: string;
   email: string;
@@ -33,20 +32,17 @@ export interface User extends FirestoreDocument {
   role?: 'user' | 'admin';
   settings?: AppSettings;
 }
-
 export interface AuthCredentials {
   email: string;
   password: string;
   rememberMe?: boolean;
 }
-
 export interface RegistrationData extends AuthCredentials {
   username: string;
   age?: number;
   weight?: number;
   height?: number;
 }
-
 export interface UserStats extends FirestoreDocument {
   userId: string;
   totalWorkouts: number;
@@ -74,11 +70,9 @@ export interface UserStats extends FirestoreDocument {
     date: string;
   }[];
 }
-
 //=================================================
 // WORKOUT RELATED TYPES
 //=================================================
-
 export interface WeightLogEntry extends FirestoreDocument {
   userId: string;
   weight: number;
@@ -86,7 +80,6 @@ export interface WeightLogEntry extends FirestoreDocument {
   notes?: string;
   change?: number;
 }
-
 export interface Workout extends FirestoreDocument {
   userId: string;
   name: string;
@@ -97,7 +90,6 @@ export interface Workout extends FirestoreDocument {
   categoryId?: string;
   categoryName?: string;
 }
-
 export interface WorkoutExercise {
   id: string;
   name: string;
@@ -106,7 +98,6 @@ export interface WorkoutExercise {
   muscleGroups?: string[];
   primaryMuscleGroup?: string;
 }
-
 export interface WorkoutSet {
   id?: string;
   weight: number;
@@ -117,30 +108,35 @@ export interface WorkoutSet {
   date?: string;
   userId?: string;
 }
-
+export interface WorkoutPlanExercise {
+  id: string;
+  name: string;
+  sets: number;
+  reps: number;
+  weight?: number;
+  notes?: string;
+  order?: number;
+}
 export interface WorkoutPlan extends FirestoreDocument {
   userId: string;
   name: string;
   description?: string;
-  exercises: string[]; // Exercise IDs
+  exercises: WorkoutPlanExercise[];
   schedule?: {
     days: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday')[];
     startDate?: string;
     endDate?: string;
   };
 }
-
 export interface WorkoutCategory extends FirestoreDocument {
   name: string;
   description: string;
   icon: string;
   color: string;
 }
-
 //=================================================
 // EXERCISE RELATED TYPES
 //=================================================
-
 export interface Exercise extends FirestoreDocument {
   name: string;
   description: string;
@@ -153,25 +149,22 @@ export interface Exercise extends FirestoreDocument {
   videoUrl?: string;
   imageUrl?: string;
 }
-
 export interface MuscleGroup extends FirestoreDocument {
   name: string;
   description: string;
   imageUrl?: string;
   exercises?: string[]; // List of exercise IDs
+  color?: string; // Color code for the muscle group (added as per design spec)
 }
-
 export interface Equipment extends FirestoreDocument {
   name: string;
   description?: string;
   imageUrl?: string;
   exercises?: string[]; // List of exercise IDs
 }
-
 //=================================================
 // GOAL RELATED TYPES
 //=================================================
-
 export interface Goal extends FirestoreDocument {
   name: string;
   description: string;
@@ -180,18 +173,15 @@ export interface Goal extends FirestoreDocument {
   workoutFrequency?: number;
   duration?: number; // in weeks
 }
-
 //=================================================
 // SOCIAL RELATED TYPES
 //=================================================
-
 export interface Friend extends FirestoreDocument {
   userId: string;
   friendId: string;
   username: string;
   profilePic?: string;
 }
-
 export interface FriendRequest extends FirestoreDocument {
   fromUid: string;
   fromUsername: string;
@@ -201,7 +191,6 @@ export interface FriendRequest extends FirestoreDocument {
   sentAt: FirebaseTimestamp | string;
   status: 'pending' | 'accepted' | 'rejected';
 }
-
 export interface FriendSuggestion {
   uid: string;
   username: string;
@@ -209,11 +198,9 @@ export interface FriendSuggestion {
   mutualFriends?: number;
   reason?: string;
 }
-
 //=================================================
 // ACHIEVEMENT TYPES
 //=================================================
-
 export interface UserAchievement extends FirestoreDocument {
   userId: string;
   title: string;
@@ -225,27 +212,22 @@ export interface UserAchievement extends FirestoreDocument {
     target: number;
   };
 }
-
 //=================================================
 // ERROR HANDLING TYPES
 //=================================================
-
 export interface ApiError {
   code: string;
   message: string;
   details?: any;
 }
-
 export interface ApiResponse<T> {
   data?: T;
   error?: ApiError;
   success: boolean;
 }
-
 //=================================================
 // APP SETTINGS
 //=================================================
-
 export interface AppSettings {
   darkMode: boolean;
   notifications: boolean;
@@ -259,11 +241,9 @@ export interface AppSettings {
   offlineMode?: boolean;
   dataSyncFrequency?: 'always' | 'wifi_only' | 'manual';
 }
-
 //=================================================
 // TRACKING PROGRESS TYPES
 //=================================================
-
 export interface ProgressEntry extends FirestoreDocument {
   userId: string;
   date: string;
@@ -272,7 +252,6 @@ export interface ProgressEntry extends FirestoreDocument {
   unit?: string;
   notes?: string;
 }
-
 export interface BodyMeasurement extends FirestoreDocument {
   userId: string;
   date: string;
@@ -290,11 +269,9 @@ export interface BodyMeasurement extends FirestoreDocument {
   unit: 'cm' | 'in';
   notes?: string;
 }
-
 //=================================================
 // NOTIFICATION TYPES
 //=================================================
-
 export interface AppNotification extends FirestoreDocument {
   userId: string;
   title: string;
@@ -303,17 +280,14 @@ export interface AppNotification extends FirestoreDocument {
   read: boolean;
   data?: any;
 }
-
 //=================================================
 // NETWORK RELATED TYPES
 //=================================================
-
 export interface NetworkStatus {
   isConnected: boolean;
   isInternetReachable: boolean;
   lastChecked: string;
 }
-
 export interface CacheSettings {
   maxAge: number; // in milliseconds
   staleTime: number; // in milliseconds

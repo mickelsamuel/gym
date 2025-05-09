@@ -1,56 +1,43 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
-import {
-  View,
-  ScrollView,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
-  Animated,
-  Dimensions,
-  RefreshControl,
-  ActivityIndicator,
-  Platform
-} from 'react-native';
+import {View, ScrollView, FlatList, TouchableOpacity, StyleSheet, TextInput, Animated, RefreshControl, ActivityIndicator, Platform} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { ExerciseContext } from '../context/ExerciseContext';
-import { AuthContext } from '../context/AuthContext';
-import { Text, Button, Card, Container, FadeIn } from '../components/ui';
-import { Colors, Theme, Typography, Spacing, BorderRadius } from '../constants/Theme';
+import { useAuth } from '../hooks/useAuth';
+import {Text, Button, Card, Container} from '../components/ui';
+import {Theme, Spacing, BorderRadius} from '../constants/Theme';
 import { RootStackParamList } from '../navigation/NavigationTypes';
-import { Exercise } from '../types/data';
-
+import { Exercise } from '../types/mergedTypes';
 // Define navigation prop type
 type ExercisesScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ExercisesScreen'>;
-
 // Define filter options for exercises
 type FilterOption = 'all' | 'favorites' | 'recent';
 type SortOption = 'name' | 'difficulty' | 'muscle';
-
 // Extended Exercise interface with muscle properties needed for this component
-interface ExtendedExercise extends Exercise {
+interface ExtendedExercise {
+  id: string;
+  name: string;
+  muscleGroup: string;
+  equipment: string;
+  difficulty: string;
   primaryMuscles?: string[];
   secondaryMuscles?: string[];
+  imageUrl?: string;
 }
-
 // Define muscle group item type
 interface MuscleGroupItem {
   id: string;
   name: string;
   icon: string;
 }
-
 const ExercisesScreen: React.FC = () => {
   const navigation = useNavigation<ExercisesScreenNavigationProp>();
-  const { user } = useContext(AuthContext);
-  const { getAllExercises, getMuscleInfo, isFavorite, recentExercises, darkMode } = useContext(ExerciseContext);
-  
+  const { currentUser } = useAuth();
+  const { getAllExercises, favorites, darkMode } = useContext(ExerciseContext);
   // Theme
   const theme = darkMode ? Theme.dark : Theme.light;
-  
   // State
   const [exercises, setExercises] = useState<ExtendedExercise[]>([]);
   const [filteredExercises, setFilteredExercises] = useState<ExtendedExercise[]>([]);
@@ -60,7 +47,7 @@ const ExercisesScreen: React.FC = () => {
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  
+  const [recentExercises, setRecentExercises] = useState<ExtendedExercise[]>([]);
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
   const searchBarOpacity = scrollY.interpolate({
@@ -73,7 +60,6 @@ const ExercisesScreen: React.FC = () => {
     outputRange: [0, -10],
     extrapolate: 'clamp',
   });
-  
   // Muscle groups data
   const muscleGroups: MuscleGroupItem[] = [
     { id: 'chest', name: 'Chest', icon: 'body-outline' },
@@ -84,42 +70,60 @@ const ExercisesScreen: React.FC = () => {
     { id: 'abs', name: 'Abs', icon: 'body-outline' },
     { id: 'cardio', name: 'Cardio', icon: 'heart-outline' },
   ];
-
+  // Helper function to check if an exercise is in favorites
+  const isFavorite = (id: string): boolean => {
+    return favorites.includes(id);
+  };
   // Load exercises
   useEffect(() => {
     loadExercises();
   }, []);
-  
   // Filter exercises when search or filters change
   useEffect(() => {
     filterExercises();
   }, [searchQuery, activeFilter, activeSort, selectedMuscleGroup, exercises]);
-  
   // Load all exercises
   const loadExercises = async () => {
     setIsLoading(true);
-    
     try {
       const allExercises = getAllExercises();
-      setExercises(allExercises as ExtendedExercise[]);
+      // Use a type assertion with unknown as intermediate step
+      setExercises(allExercises.map(ex => ({
+        id: ex.id,
+        name: ex.name,
+        muscleGroup: ex.muscleGroup || ex.primaryMuscleGroup || '',
+        equipment: ex.equipment || '',
+        difficulty: ex.difficulty || 'beginner',
+        primaryMuscles: ex.primaryMuscles,
+        secondaryMuscles: ex.secondaryMuscles,
+        imageUrl: ex.image
+      })) as ExtendedExercise[]);
+      // Set recent exercises based on most recent 5
+      setRecentExercises(allExercises.slice(0, 5).map(ex => ({
+        id: ex.id,
+        name: ex.name,
+        muscleGroup: ex.muscleGroup || ex.primaryMuscleGroup || '',
+        equipment: ex.equipment || '',
+        difficulty: ex.difficulty || 'beginner',
+        primaryMuscles: ex.primaryMuscles,
+        secondaryMuscles: ex.secondaryMuscles,
+        imageUrl: ex.image
+      })) as ExtendedExercise[]);
     } catch (error) {
       console.error('Error loading exercises:', error);
     } finally {
       setIsLoading(false);
     }
   };
-  
   // Handle pull-to-refresh
   const onRefresh = async () => {
     setRefreshing(true);
     await loadExercises();
     setRefreshing(false);
   };
-  
   // Filter exercises based on current filters and search
   const filterExercises = () => {
     let result = [...exercises];
-    
     // Apply search filter
     if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase();
@@ -129,7 +133,6 @@ const ExercisesScreen: React.FC = () => {
         exercise.equipment.toLowerCase().includes(query)
       );
     }
-    
     // Apply type filter
     if (activeFilter === 'favorites') {
       result = result.filter(exercise => isFavorite(exercise.id));
@@ -137,7 +140,6 @@ const ExercisesScreen: React.FC = () => {
       const recentIds = recentExercises.map((ex: { id: string }) => ex.id);
       result = result.filter(exercise => recentIds.includes(exercise.id));
     }
-    
     // Apply muscle group filter
     if (selectedMuscleGroup) {
       result = result.filter(exercise => 
@@ -146,7 +148,6 @@ const ExercisesScreen: React.FC = () => {
         (exercise.secondaryMuscles && exercise.secondaryMuscles.includes(selectedMuscleGroup))
       );
     }
-    
     // Apply sorting
     if (activeSort === 'name') {
       result.sort((a, b) => a.name.localeCompare(b.name));
@@ -159,38 +160,31 @@ const ExercisesScreen: React.FC = () => {
     } else if (activeSort === 'muscle') {
       result.sort((a, b) => a.muscleGroup.localeCompare(b.muscleGroup));
     }
-    
     setFilteredExercises(result);
   };
-  
   // Handle filter change
   const handleFilterChange = (filter: FilterOption) => {
     Haptics.selectionAsync();
     setActiveFilter(filter);
   };
-  
   // Handle sort change
   const handleSortChange = (sort: SortOption) => {
     Haptics.selectionAsync();
     setActiveSort(sort);
   };
-  
   // Handle muscle group selection
   const handleMuscleGroupSelect = (muscleId: string) => {
     Haptics.selectionAsync();
     setSelectedMuscleGroup(prevMuscle => prevMuscle === muscleId ? null : muscleId);
   };
-  
   // Navigate to exercise detail
   const navigateToExerciseDetail = (exerciseId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate('ExerciseDetail', { exerciseId });
   };
-  
   // Render muscle group item
   const renderMuscleGroupItem = ({ item }: { item: MuscleGroupItem }) => {
     const isSelected = selectedMuscleGroup === item.id;
-    
     return (
       <TouchableOpacity
         style={[
@@ -225,7 +219,6 @@ const ExercisesScreen: React.FC = () => {
       </TouchableOpacity>
     );
   };
-  
   // Render exercise item
   const renderExerciseItem = ({ item }: { item: ExtendedExercise }) => {
     return (
@@ -250,7 +243,6 @@ const ExercisesScreen: React.FC = () => {
               <Ionicons name="barbell-outline" size={30} color={theme.textSecondary} />
             </View>
           )}
-          
           {/* Favorite button */}
           <TouchableOpacity
             style={[
@@ -269,7 +261,6 @@ const ExercisesScreen: React.FC = () => {
             />
           </TouchableOpacity>
         </View>
-        
         {/* Exercise Details */}
         <View style={styles.exerciseInfo}>
           <Text 
@@ -281,7 +272,6 @@ const ExercisesScreen: React.FC = () => {
           >
             {item.name}
           </Text>
-          
           <View style={styles.exerciseMeta}>
             <View style={styles.exerciseMetaItem}>
               <Ionicons name="body-outline" size={14} color={theme.textSecondary} />
@@ -292,7 +282,6 @@ const ExercisesScreen: React.FC = () => {
                 {item.muscleGroup}
               </Text>
             </View>
-            
             <View style={styles.exerciseMetaItem}>
               <Ionicons name="barbell-outline" size={14} color={theme.textSecondary} />
               <Text 
@@ -303,7 +292,6 @@ const ExercisesScreen: React.FC = () => {
               </Text>
             </View>
           </View>
-          
           <View style={[
             styles.difficultyBadge,
             { 
@@ -330,7 +318,6 @@ const ExercisesScreen: React.FC = () => {
       </Card>
     );
   };
-
   return (
     <Container>
       {/* Search Bar - Animated on scroll */}
@@ -370,7 +357,6 @@ const ExercisesScreen: React.FC = () => {
           )}
         </View>
       </Animated.View>
-      
       {/* Filters */}
       <View style={styles.filtersContainer}>
         <ScrollView
@@ -396,7 +382,6 @@ const ExercisesScreen: React.FC = () => {
               All Exercises
             </Text>
           </TouchableOpacity>
-          
           <TouchableOpacity
             style={[
               styles.filterButton,
@@ -420,7 +405,6 @@ const ExercisesScreen: React.FC = () => {
               Favorites
             </Text>
           </TouchableOpacity>
-          
           <TouchableOpacity
             style={[
               styles.filterButton,
@@ -444,7 +428,6 @@ const ExercisesScreen: React.FC = () => {
               Recent
             </Text>
           </TouchableOpacity>
-          
           <View style={styles.sortContainer}>
             <Text
               variant="caption"
@@ -455,7 +438,6 @@ const ExercisesScreen: React.FC = () => {
             >
               Sort:
             </Text>
-            
             <TouchableOpacity
               style={[
                 styles.sortButton,
@@ -473,7 +455,6 @@ const ExercisesScreen: React.FC = () => {
                 Name
               </Text>
             </TouchableOpacity>
-            
             <TouchableOpacity
               style={[
                 styles.sortButton,
@@ -491,7 +472,6 @@ const ExercisesScreen: React.FC = () => {
                 Difficulty
               </Text>
             </TouchableOpacity>
-            
             <TouchableOpacity
               style={[
                 styles.sortButton,
@@ -512,7 +492,6 @@ const ExercisesScreen: React.FC = () => {
           </View>
         </ScrollView>
       </View>
-      
       {/* Muscle Groups */}
       <View style={styles.muscleGroupsContainer}>
         <FlatList
@@ -524,7 +503,6 @@ const ExercisesScreen: React.FC = () => {
           contentContainerStyle={styles.muscleGroupsList}
         />
       </View>
-      
       {/* Exercise List */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -593,21 +571,17 @@ const ExercisesScreen: React.FC = () => {
           />
         </View>
       )}
-      
       {/* Floating action button */}
       <TouchableOpacity
-        style={[
-          styles.fab,
-          { backgroundColor: theme.primary }
-        ]}
-        onPress={() => navigation.navigate('AddExerciseScreen', { listId: 'custom' })}
+        style={[styles.fabButton, { backgroundColor: theme.primary }]}
+        onPress={() => navigation.navigate('AddExerciseScreen', { workoutId: 'custom' })}
+        activeOpacity={0.8}
       >
         <Ionicons name="add" size={24} color="#FFFFFF" />
       </TouchableOpacity>
     </Container>
   );
 };
-
 const styles = StyleSheet.create({
   searchBarContainer: {
     paddingHorizontal: Spacing.md,
@@ -744,7 +718,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.lg,
   },
-  fab: {
+  fabButton: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 30 : 20,
     right: 20,
@@ -760,5 +734,4 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
 });
-
 export default ExercisesScreen; 

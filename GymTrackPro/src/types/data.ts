@@ -11,7 +11,6 @@ export interface UserData {
   uid?: string;
   lastActive?: string;
 }
-
 // Workout Types
 export interface WorkoutSet {
   exerciseName: string;
@@ -23,7 +22,6 @@ export interface WorkoutSet {
   notes?: string;
   id?: string;
 }
-
 // Weight Log Types
 export interface WeightLogEntry {
   weight: number;
@@ -32,7 +30,6 @@ export interface WeightLogEntry {
   notes?: string;
   id?: string;
 }
-
 // Friend Types
 export interface FriendRequest {
   fromUid: string;
@@ -42,7 +39,6 @@ export interface FriendRequest {
   sentAt: string;
   id?: string;
 }
-
 export interface SentRequest {
   toUid: string;
   toUsername: string;
@@ -51,7 +47,6 @@ export interface SentRequest {
   sentAt: string;
   id?: string;
 }
-
 export interface FriendSuggestion {
   uid: string;
   username: string;
@@ -59,7 +54,6 @@ export interface FriendSuggestion {
   mutualFriends?: number;
   reason?: string;
 }
-
 // Exercise Types
 export interface Exercise {
   id: string;
@@ -72,7 +66,6 @@ export interface Exercise {
   videoUrl?: string;
   imageUrl?: string;
 }
-
 // Achievement Types
 export interface UserAchievement {
   id: string;
@@ -85,11 +78,9 @@ export interface UserAchievement {
     target: number;
   };
 }
-
 // Data transformation and mapping types
 // This file should only contain types related to data transformations, temporary data structures,
 // or interfaces that are not directly mapped to Firestore documents.
-
 // Types for data migration/conversion
 export interface LegacyUserData {
   username?: string;
@@ -104,7 +95,6 @@ export interface LegacyUserData {
   lastActive?: string;
   firebaseUid?: string; // old field name
 }
-
 // Legacy types for backward compatibility
 export interface LegacyWorkoutSet {
   exerciseName: string;
@@ -116,7 +106,6 @@ export interface LegacyWorkoutSet {
   notes?: string;
   id?: string;
 }
-
 // Legacy types for backward compatibility
 export interface LegacyWeightLogEntry {
   weight: number;
@@ -125,7 +114,6 @@ export interface LegacyWeightLogEntry {
   notes?: string;
   id?: string;
 }
-
 // Data structures for temporary storage during app operations
 export interface TempWorkoutData {
   exercises: {
@@ -140,7 +128,6 @@ export interface TempWorkoutData {
   startTime?: Date;
   endTime?: Date;
 }
-
 // Data structure for exercise filtering
 export interface ExerciseFilter {
   type?: string | null;
@@ -151,7 +138,6 @@ export interface ExerciseFilter {
   search?: string | null;
   favorites?: boolean;
 }
-
 // Data structure for workout history filtering
 export interface WorkoutHistoryFilter {
   startDate?: string;
@@ -161,7 +147,6 @@ export interface WorkoutHistoryFilter {
   sortBy?: 'date' | 'name' | 'duration';
   sortDirection?: 'asc' | 'desc';
 }
-
 // Chart data types
 export interface ChartData {
   labels: string[];
@@ -171,7 +156,6 @@ export interface ChartData {
     strokeWidth?: number;
   }[];
 }
-
 // Export data format for backup/restore
 export interface ExportData {
   version: string;
@@ -186,14 +170,12 @@ export interface ExportData {
   plans: any[];
   friends: any[];
 }
-
 // Data structure for exercise recommendations
 export interface ExerciseRecommendation {
   exerciseId: string;
   reason: string;
   confidence: number;
 }
-
 // Data structure for workout recommendations
 export interface WorkoutRecommendation {
   name: string;
@@ -201,18 +183,15 @@ export interface WorkoutRecommendation {
   reason: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
 }
-
 // In-memory cache types
 export interface CacheEntry<T> {
   data: T;
   timestamp: number;
   expires: number;
 }
-
 export interface DataCache {
   [key: string]: CacheEntry<any>;
 }
-
 // Form validation state
 export interface FormField {
   value: any;
@@ -220,11 +199,9 @@ export interface FormField {
   touched: boolean;
   valid: boolean;
 }
-
 export interface FormState {
   [key: string]: FormField;
 }
-
 // App state snapshot for analytics and debugging
 export interface AppStateSnapshot {
   timestamp: string;

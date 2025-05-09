@@ -13,14 +13,12 @@ import { Text } from './ui';
 import { useExercise } from '../context/ExerciseContext';
 import { useNavigation } from '@react-navigation/native';
 import { Theme, Spacing, BorderRadius, createElevation } from '../constants/Theme';
-
 interface PageHeaderAction {
   icon: string;
   onPress: () => void;
   color?: string;
   testID?: string;
 }
-
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
@@ -33,7 +31,6 @@ interface PageHeaderProps {
   titleStyle?: ViewStyle;
   onBackPress?: () => void;
 }
-
 /**
  * PageHeader - Consistent header component for all screens
  */
@@ -52,7 +49,6 @@ export default function PageHeader({
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
   const navigation = useNavigation();
-  
   // Handle back button press
   const handleBackPress = () => {
     if (onBackPress) {
@@ -61,13 +57,11 @@ export default function PageHeader({
       navigation.goBack();
     }
   };
-  
   // Get background color based on theme and transparent prop
   const getBackgroundColor = () => {
     if (transparent) return 'transparent';
     return colors.background;
   };
-  
   return (
     <View
       style={[
@@ -82,7 +76,6 @@ export default function PageHeader({
         backgroundColor="transparent"
         translucent
       />
-      
       <View style={styles.row}>
         {/* Left side - Back button or custom action */}
         <View style={styles.leftContainer}>
@@ -100,7 +93,6 @@ export default function PageHeader({
               />
             </TouchableOpacity>
           )}
-          
           {!showBack && leftAction && (
             <TouchableOpacity
               style={styles.actionButton}
@@ -116,7 +108,6 @@ export default function PageHeader({
             </TouchableOpacity>
           )}
         </View>
-        
         {/* Center - Title and subtitle */}
         <View style={[styles.titleContainer, titleStyle]}>
           <Text
@@ -130,7 +121,6 @@ export default function PageHeader({
           >
             {title}
           </Text>
-          
           {subtitle && (
             <Text
               variant="caption"
@@ -145,7 +135,6 @@ export default function PageHeader({
             </Text>
           )}
         </View>
-        
         {/* Right side - Action buttons */}
         <View style={styles.rightContainer}>
           {rightActions.map((action, index) => (
@@ -171,7 +160,6 @@ export default function PageHeader({
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     width: '100%',

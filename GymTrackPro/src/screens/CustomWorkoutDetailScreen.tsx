@@ -1,41 +1,26 @@
 import React, { useContext, useState, useCallback, useRef, useEffect } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  TouchableOpacity, 
-  FlatList, 
-  Alert,
-  ActivityIndicator,
-  Animated,
-  StatusBar,
-  Share,
-  ListRenderItemInfo,
-  ViewStyle,
-  TextStyle,
-  Image
-} from 'react-native';
+import {View, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator, Animated, StatusBar, Share, Image} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/NavigationTypes';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DatabaseService from '../services/DatabaseService';
 import { ExerciseContext } from '../context/ExerciseContext';
-import { useAuth } from '../context/AuthContext';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
-import { BlurView } from 'expo-blur';
-
+import { useAuth } from '../hooks/useAuth';
+import {Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
+import { useTheme } from '@react-navigation/native';
+import { Exercise } from '../types/mergedTypes';
 // Import custom UI components
-import { 
-  Text, 
-  Button, 
-  Card, 
-  Container 
-} from '../components/ui';
-
+import {Text, Button, Container} from '../components/ui';
+;
+;
+// Custom Exercise interface with the fields we actually need in this component
+interface MuscleGroupData {
+  name: string;
+}
 // Types
 interface WorkoutList {
   id: string;
@@ -45,69 +30,50 @@ interface WorkoutList {
   createdAt: string;
   updatedAt: string;
 }
-
-interface Exercise {
-  id: string;
-  name: string;
-  muscle: string;
-  equipment?: string;
-  description?: string;
-  image?: string;
-  videoUrl?: string;
-}
-
 type CustomWorkoutDetailScreenRouteProp = RouteProp<RootStackParamList, 'CustomWorkoutDetailScreen'>;
-
 const CustomWorkoutDetailScreen: React.FC = () => {
+  const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<CustomWorkoutDetailScreenRouteProp>();
   const insets = useSafeAreaInsets();
-  const { listId } = route.params;
+  const { workoutId } = route.params;
   const { getExerciseById, darkMode } = useContext(ExerciseContext);
   const { isOnline } = useAuth();
-  
   // State
   const [workoutList, setWorkoutList] = useState<WorkoutList | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const headerHeight = useRef(new Animated.Value(200)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
-  
   // Theme
   const theme = darkMode ? Theme.dark : Theme.light;
-
   // Header animation interpolations
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
     outputRange: [1, 0.6],
     extrapolate: 'clamp'
   });
-  
   const headerTranslateY = scrollY.interpolate({
     inputRange: [0, 100],
     outputRange: [0, -50],
     extrapolate: 'clamp'
   });
-  
   const titleScale = scrollY.interpolate({
     inputRange: [0, 100],
     outputRange: [1, 0.8],
     extrapolate: 'clamp'
   });
-
   // Function to load the workout list
   const loadWorkout = async (): Promise<void> => {
     setLoading(true);
     try {
       const allLists = await DatabaseService.getAllWorkoutLists();
-      const found = allLists.find((l) => l.id === listId);
+      const found = allLists.find((l) => l.id === workoutId);
       if (found) {
         setWorkoutList(found);
-        
         // Run animations after data is loaded
         Animated.parallel([
           Animated.timing(fadeAnim, {
@@ -132,7 +98,6 @@ const CustomWorkoutDetailScreen: React.FC = () => {
       setLoading(false);
     }
   };
-
   // Load workout when screen gains focus
   useFocusEffect(
     useCallback(() => {
@@ -142,22 +107,18 @@ const CustomWorkoutDetailScreen: React.FC = () => {
         fadeAnim.setValue(0);
         slideAnim.setValue(30);
       };
-    }, [listId])
+    }, [workoutId])
   );
-  
   const navigateToExercise = (exerciseId: string): void => {
     Haptics.selectionAsync();
     navigation.navigate('ExerciseDetail', { exerciseId });
   };
-  
   const handleAddExercise = (): void => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate('AddExerciseScreen', { listId });
+    navigation.navigate('AddExerciseScreen', { workoutId });
   };
-  
   const handleDeleteExercise = async (exerciseId: string): Promise<void> => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     Alert.alert(
       'Remove Exercise',
       'Are you sure you want to remove this exercise from the workout?',
@@ -174,10 +135,9 @@ const CustomWorkoutDetailScreen: React.FC = () => {
               Alert.alert('Error', 'You are offline. Cannot remove exercise.');
               return;
             }
-
             setIsSaving(true);
             try {
-              await DatabaseService.removeExerciseFromList(listId, exerciseId);
+              await DatabaseService.removeExerciseFromList(workoutId, exerciseId);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               loadWorkout();
             } catch (error) {
@@ -186,7 +146,6 @@ const CustomWorkoutDetailScreen: React.FC = () => {
               } else {
                  console.error('Error removing exercise:', error);
               }
-
               console.error('Error removing exercise:', error);
               Alert.alert('Error', 'Failed to remove exercise. Please try again.');
             } finally {
@@ -197,7 +156,6 @@ const CustomWorkoutDetailScreen: React.FC = () => {
       ]
     );
   };
-  
   const handleStartWorkout = (): void => {
     if (!isOnline) {
       Alert.alert('Error', 'You are offline. Cannot start workout.');
@@ -207,16 +165,12 @@ const CustomWorkoutDetailScreen: React.FC = () => {
       Alert.alert('Empty Workout', 'Add some exercises before starting this workout.');
       return;
     }
-    
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    navigation.navigate('WorkoutDetail', { workoutId: listId });
+    navigation.navigate('WorkoutDetail', { workoutId: workoutId });
   };
-  
   const handleShareWorkout = async (): Promise<void> => {
     if (!workoutList) return;
-    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     try {
       const exerciseNames = workoutList.exercises
         .map(id => {
@@ -224,14 +178,11 @@ const CustomWorkoutDetailScreen: React.FC = () => {
           return exercise ? exercise.name : null;
         })
         .filter(Boolean);
-      
       const shareMessage = `Check out my "${workoutList.name}" workout in GymTrackPro:\n\n${exerciseNames.join('\n- ')}`;
-      
       const result = await Share.share({
         message: shareMessage,
         title: `GymTrackPro: ${workoutList.name} Workout`
       });
-      
       if (result.action === Share.sharedAction) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -240,11 +191,9 @@ const CustomWorkoutDetailScreen: React.FC = () => {
       Alert.alert('Error', 'Failed to share workout. Please try again.');
     }
   };
-
   const renderExerciseItem = ({ item, index }: { item: string; index: number }): JSX.Element => {
     const exercise = getExerciseById(item);
     if (!exercise) return <View />;
-    
     return (
       <Animated.View
         style={[
@@ -275,16 +224,19 @@ const CustomWorkoutDetailScreen: React.FC = () => {
               <Ionicons name="barbell-outline" size={24} color={theme.textSecondary} />
             </View>
           )}
-          
           <View style={styles.exerciseDetails}>
             <Text variant="body" style={{ fontWeight: '600' }}>
               {exercise.name}
             </Text>
-            <Text variant="caption" style={{ color: theme.textSecondary }}>
-              {exercise.muscle}
-            </Text>
+            <View style={styles.exerciseMetaRow}>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>Muscle Group:</Text>
+                <Text style={styles.metaValue}>
+                  {exercise.primaryMuscleGroup || exercise.muscleGroup || exercise.muscleGroups?.[0] || 'Various'}
+                </Text>
+              </View>
+            </View>
           </View>
-          
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={() => handleDeleteExercise(exercise.id)}
@@ -295,7 +247,6 @@ const CustomWorkoutDetailScreen: React.FC = () => {
       </Animated.View>
     );
   };
-
   if (loading) {
     return (
       <Container>
@@ -309,15 +260,12 @@ const CustomWorkoutDetailScreen: React.FC = () => {
       </Container>
     );
   }
-
   // Calculate exercise count safely
   const exerciseCount = workoutList?.exercises?.length || 0;
   const hasExercises = exerciseCount > 0;
-
   return (
     <Container>
       <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} />
-      
       {/* Header */}
       <Animated.View style={[
         styles.header,
@@ -335,7 +283,6 @@ const CustomWorkoutDetailScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
-
         <Animated.View style={[
           styles.titleContainer,
           { transform: [{ scale: titleScale }] }
@@ -344,7 +291,6 @@ const CustomWorkoutDetailScreen: React.FC = () => {
             {workoutList?.name || 'Workout'}
           </Text>
         </Animated.View>
-
         <TouchableOpacity
           style={styles.shareButton}
           onPress={handleShareWorkout}
@@ -352,7 +298,6 @@ const CustomWorkoutDetailScreen: React.FC = () => {
           <Ionicons name="share-outline" size={24} color={theme.text} />
         </TouchableOpacity>
       </Animated.View>
-
       {/* Content */}
       <Animated.FlatList
         data={workoutList?.exercises || []}
@@ -421,7 +366,6 @@ const CustomWorkoutDetailScreen: React.FC = () => {
           ) : null
         }
       />
-
       {/* Bottom Action Bar */}
       {hasExercises && (
         <View style={[
@@ -448,7 +392,6 @@ const CustomWorkoutDetailScreen: React.FC = () => {
     </Container>
   );
 };
-
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
@@ -542,6 +485,21 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderTopWidth: 1,
   },
+  exerciseMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+  },
+  metaLabel: {
+    fontWeight: '600',
+  },
+  metaValue: {
+    marginLeft: Spacing.sm,
+  },
 });
-
 export default CustomWorkoutDetailScreen; 

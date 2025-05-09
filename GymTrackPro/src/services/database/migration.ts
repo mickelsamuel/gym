@@ -6,7 +6,6 @@ import goals from '../../data/goals.js';
 import { Exercise, MuscleGroup, WorkoutCategory, Goal } from '../../types/global';
 import { sanitizeString } from '../../utils/sanitize';
 import { logError } from '../../utils/logging';
-
 // Define interfaces that match the actual structure of the data files
 interface RawExercise {
   id: string;
@@ -17,15 +16,14 @@ interface RawExercise {
   primaryMuscles?: string[];
   secondaryMuscles?: string[];
   instructions?: string;
-  repRanges?: Array<{
+  repRanges?: {
     goal: string;
     sets: number;
     minReps: number;
     maxReps: number;
     restSeconds: number;
-  }>;
+  }[];
 }
-
 interface RawMuscleGroup {
   id: string;
   name: string;
@@ -33,7 +31,6 @@ interface RawMuscleGroup {
   color: string;
   image?: string; // Some might have image instead of imageUrl
 }
-
 interface RawWorkoutCategory {
   id?: string;
   name: string;
@@ -41,7 +38,6 @@ interface RawWorkoutCategory {
   icon?: string;
   color?: string;
 }
-
 interface RawGoal {
   id: string;
   name: string;
@@ -49,7 +45,6 @@ interface RawGoal {
   nutritionTips: string;
   recommendedExerciseTypes: string[];
 }
-
 /**
  * Migration service to move static data to Firestore
  */
@@ -61,7 +56,6 @@ class MigrationService {
   async migrateExercises(): Promise<number> {
     try {
       let count = 0;
-      
       // Process exercises in batches
       const batchSize = 20;
       for (let i = 0; i < exercises.length; i += batchSize) {
@@ -79,7 +73,6 @@ class MigrationService {
             instructions: [sanitizeString(exercise.instructions || '')],
             imageUrl: exercise.image || '',
           };
-          
           return firebaseFirestore.setDocument<Exercise>(
             FIREBASE_PATHS.EXERCISES, 
             exercise.id, 
@@ -91,10 +84,8 @@ class MigrationService {
             logError('exercise_migration_error', { exerciseId: exercise.id, error });
           });
         });
-        
         await Promise.all(promises);
       }
-      
       console.log(`Successfully migrated ${count} exercises to Firestore`);
       return count;
     } catch (error) {
@@ -103,7 +94,6 @@ class MigrationService {
       throw error;
     }
   }
-  
   /**
    * Migrate muscle groups from local data to Firestore
    * @returns Promise resolving to the count of muscle groups migrated
@@ -111,7 +101,6 @@ class MigrationService {
   async migrateMuscleGroups(): Promise<number> {
     try {
       let count = 0;
-      
       const typedMuscleGroups = muscleGroups as RawMuscleGroup[];
       const promises = typedMuscleGroups.map(group => {
         const id = group.id || `muscle_${group.name.toLowerCase().replace(/\s+/g, '_')}`;
@@ -122,7 +111,6 @@ class MigrationService {
           imageUrl: group.image || '',
           exercises: [],
         };
-        
         return firebaseFirestore.setDocument<MuscleGroup>(
           FIREBASE_PATHS.MUSCLE_GROUPS, 
           id, 
@@ -134,7 +122,6 @@ class MigrationService {
           logError('muscle_group_migration_error', { groupName: group.name, error });
         });
       });
-      
       await Promise.all(promises);
       console.log(`Successfully migrated ${count} muscle groups to Firestore`);
       return count;
@@ -144,7 +131,6 @@ class MigrationService {
       throw error;
     }
   }
-  
   /**
    * Migrate workout categories from local data to Firestore
    * @returns Promise resolving to the count of categories migrated
@@ -152,12 +138,10 @@ class MigrationService {
   async migrateWorkoutCategories(): Promise<number> {
     try {
       let count = 0;
-      
       const typedCategories = workoutCategories as RawWorkoutCategory[];
       const promises = typedCategories.map(category => {
         // Create ID from name if not provided
         const categoryId = category.id || `category_${category.name.toLowerCase().replace(/\s+/g, '_')}`;
-        
         const formattedCategory: WorkoutCategory = {
           id: categoryId,
           name: sanitizeString(category.name),
@@ -165,7 +149,6 @@ class MigrationService {
           icon: category.icon || 'barbell-outline',
           color: category.color || '#4CAF50',
         };
-        
         return firebaseFirestore.setDocument<WorkoutCategory>(
           FIREBASE_PATHS.WORKOUT_CATEGORIES, 
           categoryId, 
@@ -177,7 +160,6 @@ class MigrationService {
           logError('workout_category_migration_error', { categoryName: category.name, error });
         });
       });
-      
       await Promise.all(promises);
       console.log(`Successfully migrated ${count} workout categories to Firestore`);
       return count;
@@ -187,7 +169,6 @@ class MigrationService {
       throw error;
     }
   }
-  
   /**
    * Migrate goals from local data to Firestore
    * @returns Promise resolving to the count of goals migrated
@@ -195,12 +176,10 @@ class MigrationService {
   async migrateGoals(): Promise<number> {
     try {
       let count = 0;
-      
       const typedGoals = goals as RawGoal[];
       const promises = typedGoals.map(goal => {
         // Convert the recommendedExerciseTypes to recommendedExercises array
         const goalId = goal.id || `goal_${goal.name.toLowerCase().replace(/\s+/g, '_')}`;
-        
         const formattedGoal: Goal = {
           id: goalId,
           name: sanitizeString(goal.name),
@@ -210,7 +189,6 @@ class MigrationService {
           workoutFrequency: 3, // Default to 3 times per week
           duration: 8, // Default to 8 weeks
         };
-        
         return firebaseFirestore.setDocument<Goal>(
           FIREBASE_PATHS.GOALS, 
           goalId, 
@@ -222,7 +200,6 @@ class MigrationService {
           logError('goal_migration_error', { goalName: goal.name, error });
         });
       });
-      
       await Promise.all(promises);
       console.log(`Successfully migrated ${count} goals to Firestore`);
       return count;
@@ -232,7 +209,6 @@ class MigrationService {
       throw error;
     }
   }
-  
   /**
    * Migrate all static data to Firestore
    * @returns Promise resolving when all migrations are complete
@@ -248,7 +224,6 @@ class MigrationService {
       const muscleGroupCount = await this.migrateMuscleGroups();
       const categoryCount = await this.migrateWorkoutCategories();
       const goalCount = await this.migrateGoals();
-      
       return {
         exercises: exerciseCount,
         muscleGroups: muscleGroupCount,
@@ -261,7 +236,6 @@ class MigrationService {
       throw error;
     }
   }
-  
   /**
    * Helper function to determine exercise difficulty based on rep ranges
    * @param exercise The exercise data
@@ -271,16 +245,13 @@ class MigrationService {
     if (!exercise.repRanges || !exercise.repRanges.length) {
       return 'intermediate';
     }
-    
     // Look at the strength goal rep range
     const strengthRange = exercise.repRanges.find(range => range.goal === 'strength');
     if (!strengthRange) {
       return 'intermediate';
     }
-    
     // Determine difficulty based on max reps for strength
     const maxReps = strengthRange.maxReps || 0;
-    
     if (maxReps <= 6) {
       return 'advanced';
     } else if (maxReps <= 10) {
@@ -289,7 +260,6 @@ class MigrationService {
       return 'beginner';
     }
   }
-
   /**
    * Get the current count of exercises in Firestore
    * @returns Promise resolving to the number of exercises
@@ -305,5 +275,4 @@ class MigrationService {
     }
   }
 }
-
 export const migrationService = new MigrationService(); 

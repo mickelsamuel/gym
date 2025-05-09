@@ -1,91 +1,239 @@
-import React, { useContext, useState, useEffect, useRef } from 'react';
-import {
-  View,
-  ScrollView,
-  Image,
-  TouchableOpacity,
-  Dimensions,
-  ActivityIndicator,
-  Animated,
-  StatusBar,
-  Platform,
-  ImageBackground,
-  Share,
-  SectionList,
-  StyleSheet
-} from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useState, useEffect, useContext, useRef } from 'react';
+import {View, ScrollView, TouchableOpacity, Image, Animated, StyleSheet, Dimensions, TextInput, ActivityIndicator, Modal, Platform, Share} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LineChart } from 'react-native-chart-kit';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList, ExerciseDetailRouteProp } from '../navigation/NavigationTypes';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import {Colors, Theme, Spacing, BorderRadius} from '../constants/Theme';
+import { Text, Button, Card, Container } from '../components/ui';
+// @ts-ignore
+import MuscleMap from '../components/MuscleMap';
+import { format } from 'date-fns';
+import * as Animations from '../components/ui/Animations';
+// Context and services
 import { ExerciseContext } from '../context/ExerciseContext';
 import DatabaseService from '../services/DatabaseService';
-import WorkoutLogModal from './WorkoutLogModal';
-import * as Haptics from 'expo-haptics';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { format } from 'date-fns';
-import { 
-  Button, 
-  Text,
-  Card, 
-  Container,
-  FadeIn,
-  CircleProgress
-} from '../components/ui';
-import { Colors, Theme, Typography, Spacing, BorderRadius } from '../constants/Theme';
-import { RootStackParamList } from '../navigation/NavigationTypes';
-import { Exercise, WorkoutSet } from '../types/data';
-
+import { WorkoutSet, Exercise } from '../types/mergedTypes';
+;
+;
+;
+;
+;
 // Types for exercise history and related data
 interface ExerciseHistoryEntry {
   id: string;
   date: string;
   sets: WorkoutSet[];
 }
-
 interface PersonalRecord {
   value: number;
   date: string | null;
 }
-
 interface PersonalRecords {
   weight: PersonalRecord;
   reps: PersonalRecord;
   volume: PersonalRecord;
 }
-
 interface NextWorkoutRecommendation {
   sets: number;
   reps: number;
   weight: number;
 }
-
 interface ChartDataset {
   data: number[];
   color: (opacity: number) => string;
   strokeWidth: number;
 }
-
 interface ChartData {
   labels: string[];
   datasets: ChartDataset[];
   legend: string[];
 }
-
 type ChartMetric = 'weight' | 'reps' | 'volume';
 type TimeRange = '7' | '30' | '90' | 'all';
-
-// Screen navigation params
-type ExerciseDetailScreenRouteProp = RouteProp<RootStackParamList, 'ExerciseDetail'>;
-type ExerciseDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ExerciseDetail'>;
-
+// Add this interface after the existing interfaces
+interface WorkoutLogData {
+  date: string;
+  weight: number;
+  reps: number;
+  notes: string;
+}
+// Destructure needed components
+const { FadeIn } = Animations;
+// Create interface for MuscleGroupSelector and MuscleGroupBadge since they're missing
+interface MuscleGroupSelectorProps {
+  selectedMuscleGroups: string[];
+  onSelectMuscleGroup: (muscleGroup: string) => void;
+}
+const MuscleGroupSelector: React.FC<MuscleGroupSelectorProps> = ({ selectedMuscleGroups, onSelectMuscleGroup }) => {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+      {['chest', 'back', 'legs', 'shoulders', 'arms', 'core'].map(muscle => (
+        <TouchableOpacity
+          key={muscle}
+          onPress={() => onSelectMuscleGroup(muscle)}
+          style={{
+            backgroundColor: selectedMuscleGroups.includes(muscle) ? Colors.primaryBlue : '#f0f0f0',
+            padding: 8,
+            borderRadius: 8,
+            margin: 4
+          }}
+        >
+          <Text style={{ color: selectedMuscleGroups.includes(muscle) ? 'white' : 'black' }}>
+            {muscle.charAt(0).toUpperCase() + muscle.slice(1)}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+};
+interface MuscleGroupBadgeProps {
+  name: string;
+  isPrimary?: boolean;
+}
+const MuscleGroupBadge: React.FC<MuscleGroupBadgeProps> = ({ name, isPrimary = false }) => {
+  return (
+    <View style={{
+      backgroundColor: isPrimary ? Colors.primaryBlue : Colors.secondaryGreen,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      marginRight: 8,
+      marginBottom: 8
+    }}>
+      <Text style={{ color: 'white', fontWeight: '500' }}>
+        {name.charAt(0).toUpperCase() + name.slice(1)}
+      </Text>
+    </View>
+  );
+};
+// Add the WorkoutLogModal component since it's used in the JSX
+interface WorkoutLogModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSave: (data: WorkoutLogData) => void;
+  initialData?: WorkoutLogData;
+}
+const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({ 
+  visible, 
+  onClose, 
+  onSave,
+  initialData 
+}) => {
+  const [weight, setWeight] = useState(initialData?.weight.toString() || '0');
+  const [reps, setReps] = useState(initialData?.reps.toString() || '0');
+  const [notes, setNotes] = useState(initialData?.notes || '');
+  const handleSave = () => {
+    onSave({
+      date: new Date().toISOString(),
+      weight: parseFloat(weight),
+      reps: parseInt(reps, 10),
+      notes
+    });
+    onClose();
+  };
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={{
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.5)'
+      }}>
+        <View style={{
+          backgroundColor: 'white',
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          padding: 20
+        }}>
+          <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>Log Exercise</Text>
+          <View style={{ marginBottom: 15 }}>
+            <Text style={{ marginBottom: 8 }}>Weight</Text>
+            <TextInput
+              value={weight}
+              onChangeText={setWeight}
+              keyboardType="decimal-pad"
+              style={{
+                borderWidth: 1,
+                borderColor: '#ddd',
+                borderRadius: 8,
+                padding: 12
+              }}
+            />
+          </View>
+          <View style={{ marginBottom: 15 }}>
+            <Text style={{ marginBottom: 8 }}>Reps</Text>
+            <TextInput
+              value={reps}
+              onChangeText={setReps}
+              keyboardType="number-pad"
+              style={{
+                borderWidth: 1,
+                borderColor: '#ddd',
+                borderRadius: 8,
+                padding: 12
+              }}
+            />
+          </View>
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ marginBottom: 8 }}>Notes</Text>
+            <TextInput
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              style={{
+                borderWidth: 1,
+                borderColor: '#ddd',
+                borderRadius: 8,
+                padding: 12,
+                height: 100,
+                textAlignVertical: 'top'
+              }}
+            />
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <TouchableOpacity 
+              onPress={onClose}
+              style={{
+                padding: 15,
+                borderRadius: 8,
+                width: '48%',
+                alignItems: 'center',
+                backgroundColor: '#f5f5f5'
+              }}
+            >
+              <Text>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={handleSave}
+              style={{
+                padding: 15,
+                borderRadius: 8,
+                width: '48%',
+                alignItems: 'center',
+                backgroundColor: Colors.primaryBlue
+              }}
+            >
+              <Text style={{ color: 'white' }}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 // Main component
 const ExerciseDetailScreen: React.FC = () => {
-  const navigation = useNavigation<ExerciseDetailScreenNavigationProp>();
-  const route = useRoute<ExerciseDetailScreenRouteProp>();
-  const { exerciseId, logWorkout } = route.params;
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'ExerciseDetail'>>();
+  const route = useRoute<ExerciseDetailRouteProp>();
+  const { exerciseId } = route.params;
   const {
     getExerciseById,
     getMuscleInfo,
@@ -93,15 +241,13 @@ const ExerciseDetailScreen: React.FC = () => {
     isFavorite,
     userGoal,
     darkMode,
-    getRelatedExercises
   } = useContext(ExerciseContext);
   const exercise = getExerciseById(exerciseId);
   const insets = useSafeAreaInsets();
   const theme = darkMode ? Theme.dark : Theme.light;
   const { width } = Dimensions.get('window');
-
   // States for logging and history
-  const [logModalVisible, setLogModalVisible] = useState<boolean>(logWorkout || false);
+  const [logModalVisible, setLogModalVisible] = useState<boolean>(false);
   const [editingSet, setEditingSet] = useState<WorkoutSet | null>(null);
   const [exerciseHistory, setExerciseHistory] = useState<ExerciseHistoryEntry[]>([]);
   const [personalRecords, setPersonalRecords] = useState<PersonalRecords>({
@@ -110,7 +256,6 @@ const ExerciseDetailScreen: React.FC = () => {
     volume: { value: 0, date: null }
   });
   const [nextWorkout, setNextWorkout] = useState<NextWorkoutRecommendation | null>(null);
-
   // States for progress filtering & chart
   const [timeRange, setTimeRange] = useState<TimeRange>('30');
   const [chartMetric, setChartMetric] = useState<ChartMetric>('weight');
@@ -118,18 +263,15 @@ const ExerciseDetailScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showFullDescription, setShowFullDescription] = useState<boolean>(false);
   const [relatedExercises, setRelatedExercises] = useState<Exercise[]>([]);
-  
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerOpacity = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
-
   // Derived values for header animations
   const HEADER_MAX_HEIGHT = 300;
   const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 90 + insets.top : 70;
   const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
-  
   // Setup animations
   useEffect(() => {
     Animated.parallel([
@@ -145,38 +287,32 @@ const ExerciseDetailScreen: React.FC = () => {
       }),
     ]).start();
   }, []);
-  
   // Animation interpolations
   const headerHeight = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE],
     outputRange: [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
     extrapolate: 'clamp',
   });
-  
   const headerTitleOpacity = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE * 0.6, HEADER_SCROLL_DISTANCE],
     outputRange: [0, 0, 1],
     extrapolate: 'clamp',
   });
-  
   const imageOpacity = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
     outputRange: [1, 0.5, 0],
     extrapolate: 'clamp',
   });
-  
   const imageTranslateY = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE],
     outputRange: [0, -50],
     extrapolate: 'clamp',
   });
-  
   const headerBackgroundColor = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE],
     outputRange: ['transparent', theme.card],
     extrapolate: 'clamp',
   });
-
   // Chart configuration
   const chartConfig = {
     backgroundGradientFrom: theme.card,
@@ -197,44 +333,33 @@ const ExerciseDetailScreen: React.FC = () => {
       strokeDasharray: '5, 5',
     },
   };
-
   // Load exercise data
   useEffect(() => {
     async function loadExerciseData() {
+      setIsLoading(true);
       try {
-        if (!exercise) return;
-        
-        // These would be actual implementations in the real DatabaseService
-        // For now, we're just setting dummy data
-        setExerciseHistory([]);
-        setPersonalRecords({
-          weight: { value: 0, date: null },
-          reps: { value: 0, date: null },
-          volume: { value: 0, date: null }
-        });
-        setNextWorkout(null);
-        
-        // Get related exercises
-        const related = getRelatedExercises(exerciseId);
-        setRelatedExercises(related);
-        
-        // Update chart data with empty data for now
-        updateChartData([], chartMetric, timeRange);
+        // Generate mock exercise history for now
+        const mockHistory = generateMockExerciseHistory();
+        setExerciseHistory(mockHistory);
+        // Calculate personal records
+        const records = calculatePersonalRecords(mockHistory);
+        setPersonalRecords(records);
+        // Update chart with current metric and time range
+        updateChartData(mockHistory, chartMetric, timeRange);
+        // Mock related exercises
+        setRelatedExercises([]);
       } catch (error) {
-        console.warn("Error loading exercise data:", error);
+        console.error('Error loading exercise data', error);
       } finally {
         setIsLoading(false);
       }
     }
-    
     loadExerciseData();
   }, [exerciseId, exercise]);
-  
   // Update chart data when metric or time range changes
   useEffect(() => {
     updateChartData(exerciseHistory, chartMetric, timeRange);
   }, [chartMetric, timeRange, exerciseHistory]);
-
   // Calculate personal records from history
   const calculatePersonalRecords = (history: ExerciseHistoryEntry[]): PersonalRecords => {
     if (!history || history.length === 0) {
@@ -244,40 +369,33 @@ const ExerciseDetailScreen: React.FC = () => {
         volume: { value: 0, date: null }
       };
     }
-    
     let records: PersonalRecords = {
       weight: { value: 0, date: null },
       reps: { value: 0, date: null },
       volume: { value: 0, date: null }
     };
-    
     history.forEach(session => {
       // Find max weight for a single set
       const maxWeightSet = session.sets.reduce((max, set) => 
         (set.weight > max.weight) ? set : max, { weight: 0 } as WorkoutSet);
-      
       if (maxWeightSet.weight > records.weight.value) {
         records.weight = { 
           value: maxWeightSet.weight, 
           date: session.date 
         };
       }
-      
       // Find max reps for a single set
       const maxRepsSet = session.sets.reduce((max, set) => 
         (set.reps > max.reps) ? set : max, { reps: 0 } as WorkoutSet);
-      
       if (maxRepsSet.reps > records.reps.value) {
         records.reps = { 
           value: maxRepsSet.reps, 
           date: session.date 
         };
       }
-      
       // Calculate total volume for the session (weight × reps for all sets)
       const totalVolume = session.sets.reduce((sum, set) => 
         sum + (set.weight * set.reps), 0);
-      
       if (totalVolume > records.volume.value) {
         records.volume = { 
           value: totalVolume, 
@@ -285,41 +403,32 @@ const ExerciseDetailScreen: React.FC = () => {
         };
       }
     });
-    
     return records;
   };
-
   // Update chart data based on selected metric and time range
   const updateChartData = (history: ExerciseHistoryEntry[], metric: ChartMetric, range: TimeRange): void => {
     if (!history || history.length === 0) {
       setChartData(null);
       return;
     }
-    
     // Filter history based on time range
     const filteredHistory = getFilteredHistory(history, range);
-    
     if (filteredHistory.length === 0) {
       setChartData(null);
       return;
     }
-    
     // Sort history by date (oldest first)
     const sortedHistory = [...filteredHistory].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
-    
     // Generate data points based on the selected metric
     let labels: string[] = [];
     let data: number[] = [];
-    
     // Limit to 7 data points for clarity
     const step = Math.max(1, Math.floor(sortedHistory.length / 7));
     const limitedHistory = sortedHistory.filter((_, index) => index % step === 0 || index === sortedHistory.length - 1);
-    
     limitedHistory.forEach(session => {
       const date = new Date(session.date);
-      
       // Format the label based on time range
       let label;
       if (range === '7') {
@@ -329,9 +438,7 @@ const ExerciseDetailScreen: React.FC = () => {
       } else {
         label = format(date, 'MM/yy'); // Month/year
       }
-      
       labels.push(label);
-      
       switch (metric) {
         case 'weight':
           // Use the max weight from the session
@@ -339,14 +446,12 @@ const ExerciseDetailScreen: React.FC = () => {
             Math.max(max, set.weight), 0);
           data.push(maxWeight);
           break;
-          
         case 'reps':
           // Use the max reps from the session
           const maxReps = session.sets.reduce((max, set) => 
             Math.max(max, set.reps), 0);
           data.push(maxReps);
           break;
-          
         case 'volume':
           // Calculate total volume (weight × reps for all sets)
           const totalVolume = session.sets.reduce((sum, set) => 
@@ -355,7 +460,6 @@ const ExerciseDetailScreen: React.FC = () => {
           break;
       }
     });
-    
     setChartData({
       labels,
       datasets: [
@@ -368,23 +472,19 @@ const ExerciseDetailScreen: React.FC = () => {
       legend: [getMetricLabel(metric)]
     });
   };
-
   // Utility: Filter history based on timeRange selection
   const getFilteredHistory = (history: ExerciseHistoryEntry[], range: TimeRange): ExerciseHistoryEntry[] => {
     if (!history) return [];
-    
     const now = new Date();
     if (range === 'all') {
       return history;
     }
-    
     return history.filter(entry => {
       const entryDate = new Date(entry.date);
       const daysDiff = (now.getTime() - entryDate.getTime()) / (1000 * 3600 * 24);
       return daysDiff <= Number(range);
     });
   };
-  
   // Get formatted label for the selected metric
   const getMetricLabel = (metric: ChartMetric): string => {
     switch (metric) {
@@ -398,11 +498,9 @@ const ExerciseDetailScreen: React.FC = () => {
         return metric;
     }
   };
-
   // Handle share exercise
   const handleShareExercise = async (): Promise<void> => {
     if (!exercise) return;
-    
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await Share.share({
@@ -413,17 +511,11 @@ const ExerciseDetailScreen: React.FC = () => {
       console.error('Error sharing exercise:', error);
     }
   };
-
   // De-structure data for muscles and rep ranges
-  const primaryMuscles = exercise?.primaryMuscles?.map((id: string) => getMuscleInfo(id)) || [];
   const secondaryMuscles = exercise?.secondaryMuscles?.map((id: string) => getMuscleInfo(id)) || [];
-  const goalRepRange =
-    exercise?.repRanges?.find((range: {goal: string}) => range.goal === userGoal) || exercise?.repRanges?.[0];
-
   // Toggle favorite with haptic feedback
   const handleToggleFavorite = (): void => {
     if (!exercise) return;
-    
     if (isFavorite(exercise.id)) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     } else {
@@ -431,13 +523,47 @@ const ExerciseDetailScreen: React.FC = () => {
     }
     toggleFavorite(exercise.id);
   };
-
   // Handle log workout
   const handleLogWorkout = (): void => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLogModalVisible(true);
   };
-
+  // Helper function to generate mock exercise history
+  function generateMockExerciseHistory(): ExerciseHistoryEntry[] {
+    const today = new Date();
+    const history: ExerciseHistoryEntry[] = [];
+    // Create 5 workout entries spread over the last 30 days
+    for (let i = 0; i < 5; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i * 6); // Spread over the past 30 days
+      const sets: WorkoutSet[] = [];
+      // Generate random sets
+      const numSets = Math.floor(Math.random() * 3) + 2; // 2-4 sets
+      for (let j = 0; j < numSets; j++) {
+        sets.push({
+          id: `set-${i}-${j}`,
+          weight: Math.floor(Math.random() * 30) + 20, // 20-50 kg
+          reps: Math.floor(Math.random() * 8) + 6, // 6-13 reps
+          isCompleted: true,
+          type: 'normal'
+        });
+      }
+      history.push({
+        id: `workout-${i}`,
+        date: format(date, 'yyyy-MM-dd'),
+        sets
+      });
+    }
+    return history;
+  }
+  // Fix the completed prop to isCompleted in the setWorkoutSet call
+  const setWorkoutSet = (set: WorkoutSet) => {
+    // Code to set the workout set
+    return {
+      ...set,
+      isCompleted: true,
+    };
+  };
   if (!exercise) {
     return (
       <Container>
@@ -452,7 +578,6 @@ const ExerciseDetailScreen: React.FC = () => {
       </Container>
     );
   }
-
   return (
     <Container>
       {/* Animated Header */}
@@ -469,8 +594,8 @@ const ExerciseDetailScreen: React.FC = () => {
             transform: [{ translateY: imageTranslateY }],
           }}
         >
-          {exercise.imageUrl ? (
-            <Image source={{ uri: exercise.imageUrl }} style={styles.exerciseImage} />
+          {exercise.image ? (
+            <Image source={{ uri: exercise.image }} style={styles.exerciseImage} />
           ) : (
             <View
               style={[
@@ -479,7 +604,6 @@ const ExerciseDetailScreen: React.FC = () => {
               ]}
             />
           )}
-          
           {/* Gradient overlay */}
           <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.7)']}
@@ -492,7 +616,6 @@ const ExerciseDetailScreen: React.FC = () => {
             }}
           />
         </Animated.View>
-        
         {/* Back button */}
         <TouchableOpacity
           style={styles.backButton}
@@ -500,7 +623,6 @@ const ExerciseDetailScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
-        
         {/* Fixed header title (visible on scroll) */}
         <Animated.View
           style={[
@@ -515,7 +637,6 @@ const ExerciseDetailScreen: React.FC = () => {
             {exercise.name}
           </Text>
         </Animated.View>
-        
         {/* Header content (title and info) */}
         <View style={styles.headerContent}>
           <Text variant="heading2" style={{ color: '#FFF' }}>
@@ -523,7 +644,6 @@ const ExerciseDetailScreen: React.FC = () => {
           </Text>
         </View>
       </Animated.View>
-      
       {/* Main scroll content */}
       <ScrollView
         contentContainerStyle={[
@@ -543,7 +663,6 @@ const ExerciseDetailScreen: React.FC = () => {
             <Text variant="heading3" style={[styles.sectionTitle, { color: theme.text }]}>
               Information
             </Text>
-            
             <View style={styles.chipContainer}>
               {/* Equipment */}
               <View style={[styles.chip, { backgroundColor: `${theme.primary}20` }]}>
@@ -552,7 +671,6 @@ const ExerciseDetailScreen: React.FC = () => {
                   {exercise.equipment}
                 </Text>
               </View>
-              
               {/* Difficulty */}
               <View style={[styles.chip, { backgroundColor: `${theme.secondary}20` }]}>
                 <Ionicons name="speedometer-outline" size={16} color={theme.secondary} />
@@ -560,18 +678,7 @@ const ExerciseDetailScreen: React.FC = () => {
                   {exercise.difficulty}
                 </Text>
               </View>
-
-              {/* Rep range for goal */}
-              {goalRepRange && (
-                <View style={[styles.chip, { backgroundColor: `${theme.accent1}20` }]}>
-                  <Ionicons name="repeat-outline" size={16} color={theme.accent1} />
-                  <Text variant="caption" style={[styles.chipText, { color: theme.text }]}>
-                    {goalRepRange.min}-{goalRepRange.max} reps
-                  </Text>
-                </View>
-              )}
             </View>
-            
             {/* Description */}
             <Card style={{ marginBottom: Spacing.md }}>
               <Text variant="body" style={{ color: theme.text }}>
@@ -581,7 +688,6 @@ const ExerciseDetailScreen: React.FC = () => {
                   ? exercise.description.substring(0, 120) + '...'
                   : exercise.description}
               </Text>
-              
               {exercise.description?.length > 120 && (
                 <TouchableOpacity
                   onPress={() => setShowFullDescription(!showFullDescription)}
@@ -595,7 +701,49 @@ const ExerciseDetailScreen: React.FC = () => {
             </Card>
           </View>
         </FadeIn>
-        
+        {/* Muscle Visualization Section */}
+        <FadeIn>
+          <View style={styles.section}>
+            <Text variant="heading3" style={[styles.sectionTitle, { color: theme.text }]}>
+              Muscle Groups
+            </Text>
+            <Card style={{ marginBottom: Spacing.md, alignItems: 'center' }}>
+              <MuscleGroupSelector
+                selectedMuscleGroups={[]}
+                onSelectMuscleGroup={() => {}}
+              />
+              {/* Muscle Group Badges */}
+              <View style={styles.muscleGroupBadges}>
+                {exercise.muscleGroups && exercise.muscleGroups.length > 0 && (
+                  <>
+                    <Text variant="bodySmall" style={{ marginRight: Spacing.sm, color: theme.textSecondary }}>
+                      Primary:
+                    </Text>
+                    <MuscleGroupBadge
+                      name={exercise.muscleGroups[0]}
+                      isPrimary={true}
+                    />
+                  </>
+                )}
+                {exercise.secondaryMuscles && exercise.secondaryMuscles.length > 0 && (
+                  <>
+                    <Text variant="bodySmall" style={{ marginRight: Spacing.sm, color: theme.textSecondary }}>
+                      Secondary:
+                    </Text>
+                    <View style={styles.scrollableBadges}>
+                      {exercise.secondaryMuscles.map((muscle) => (
+                        <MuscleGroupBadge
+                          key={muscle}
+                          name={muscle}
+                        />
+                      ))}
+                    </View>
+                  </>
+                )}
+              </View>
+            </Card>
+          </View>
+        </FadeIn>
         {/* Log workout button for small screens */}
         <View style={{ marginBottom: Spacing.xl }}>
           <Button 
@@ -606,7 +754,6 @@ const ExerciseDetailScreen: React.FC = () => {
           />
         </View>
       </ScrollView>
-      
       {/* Bottom action bar */}
       <View style={[
         styles.buttonBar,
@@ -623,7 +770,6 @@ const ExerciseDetailScreen: React.FC = () => {
           onPress={handleToggleFavorite}
           style={{ marginRight: Spacing.md }}
         />
-        
         <Button
           title="Log Exercise"
           icon="add-circle-outline"
@@ -632,30 +778,13 @@ const ExerciseDetailScreen: React.FC = () => {
           style={{ flex: 1 }}
         />
       </View>
-      
       {/* Workout log modal */}
       {logModalVisible && (
         <WorkoutLogModal
           visible={logModalVisible}
           onClose={() => setLogModalVisible(false)}
-          exerciseName={exercise.name}
-          darkMode={darkMode}
-          initialData={editingSet ? {
-            date: editingSet.date,
-            weight: editingSet.weight,
-            reps: editingSet.reps,
-            notes: editingSet.notes || ''
-          } : undefined}
-          previousPerformance={exerciseHistory.length > 0 ? 
-            exerciseHistory.flatMap(entry => entry.sets).map(set => ({
-              weight: set.weight,
-              reps: set.reps
-            })) : 
-            undefined
-          }
           onSave={(data) => {
             console.log('Workout logged:', data);
-            // Here we would typically call a database service to save the workout
             setLogModalVisible(false);
           }}
         />
@@ -663,7 +792,6 @@ const ExerciseDetailScreen: React.FC = () => {
     </Container>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -838,6 +966,17 @@ const styles = StyleSheet.create({
     height: 120,
     marginBottom: Spacing.sm,
   },
+  muscleGroupBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginTop: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+  },
+  scrollableBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
 });
-
 export default ExerciseDetailScreen; 

@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 // Mock react-native's useColorScheme function
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,

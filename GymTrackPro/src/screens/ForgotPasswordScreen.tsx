@@ -1,57 +1,32 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  Keyboard,
-  Platform,
-  Animated,
-  StatusBar,
-  KeyboardAvoidingView,
-  ScrollView,
-  TouchableWithoutFeedback,
-  TextInput as RNTextInput
-} from 'react-native';
+import {View, StyleSheet, TouchableOpacity, Keyboard, Platform, Animated, StatusBar, KeyboardAvoidingView, ScrollView, TouchableWithoutFeedback} from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { 
-  Text, 
-  Button, 
-  Input, 
-  Card,
-  Container
-} from '../components/ui';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
-
+import {Text, Button, Input, Card} from '../components/ui';
+import {Colors, Theme, Spacing, BorderRadius} from '../constants/Theme';
 type AuthStackParamList = {
   Login: undefined;
   ForgotPassword: undefined;
 };
-
 type ForgotPasswordScreenProps = {
   navigation: StackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
 };
-
 const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation }) => {
   const { resetPassword } = useContext(AuthContext);
   const insets = useSafeAreaInsets();
-  
   // State
   const [email, setEmail] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [emailSent, setEmailSent] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
-  
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const successAnim = useRef(new Animated.Value(0)).current;
-  
   useEffect(() => {
     // Run entrance animations
     Animated.parallel([
@@ -67,7 +42,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
       }),
     ]).start();
   }, []);
-  
   // Run success animation when email is sent
   useEffect(() => {
     if (emailSent) {
@@ -78,7 +52,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
       }).start();
     }
   }, [emailSent]);
-  
   const validateEmail = (): boolean => {
     if (!email.trim()) {
       setError('Email address is required');
@@ -90,18 +63,14 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
     setError('');
     return true;
   };
-  
   const handleResetPassword = async (): Promise<void> => {
     Keyboard.dismiss();
-    
     if (!validateEmail()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
-    
     setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     try {
       await resetPassword(email);
       setEmailSent(true);
@@ -113,34 +82,28 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
       setIsLoading(false);
     }
   };
-  
   const handleLogin = (): void => {
     Haptics.selectionAsync();
     navigation.navigate('Login');
   };
-  
   const handleTryAgain = (): void => {
     Haptics.selectionAsync();
     setEmailSent(false);
   };
-  
   // Get theme colors
   const theme = Theme.light; // Always use light theme for authentication screens
-  
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDarkBlue} />
-      
       <LinearGradient
         colors={[Colors.primaryDarkBlue, Colors.primaryBlue]}
         style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       />
-      
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <ScrollView
           contentContainerStyle={[
@@ -160,7 +123,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
             >
               <Ionicons name="arrow-back" size={24} color="#FFF" />
             </TouchableOpacity>
-            
             <Text 
               variant="heading3" 
               style={{ 
@@ -170,7 +132,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
             >
               Forgot Password
             </Text>
-            
             <Text 
               variant="body"
               style={{
@@ -181,7 +142,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
               Enter your email and we'll send you a link to reset your password
             </Text>
           </View>
-          
           {!emailSent ? (
             <Animated.View
               style={[
@@ -211,7 +171,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                     </Text>
                   </View>
                 ) : null}
-                
                 <Input
                   label="Email Address"
                   value={email}
@@ -228,7 +187,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                   touched={email.length > 0}
                   containerStyle={{ marginBottom: Spacing.lg }}
                 />
-                
                 <Button
                   title="Send Reset Link"
                   onPress={handleResetPassword}
@@ -238,7 +196,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                   fullWidth
                 />
               </Card>
-              
               <TouchableOpacity
                 style={styles.loginLink}
                 onPress={handleLogin}
@@ -283,7 +240,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                     <Ionicons name="checkmark" size={36} color={theme.success} />
                   </View>
                 </View>
-                
                 <Text 
                   variant="heading3" 
                   style={{ 
@@ -293,7 +249,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                 >
                   Check Your Email
                 </Text>
-                
                 <Text 
                   variant="body" 
                   style={{ 
@@ -304,7 +259,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                 >
                   We've sent a password reset link to:
                 </Text>
-                
                 <Text 
                   variant="body" 
                   style={{ 
@@ -315,7 +269,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                 >
                   {email}
                 </Text>
-                
                 <Text 
                   variant="caption" 
                   style={{ 
@@ -327,7 +280,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                 >
                   Follow the instructions in the email to reset your password. If you don't see the email, check your spam folder.
                 </Text>
-                
                 <TouchableOpacity
                   style={styles.tryAgainButton}
                   onPress={handleTryAgain}
@@ -344,7 +296,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                     Need to try again?
                   </Text>
                 </TouchableOpacity>
-                
                 <Button
                   title="Back to Login"
                   onPress={handleLogin}
@@ -360,7 +311,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
     </KeyboardAvoidingView>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -431,5 +381,4 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
 });
-
 export default ForgotPasswordScreen; 

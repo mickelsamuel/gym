@@ -1,55 +1,23 @@
 import React, { useContext, useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  Modal,
-  Image,
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  FlatList,
-  Animated,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ViewStyle,
-  TextStyle
-} from 'react-native';
+import {View, StyleSheet, Dimensions, RefreshControl, Animated, ViewStyle} from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ExerciseContext } from '../context/ExerciseContext';
 import { AuthContext } from '../context/AuthContext';
 import DatabaseService from '../services/DatabaseService';
-import { LineChart, BarChart } from 'react-native-chart-kit';
-import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import LottieView from 'lottie-react-native';
-import { format } from 'date-fns';
 import goals from '../data/goals';
-
+import { Exercise } from '../types/mergedTypes';
 // Import our custom UI components from design system
-import { 
-  Text,
-  Title,
-  Heading,
-  Subheading,
-  Body,
-  Caption,
-  Button,
-  Card,
-  Container,
-  CircleProgress,
-  FadeIn,
-  SlideIn 
-} from '../components/ui';
+import {Text, Container} from '../components/ui';
 import ParallaxScrollView from '../components/ParallaxScrollView';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
-
+import {Colors, Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
+;
+;
+;
+;
 const { width, height } = Dimensions.get('window');
-
 // Types and interfaces
 interface HealthSummary {
   steps: number;
@@ -57,43 +25,30 @@ interface HealthSummary {
   water: number;
   sleep: number;
 }
-
 interface ProgressData {
   labels: string[];
-  datasets: Array<{
+  datasets: {
     data: number[];
     color: (opacity?: number) => string;
     strokeWidth: number;
-  }>;
+  }[];
   legend: string[];
 }
-
-interface Exercise {
-  id: string;
-  name: string;
-  muscle: string;
-  equipment?: string;
-  description?: string;
-  image?: string;
-  videoUrl?: string;
-}
-
 interface Workout {
   id: string;
   date: string;
-  exercises: Array<{
+  exercises: {
     exerciseId: string;
-    sets: Array<{
+    sets: {
       weight: number;
       reps: number;
-    }>;
-  }>;
+    }[];
+  }[];
   duration: number;
   userId: string;
   userName?: string;
   userProfileImage?: string;
 }
-
 interface Achievement {
   id: string;
   title: string;
@@ -102,10 +57,8 @@ interface Achievement {
   date: string;
   type: string;
 }
-
 type TimeRange = 'week' | 'month' | 'year';
 type MetricType = 'weight' | 'volume' | 'reps';
-
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user, userProfile } = useContext(AuthContext);
@@ -121,7 +74,6 @@ const HomeScreen: React.FC = () => {
     refreshWorkoutData,
     getExerciseStats
   } = useContext(ExerciseContext);
-
   const [profile, setProfile] = useState<any>(null);
   const [recentExercises, setRecentExercises] = useState<Exercise[]>([]);
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
@@ -139,14 +91,11 @@ const HomeScreen: React.FC = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('weight');
   const confettiAnimation = useRef<LottieView>(null);
-
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-
   // Get theme colors based on dark mode
   const theme = darkMode ? Theme.dark : Theme.light;
-  
   // Chart configuration
   const chartConfig = {
     backgroundGradientFrom: 'transparent',
@@ -168,7 +117,6 @@ const HomeScreen: React.FC = () => {
     },
     formatYLabel: (value: string) => value.toString(),
   };
-
   // Load initial data
   useEffect(() => {
     loadProfile();
@@ -178,7 +126,6 @@ const HomeScreen: React.FC = () => {
     calculateWorkoutStreak();
     generateDemoHealthData();
     loadProgressData();
-    
     // Start entrance animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -193,14 +140,12 @@ const HomeScreen: React.FC = () => {
       })
     ]).start();
   }, [favorites, recentWorkouts]);
-  
   // Show goal modal if no goal is set
   useEffect(() => {
     if (!userGoal) {
       setShowGoalModal(true);
     }
   }, [userGoal]);
-
   // Refresh data when screen is focused
   useFocusEffect(
     useCallback(() => {
@@ -212,14 +157,12 @@ const HomeScreen: React.FC = () => {
       loadProgressData();
     }, [favorites, recentWorkouts, timeRange, selectedMetric])
   );
-
   // Pull-to-refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchAllUserData();
     setRefreshing(false);
   }, []);
-  
   // Fetch all user data
   const fetchAllUserData = async (): Promise<void> => {
     try {
@@ -237,7 +180,6 @@ const HomeScreen: React.FC = () => {
       console.error("Error fetching user data:", error);
     }
   };
-
   // Update this function to use real data
   const generateDemoHealthData = (): void => {
     // Demo data for UI presentation
@@ -248,17 +190,14 @@ const HomeScreen: React.FC = () => {
       sleep: Math.floor(Math.random() * 3) + 5
     });
   };
-  
   // Load progress data based on selected metric and time range
   const loadProgressData = (): void => {
     // Demo data for progress chart
     let data: number[] = [];
     let labels: string[] = [];
-    
     if (timeRange === 'week') {
       labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       data = [65, 67, 66, 68, 69, 70, 69]; // Demo weight data
-      
       if (selectedMetric === 'volume') {
         data = [2100, 0, 2300, 0, 2500, 2400, 0]; // Demo volume data
       } else if (selectedMetric === 'reps') {
@@ -267,7 +206,6 @@ const HomeScreen: React.FC = () => {
     } else if (timeRange === 'month') {
       labels = ['W1', 'W2', 'W3', 'W4'];
       data = [65, 67, 68, 70]; // Demo weight data
-      
       if (selectedMetric === 'volume') {
         data = [2000, 2200, 2400, 2500]; // Demo volume data
       } else if (selectedMetric === 'reps') {
@@ -276,14 +214,12 @@ const HomeScreen: React.FC = () => {
     } else {
       labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       data = [75, 74, 72, 70, 68, 67, 66, 65, 64, 63, 62, 60]; // Demo yearly progress
-      
       if (selectedMetric === 'volume') {
         data = [1800, 1900, 2000, 2100, 2200, 2300, 2400, 2500, 2600, 2700, 2800, 2900]; // Demo volume data
       } else if (selectedMetric === 'reps') {
         data = [30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63]; // Demo reps data
       }
     }
-    
     setProgressData({
       labels,
       datasets: [
@@ -296,7 +232,6 @@ const HomeScreen: React.FC = () => {
       legend: [getMetricName(selectedMetric)]
     });
   };
-  
   // Get display name for selected metric
   const getMetricName = (metric: MetricType): string => {
     switch (metric) {
@@ -306,12 +241,10 @@ const HomeScreen: React.FC = () => {
       default: return metric;
     }
   };
-
   const calculateWorkoutStreak = (): void => {
     // Demo data for streak
     setWorkoutStreak(Math.floor(Math.random() * 10) + 3);
   };
-
   async function loadProfile(): Promise<void> {
     try {
       // In a real app, this would fetch the user profile from a database
@@ -320,19 +253,18 @@ const HomeScreen: React.FC = () => {
       console.error("Error loading profile:", error);
     }
   }
-
   async function loadRecentExercises(): Promise<void> {
     try {
       // Demo data - in a real app, this would fetch from a database
       if (favorites && favorites.length > 0) {
-        const exercises: Exercise[] = favorites.map((id: string) => getExerciseById(id));
+        // Cast the exercises to proper Exercise[] type from mergedTypes
+        const exercises = favorites.map((id: string) => getExerciseById(id)) as Exercise[];
         setRecentExercises(exercises.filter(Boolean).slice(0, 4));
       }
     } catch (error) {
       console.error("Error loading recent exercises:", error);
     }
   }
-
   async function loadFriendsWorkouts(): Promise<void> {
     try {
       // Demo data for friend's workouts
@@ -374,13 +306,11 @@ const HomeScreen: React.FC = () => {
           userProfileImage: 'https://randomuser.me/api/portraits/women/44.jpg'
         }
       ];
-      
       setFriendsWorkouts(demoFriendWorkouts);
     } catch (error) {
       console.error("Error loading friends' workouts:", error);
     }
   }
-
   const identifyLatestAchievement = (): void => {
     // Demo data for achievement
     const demoAchievement: Achievement = {
@@ -391,10 +321,8 @@ const HomeScreen: React.FC = () => {
       date: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // Yesterday
       type: 'streak'
     };
-    
     setLatestAchievement(demoAchievement);
   };
-
   return (
     <Container>
       <ParallaxScrollView
@@ -430,7 +358,6 @@ const HomeScreen: React.FC = () => {
     </Container>
   );
 };
-
 const styles = StyleSheet.create({
   headerContent: {
     paddingHorizontal: Spacing.lg,
@@ -595,5 +522,4 @@ const styles = StyleSheet.create({
     borderColor: Colors.primaryBlue,
   }
 });
-
 export default HomeScreen; 

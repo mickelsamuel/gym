@@ -1,18 +1,5 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
-import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
-  Alert,
-  ScrollView,
-  Animated,
-  Dimensions,
-  TextStyle,
-  ViewStyle
-} from 'react-native';
+import {View, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Keyboard, ScrollView, Animated} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -20,18 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import LottieView from 'lottie-react-native';
 import { AuthContext } from '../context/AuthContext';
-import { 
-  Button, 
-  Text, 
-  Container, 
-  Input,
-  Card,
-  FadeIn,
-  SlideIn
-} from '../components/ui';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
+import {Button, Text, Input, Card, FadeIn} from '../components/ui';
+import {Colors, Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
 import { StackNavigationProp } from '@react-navigation/stack';
-
 interface FormErrors {
   username?: string;
   email?: string;
@@ -44,7 +22,6 @@ interface FormErrors {
   goal?: string;
   server?: string;
 }
-
 interface UserProfile {
   gender: string;
   age: number;
@@ -52,38 +29,31 @@ interface UserProfile {
   weight: number;
   goal: string;
 }
-
 interface RegisterData {
   email: string;
   password: string;
   username: string;
   profile: UserProfile;
 }
-
 type AuthStackParamList = {
   Login: undefined;
   SignUp: undefined;
   EmailVerification: { email: string };
 };
-
 type SignUpScreenProps = {
   navigation: StackNavigationProp<AuthStackParamList, 'SignUp'>;
 };
-
 const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   const { register, error, clearError } = useContext(AuthContext);
   const insets = useSafeAreaInsets();
   const isDarkMode = false; // We'll use light mode for signup regardless of system setting
   const theme = isDarkMode ? Theme.dark : Theme.light;
-  
   // Animation values
   const progressAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  
   // Multi-step form state
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [registrationComplete, setRegistrationComplete] = useState<boolean>(false);
-  
   // Step 1: Basic info
   const [username, setUsername] = useState<string>('');
   const [email, setEmail] = useState<string>('');
@@ -91,18 +61,15 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
-  
   // Step 2: Fitness details
   const [gender, setGender] = useState<string>('');
   const [age, setAge] = useState<string>('');
   const [height, setHeight] = useState<string>('');
   const [weight, setWeight] = useState<string>('');
   const [goal, setGoal] = useState<string>('');
-  
   // Form state
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
-  
   // Clear errors when component unmounts
   useEffect(() => {
     // Animate progress bar
@@ -111,12 +78,10 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       duration: 500,
       useNativeDriver: false,
     }).start();
-    
     return () => {
       if (clearError) clearError();
     };
   }, []);
-  
   // Update errors from server
   useEffect(() => {
     if (error) {
@@ -125,7 +90,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       setIsLoading(false);
     }
   }, [error]);
-  
   // Update progress animation when step changes
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -138,7 +102,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         duration: 300,
         useNativeDriver: false,
       }).start();
-      
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 300,
@@ -146,74 +109,59 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       }).start();
     });
   }, [currentStep]);
-  
   const validateStep1 = (): boolean => {
     let errors: FormErrors = {};
-    
     if (!username.trim()) {
       errors.username = 'Username is required';
     } else if (username.length < 3) {
       errors.username = 'Username must be at least 3 characters';
     }
-    
     if (!email.trim()) {
       errors.email = 'Email address is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.email = 'Please enter a valid email address';
     }
-    
     if (!password) {
       errors.password = 'Password is required';
     } else if (password.length < 6) {
       errors.password = 'Password must be at least 6 characters';
     }
-    
     if (!confirmPassword) {
       errors.confirmPassword = 'Please confirm your password';
     } else if (confirmPassword !== password) {
       errors.confirmPassword = 'Passwords do not match';
     }
-    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
-  
   const validateStep2 = (): boolean => {
     let errors: FormErrors = {};
-    
     if (!gender) {
       errors.gender = 'Please select your gender';
     }
-    
     if (!age) {
       errors.age = 'Age is required';
     } else if (isNaN(parseInt(age)) || parseInt(age) < 13 || parseInt(age) > 100) {
       errors.age = 'Please enter a valid age (13-100)';
     }
-    
     if (!height) {
       errors.height = 'Height is required';
     } else if (isNaN(parseFloat(height)) || parseFloat(height) <= 0) {
       errors.height = 'Please enter a valid height';
     }
-    
     if (!weight) {
       errors.weight = 'Weight is required';
     } else if (isNaN(parseFloat(weight)) || parseFloat(weight) <= 0) {
       errors.weight = 'Please enter a valid weight';
     }
-    
     if (!goal) {
       errors.goal = 'Please select your primary fitness goal';
     }
-    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
-  
   const handleContinue = (): void => {
     Keyboard.dismiss();
-    
     if (validateStep1()) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentStep(2);
@@ -221,7 +169,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
-  
   const handleBack = (): void => {
     Haptics.selectionAsync();
     if (currentStep > 1) {
@@ -230,22 +177,18 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       navigation.goBack();
     }
   };
-  
   const handleSignUp = async (): Promise<void> => {
     Keyboard.dismiss();
-    
     if (!validateStep2()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
-    
     setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     try {
-      const registerData: RegisterData = { 
-        email, 
-        password, 
+      const registerData: RegisterData = {
+        email,
+        password,
         username,
         profile: {
           gender,
@@ -255,12 +198,10 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           goal
         }
       };
-      
-      await register(registerData);
-      
+      // @ts-ignore - Using register with email, password, username as defined in the AuthContext
+      await register(email, password, username);
       // Show success animation before redirecting
       setRegistrationComplete(true);
-      
       // Navigation handled by AuthContext after animation
       setTimeout(() => {
         navigation.reset({
@@ -268,18 +209,15 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           routes: [{ name: 'EmailVerification', params: { email } }],
         });
       }, 2500);
-      
     } catch (error) {
       // Error handled by AuthContext via error
       setIsLoading(false);
     }
   };
-  
   const handleLoginPress = (): void => {
     Haptics.selectionAsync();
     navigation.navigate('Login');
   };
-  
   // Render progress steps
   const renderProgressSteps = (): JSX.Element => {
     // Calculate progress width
@@ -287,7 +225,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       inputRange: [0, 1],
       outputRange: ['0%', '100%'],
     });
-    
     return (
       <View style={styles.progressContainer}>
         <View style={styles.progressStep}>
@@ -303,7 +240,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           </View>
           <Text variant="caption" style={styles.stepLabel}>Basic Info</Text>
         </View>
-        
         <View style={styles.progressLineContainer}>
           <View style={styles.progressLine} />
           <Animated.View 
@@ -313,7 +249,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
             ]} 
           />
         </View>
-        
         <View style={styles.progressStep}>
           <View style={[
             styles.stepIndicator, 
@@ -326,7 +261,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       </View>
     );
   };
-  
   // Render step 1 form
   const renderStep1 = (): JSX.Element => {
     return (
@@ -345,7 +279,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           autoCorrect={false}
           touched={username.length > 0}
         />
-        
         <Input
           label="Email Address"
           value={email}
@@ -359,7 +292,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           autoCorrect={false}
           touched={email.length > 0}
         />
-        
         <Input
           label="Password"
           value={password}
@@ -373,7 +305,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           containerStyle={styles.input}
           touched={password.length > 0}
         />
-        
         <Input
           label="Confirm Password"
           value={confirmPassword}
@@ -387,7 +318,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           containerStyle={styles.input}
           touched={confirmPassword.length > 0}
         />
-        
         <Button
           title="Continue"
           onPress={handleContinue}
@@ -400,7 +330,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       </Animated.View>
     );
   };
-  
   // Render step 2 form
   const renderStep2 = (): JSX.Element => {
     return (
@@ -435,7 +364,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 Male
               </Text>
             </TouchableOpacity>
-            
             <TouchableOpacity 
               style={[
                 styles.genderOption, 
@@ -460,7 +388,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 Female
               </Text>
             </TouchableOpacity>
-            
             <TouchableOpacity 
               style={[
                 styles.genderOption, 
@@ -492,7 +419,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
             </Text>
           )}
         </View>
-        
         <View style={styles.measurementsRow}>
           <Input
             label="Age"
@@ -505,7 +431,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
             containerStyle={styles.inputHalf}
             touched={age.length > 0}
           />
-          
           <Input
             label="Height"
             value={height}
@@ -518,7 +443,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
             touched={height.length > 0}
           />
         </View>
-        
         <Input
           label="Weight"
           value={weight}
@@ -530,7 +454,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           containerStyle={styles.input}
           touched={weight.length > 0}
         />
-        
         <View style={styles.goalSelection}>
           <Text variant="body" style={styles.selectionLabel}>Primary Goal</Text>
           <View style={styles.goalOptions}>
@@ -563,7 +486,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
             </Text>
           )}
         </View>
-        
         <Button
           title="Create Account"
           onPress={handleSignUp}
@@ -575,7 +497,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       </Animated.View>
     );
   };
-  
   // Render success animation
   const renderSuccess = (): JSX.Element => {
     return (
@@ -597,7 +518,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       </FadeIn>
     );
   };
-  
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={styles.container}>
@@ -608,7 +528,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         />
-        
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
@@ -629,19 +548,16 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
             >
               <Ionicons name="arrow-back" size={24} color="#FFF" />
             </TouchableOpacity>
-            
             <Text style={styles.title} variant="heading3">
               Create Account
             </Text>
           </View>
-          
           {/* Form Card with Frosted Glass Effect */}
           {!registrationComplete ? (
             <BlurView intensity={80} tint="light" style={styles.blurContainer}>
               <View style={styles.formContainer}>
                 {/* Progress Steps */}
                 {renderProgressSteps()}
-                
                 {/* Server Error Message */}
                 {formErrors.server && (
                   <View style={styles.errorContainer}>
@@ -656,10 +572,8 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                     </Text>
                   </View>
                 )}
-                
                 {/* Form Steps */}
                 {currentStep === 1 ? renderStep1() : renderStep2()}
-                
                 {/* Login Link */}
                 <View style={styles.loginContainer}>
                   <Text variant="bodySmall" style={{ color: theme.textSecondary }}>
@@ -680,7 +594,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     </TouchableWithoutFeedback>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -756,7 +669,7 @@ const styles = StyleSheet.create({
   },
   stepNumber: {
     color: '#FFFFFF',
-    fontSize: Typography.caption,
+    fontSize: 12,
     fontWeight: '700',
   },
   stepLabel: {
@@ -889,6 +802,12 @@ const styles = StyleSheet.create({
     color: Colors.secondaryTextLight,
     textAlign: 'center',
   },
+  privacyText: {
+    fontSize: 12,
+    fontWeight: '400',
+    textAlign: 'center',
+    marginVertical: 16,
+    marginHorizontal: 20,
+  },
 });
-
 export default SignUpScreen; 

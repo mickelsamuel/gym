@@ -2,36 +2,30 @@
  * Rate Limiter Utility
  * Prevents excessive API calls by tracking request frequency
  */
-
 interface RateLimit {
   count: number;
   resetTime: number;
 }
-
 interface RateLimiterOptions {
   windowMs: number;
   maxRequests: number;
   identifier?: string;
 }
-
 /**
  * Simple in-memory rate limiter to prevent API abuse
  */
 class RateLimiter {
   private limits: Map<string, RateLimit>;
   private defaultOptions: RateLimiterOptions;
-
   constructor() {
     this.limits = new Map();
     this.defaultOptions = {
       windowMs: 60000, // 1 minute window
       maxRequests: 60, // 60 requests per minute
     };
-    
     // Clean up expired rate limits every minute
     setInterval(() => this.cleanupExpiredLimits(), 60000);
   }
-
   /**
    * Check if a request is allowed based on rate limits
    * @param options Rate limiter options
@@ -41,7 +35,6 @@ class RateLimiter {
     const config = { ...this.defaultOptions, ...options };
     const identifier = config.identifier || 'default';
     const now = Date.now();
-    
     // Get or create rate limit entry
     let limit = this.limits.get(identifier);
     if (!limit || now > limit.resetTime) {
@@ -52,16 +45,13 @@ class RateLimiter {
       };
       this.limits.set(identifier, limit);
     }
-    
     // Check if under limit
     if (limit.count < config.maxRequests) {
       limit.count++;
       return true;
     }
-    
     return false;
   }
-
   /**
    * Clean up expired rate limits to prevent memory leaks
    */
@@ -73,7 +63,6 @@ class RateLimiter {
       }
     }
   }
-
   /**
    * Reset rate limit for a specific identifier
    * @param identifier The rate limit identifier to reset
@@ -81,7 +70,6 @@ class RateLimiter {
   public reset(identifier: string): void {
     this.limits.delete(identifier);
   }
-
   /**
    * Reset all rate limits
    */
@@ -89,10 +77,8 @@ class RateLimiter {
     this.limits.clear();
   }
 }
-
 // Export singleton instance
 export const rateLimiter = new RateLimiter();
-
 // Helper function to use rate limiter with Firebase user ID
 export const isRequestAllowed = (
   userId: string,
@@ -100,13 +86,11 @@ export const isRequestAllowed = (
   customOptions?: Partial<RateLimiterOptions>
 ): boolean => {
   const identifier = `${userId}:${operationType}`;
-  
   // Different limits for different operation types
   const options: Partial<RateLimiterOptions> = {
     identifier,
     ...customOptions
   };
-  
   // Custom limits based on operation type
   switch (operationType) {
     case 'write':
@@ -121,10 +105,8 @@ export const isRequestAllowed = (
       options.maxRequests = 100; // More generous for reads
       break;
   }
-  
   return rateLimiter.isAllowed(options);
 };
-
 /**
  * Rate limit error for consistent handling
  */

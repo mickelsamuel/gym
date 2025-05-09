@@ -5,13 +5,11 @@ import { Text, Button } from './ui';
 import { useExercise } from '../context/ExerciseContext';
 import { Theme, Spacing, BorderRadius, createElevation } from '../constants/Theme';
 import { LinearGradient } from 'expo-linear-gradient';
-
 interface ProfileStats {
   workouts: number;
   followers: number;
   following: number;
 }
-
 interface ProfileHeaderProps {
   name: string;
   username?: string;
@@ -27,7 +25,6 @@ interface ProfileHeaderProps {
   onMessage?: () => void;
   onStatsPress?: (statType: 'workouts' | 'followers' | 'following') => void;
 }
-
 /**
  * ProfileHeader component - displays user profile information
  */
@@ -48,23 +45,18 @@ export default function ProfileHeader({
 }: ProfileHeaderProps) {
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
-  
   // Default avatar url if none provided
   const defaultAvatar = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=random';
-  
   // Handler fallbacks
   const handleEditProfile = () => {
     if (onEditProfile) onEditProfile();
   };
-
   const handleFollow = () => {
     if (onFollow) onFollow();
   };
-
   const handleMessage = () => {
     if (onMessage) onMessage();
   };
-  
   return (
     <View style={[styles.container, style]}>
       {/* Cover Image */}
@@ -79,7 +71,6 @@ export default function ProfileHeader({
             style={styles.coverGradient}
           />
         )}
-        
         {isCurrentUser && (
           <TouchableOpacity 
             style={[
@@ -93,14 +84,12 @@ export default function ProfileHeader({
           </TouchableOpacity>
         )}
       </View>
-      
       {/* Profile Image */}
       <View style={styles.profileImageWrapper}>
         <Image 
           source={{ uri: profileImageUrl || defaultAvatar }} 
           style={styles.profileImage}
         />
-        
         {isCurrentUser && (
           <TouchableOpacity 
             style={[
@@ -114,13 +103,11 @@ export default function ProfileHeader({
           </TouchableOpacity>
         )}
       </View>
-      
       {/* Profile Info */}
       <View style={styles.profileInfo}>
         <Text variant="heading3" style={styles.name}>
           {name}
         </Text>
-        
         {username && (
           <Text 
             variant="bodySmall"
@@ -129,7 +116,6 @@ export default function ProfileHeader({
             @{username}
           </Text>
         )}
-        
         {bio && (
           <Text 
             variant="body"
@@ -139,7 +125,6 @@ export default function ProfileHeader({
           </Text>
         )}
       </View>
-      
       {/* Stats Row */}
       {stats && (
         <View style={styles.statsContainer}>
@@ -161,9 +146,7 @@ export default function ProfileHeader({
               Workouts
             </Text>
           </TouchableOpacity>
-          
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          
           <TouchableOpacity 
             style={styles.statItem}
             onPress={() => onStatsPress && onStatsPress('followers')}
@@ -182,9 +165,7 @@ export default function ProfileHeader({
               Followers
             </Text>
           </TouchableOpacity>
-          
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          
           <TouchableOpacity 
             style={styles.statItem}
             onPress={() => onStatsPress && onStatsPress('following')}
@@ -205,7 +186,6 @@ export default function ProfileHeader({
           </TouchableOpacity>
         </View>
       )}
-      
       {/* Action Buttons */}
       {!isCurrentUser ? (
         <View style={styles.actionButtons}>
@@ -216,7 +196,6 @@ export default function ProfileHeader({
             size="medium"
             style={{ flex: 1, marginRight: Spacing.sm }}
           />
-          
           <Button
             title="Message"
             onPress={handleMessage}
@@ -239,7 +218,6 @@ export default function ProfileHeader({
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     width: '100%',

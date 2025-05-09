@@ -8,7 +8,6 @@ export interface WorkoutCategory {
   icon: string;
   color: string;
 }
-
 export const WORKOUT_CATEGORIES: WorkoutCategory[] = [
   {
     id: 'strength',
@@ -67,7 +66,6 @@ export const WORKOUT_CATEGORIES: WorkoutCategory[] = [
     color: '#8E8E93'
   }
 ];
-
 /**
  * Get a workout category by ID
  * @param id The ID of the workout category to retrieve
@@ -76,7 +74,6 @@ export const WORKOUT_CATEGORIES: WorkoutCategory[] = [
 export const getWorkoutCategoryById = (id: string): WorkoutCategory | undefined => {
   return WORKOUT_CATEGORIES.find(category => category.id === id);
 };
-
 /**
  * Get all workout categories
  * @returns Array of all workout categories

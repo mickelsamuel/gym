@@ -1,19 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  Animated,
-  ViewStyle,
-  TextStyle,
-  Text as RNText,
-  Platform,
-} from 'react-native';
+import {View, StyleSheet, Animated, ViewStyle, TextStyle, Text as RNText, } from 'react-native';
 import { useExercise } from '../../context/ExerciseContext';
-import { Theme, BorderRadius, Typography, createElevation } from '../../constants/Theme';
+import {Theme, BorderRadius, createElevation} from '../../constants/Theme';
 import Svg, { Circle, G, Rect } from 'react-native-svg';
-import { LinearGradient } from 'expo-linear-gradient';
 import Text from './Text';
-
+;
 // Common props for progress components
 interface CommonProgressProps {
   progress: number; // 0 to 1
@@ -23,7 +14,6 @@ interface CommonProgressProps {
   showAnimation?: boolean;
   animationDuration?: number;
 }
-
 // Props specific to circle progress
 interface CircleProgressProps extends CommonProgressProps {
   size?: number;
@@ -37,7 +27,6 @@ interface CircleProgressProps extends CommonProgressProps {
   valueStyle?: TextStyle;
   animateOnMount?: boolean;
 }
-
 // Props specific to linear progress
 interface LinearProgressProps extends CommonProgressProps {
   height?: number;
@@ -51,7 +40,6 @@ interface LinearProgressProps extends CommonProgressProps {
   maxValue?: number;
   valueSuffix?: string;
 }
-
 /**
  * CircleProgress component - displays a circular progress indicator
  */
@@ -76,18 +64,14 @@ export function CircleProgress({
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
   const progressColor = color || colors.primary;
-  
   // Animation value
   const animatedProgress = useRef(new Animated.Value(0)).current;
-  
   // Calculate dimensions
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const halfSize = size / 2;
-  
   // Ensure progress is between 0 and 1
   const normalizedProgress = Math.min(Math.max(progress, 0), 1);
-  
   // Animate progress on mount
   useEffect(() => {
     if (showAnimation) {
@@ -100,24 +84,19 @@ export function CircleProgress({
       animatedProgress.setValue(normalizedProgress);
     }
   }, [normalizedProgress, showAnimation, animationDuration]);
-  
   // Format value display
   const formatValue = () => {
     if (valueFormat === 'none') return '';
-    
     if (valueFormat === 'percent') {
       return `${valuePrefix}${Math.round(normalizedProgress * 100)}${valueSuffix || '%'}`;
     }
-    
     return `${valuePrefix}${Math.round(normalizedProgress * maxValue)}${valueSuffix}`;
   };
-  
   // Map animated value to stroke dashoffset
   const strokeDashoffset = animatedProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [circumference, 0],
   });
-  
   // Combine text styles
   const combinedValueStyle: TextStyle = {
     fontWeight: '700',
@@ -125,7 +104,6 @@ export function CircleProgress({
     textAlign: 'center',
     ...(valueStyle || {}),
   };
-  
   return (
     <View style={[styles.circleContainer, style]} testID={testID}>
       <Svg height={size} width={size} style={styles.svg}>
@@ -139,7 +117,6 @@ export function CircleProgress({
             stroke={darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}
             fill="none"
           />
-          
           {/* Progress Circle */}
           <AnimatedCircle
             cx={halfSize}
@@ -154,7 +131,6 @@ export function CircleProgress({
           />
         </G>
       </Svg>
-      
       {/* Value display */}
       {showValue && (
         <View style={styles.valueContainer}>
@@ -164,7 +140,6 @@ export function CircleProgress({
           >
             {formatValue()}
           </Text>
-          
           {label && (
             <Text
               variant="caption"
@@ -182,10 +157,8 @@ export function CircleProgress({
     </View>
   );
 }
-
 // Animated Circle component
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
 /**
  * LinearProgress component - displays a horizontal progress bar
  */
@@ -209,24 +182,18 @@ export function LinearProgress({
   const colors = darkMode ? Theme.dark : Theme.light;
   const progressColor = color || colors.primary;
   const bgColor = backgroundColor || (darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)');
-  
   // Animation value
   const animatedWidth = useRef(new Animated.Value(0)).current;
-  
   // Ensure progress is between 0 and 1
   const normalizedProgress = Math.min(Math.max(progress, 0), 1);
-  
   // Format value display
   const formatValue = () => {
     if (valueFormat === 'none') return '';
-    
     if (valueFormat === 'percent') {
       return `${Math.round(normalizedProgress * 100)}${valueSuffix || '%'}`;
     }
-    
     return `${Math.round(normalizedProgress * maxValue)}${valueSuffix}`;
   };
-  
   // Animate progress on mount
   useEffect(() => {
     Animated.timing(animatedWidth, {
@@ -235,10 +202,8 @@ export function LinearProgress({
       useNativeDriver: false,
     }).start();
   }, [normalizedProgress]);
-  
   // Calculate border radius based on height and rounded prop
   const borderRadius = rounded ? height / 2 : BorderRadius.xs;
-  
   return (
     <View style={[styles.linearContainer, style]} testID={testID}>
       {(showLabel && label) && (
@@ -259,7 +224,6 @@ export function LinearProgress({
           )}
         </View>
       )}
-      
       <View
         style={[
           styles.track,
@@ -288,7 +252,6 @@ export function LinearProgress({
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   // Circle Progress styles
   circleContainer: {
@@ -303,7 +266,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  
   // Linear Progress styles
   linearContainer: {
     width: '100%',

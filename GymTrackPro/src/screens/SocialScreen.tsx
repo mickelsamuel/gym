@@ -1,55 +1,22 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  FlatList,
-  StyleSheet,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
-  ScrollView,
-  RefreshControl,
-  Animated,
-  Dimensions,
-  ActivityIndicator,
-  Modal,
-  ViewStyle,
-  TextStyle,
-  ImageStyle
-} from 'react-native';
+import {View, TextInput, TouchableOpacity, Alert, FlatList, StyleSheet, Image, TouchableWithoutFeedback, Keyboard, ScrollView, RefreshControl, Animated, Dimensions, ActivityIndicator, Modal} from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { db } from '../services/firebase';
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  arrayUnion,
-  onSnapshot,
-  orderBy,
-  limit,
-  DocumentData,
-  QueryDocumentSnapshot
-} from 'firebase/firestore';
+import {doc, getDoc, updateDoc, collection, query, where, getDocs, arrayUnion, onSnapshot, limit, DocumentData, QueryDocumentSnapshot} from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 import { ExerciseContext } from '../context/ExerciseContext';
 import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Text, Button, Card, Container } from '../components/ui';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
+import {Colors, Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
 import { formatDistance } from 'date-fns';
-
+;
+;
 const { width } = Dimensions.get('window');
-
+// Define screen-specific navigation type
+type SocialScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Main'>;
 // Types and interfaces
 interface UserProfile {
   id?: string;
@@ -66,7 +33,6 @@ interface UserProfile {
   workoutCount?: number;
   joinDate?: string;
 }
-
 interface WorkoutSet {
   id?: string;
   date: string;
@@ -76,14 +42,12 @@ interface WorkoutSet {
   reps: number;
   notes?: string;
 }
-
 interface WeightLog {
   id?: string;
   date: string;
   weight: number;
   notes?: string;
 }
-
 interface ActivityItem {
   type: 'workout' | 'weightLog';
   userId: string;
@@ -92,11 +56,10 @@ interface ActivityItem {
   date: string;
   data: WorkoutSet | WeightLog;
 }
-
 const SocialScreen: React.FC = () => {
   const { darkMode } = useContext(ExerciseContext);
   const { user, userProfile } = useContext(AuthContext);
-  const navigation = useNavigation();
+  const navigation = useNavigation<SocialScreenNavigationProp>();
   const [myProfile, setMyProfile] = useState<UserProfile | null>(null);
   const [searchUsername, setSearchUsername] = useState<string>('');
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
@@ -107,7 +70,6 @@ const SocialScreen: React.FC = () => {
   const [suggestedFriends, setSuggestedFriends] = useState<UserProfile[]>([]);
   const [showSearchModal, setShowSearchModal] = useState<boolean>(false);
   const [topExercisers, setTopExercisers] = useState<UserProfile[]>([]);
-  
   // Animation refs
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerHeight = scrollY.interpolate({
@@ -120,17 +82,14 @@ const SocialScreen: React.FC = () => {
     outputRange: [1, 0.5, 0],
     extrapolate: 'clamp'
   });
-  
   // Transform for header (use translateY instead of height)
   const headerTranslateY = scrollY.interpolate({
     inputRange: [0, 120],
     outputRange: [0, -80],
     extrapolate: 'clamp'
   });
-  
   // Theme based on dark mode
   const theme = darkMode ? Theme.dark : Theme.light;
-
   useEffect(() => {
     if (user) {
       // Listen for real-time updates to the user profile
@@ -147,14 +106,11 @@ const SocialScreen: React.FC = () => {
       }, error => {
         console.error("Error getting user profile updates:", error);
       });
-      
       // Initial data loading
       loadData();
-      
       return () => unsubscribe();
     }
   }, [user]);
-
   const loadData = async (): Promise<void> => {
     try {
       setLoading(true);
@@ -169,29 +125,24 @@ const SocialScreen: React.FC = () => {
       setLoading(false);
     }
   };
-  
   const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
   };
-
   const loadActivityFeed = async (): Promise<void> => {
     if (!user || !myProfile || !myProfile.friends || myProfile.friends.length === 0) {
       setActivityFeed([]);
       return;
     }
-    
     try {
       // Initialize an array to hold all friend activities
       let allActivities: ActivityItem[] = [];
-      
       // For each friend, fetch their recent activity
       for (const friendUid of myProfile.friends) {
         const friendDoc = await getDoc(doc(db, 'users', friendUid));
         if (friendDoc.exists()) {
           const friendData = friendDoc.data() as UserProfile;
-          
           // Add workout activities
           const workouts = (friendData.firestoreSets || []).map(set => ({
             type: 'workout' as const,
@@ -201,7 +152,6 @@ const SocialScreen: React.FC = () => {
             date: set.date,
             data: set
           }));
-          
           // Add weight log activities
           const weightLogs = (friendData.firestoreWeightLog || []).map(log => ({
             type: 'weightLog' as const,
@@ -211,14 +161,11 @@ const SocialScreen: React.FC = () => {
             date: log.date,
             data: log
           }));
-          
           allActivities = [...allActivities, ...workouts, ...weightLogs];
         }
       }
-      
       // Sort activities by date (newest first)
       allActivities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      
       // Take only the most recent 20 activities
       setActivityFeed(allActivities.slice(0, 20));
     } catch (error) {
@@ -226,16 +173,13 @@ const SocialScreen: React.FC = () => {
       setActivityFeed([]);
     }
   };
-  
   const loadSuggestedFriends = async (): Promise<void> => {
     if (!user) return;
-    
     try {
       // Get users from Firestore
       const usersRef = collection(db, 'users');
       const q = query(usersRef, limit(5));
       const querySnapshot = await getDocs(q);
-      
       const suggestions: UserProfile[] = [];
       querySnapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
         const userData = doc.data() as Omit<UserProfile, 'id'>;
@@ -248,14 +192,12 @@ const SocialScreen: React.FC = () => {
           });
         }
       });
-      
       setSuggestedFriends(suggestions);
     } catch (error) {
       console.error("Error loading suggested friends:", error);
       setSuggestedFriends([]);
     }
   };
-  
   const loadTopExercisers = async (): Promise<void> => {
     try {
       // This would typically fetch users with the most workouts/activity
@@ -263,7 +205,6 @@ const SocialScreen: React.FC = () => {
       const usersRef = collection(db, 'users');
       const q = query(usersRef, limit(5));
       const querySnapshot = await getDocs(q);
-      
       const topUsers: UserProfile[] = [];
       querySnapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
         if (doc.id !== user?.uid) {
@@ -274,35 +215,28 @@ const SocialScreen: React.FC = () => {
           });
         }
       });
-      
       // Sort by workout count (descending)
       topUsers.sort((a, b) => (b.workoutCount || 0) - (a.workoutCount || 0));
-      
       setTopExercisers(topUsers);
     } catch (error) {
       console.error("Error loading top exercisers:", error);
       setTopExercisers([]);
     }
   };
-
   const dismissKeyboard = (): void => {
     Keyboard.dismiss();
   };
-
   const handleSearch = async (): Promise<void> => {
     if (!searchUsername.trim()) {
       Alert.alert("Please enter a username to search");
       return;
     }
-    
     setLoading(true);
     dismissKeyboard();
-    
     try {
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where("username", "==", searchUsername.trim()));
       const querySnapshot = await getDocs(q);
-      
       const results: UserProfile[] = [];
       querySnapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
         // Don't include current user in search results
@@ -313,7 +247,6 @@ const SocialScreen: React.FC = () => {
           });
         }
       });
-      
       setSearchResults(results);
     } catch (error) {
       console.error("Error searching for users:", error);
@@ -322,26 +255,20 @@ const SocialScreen: React.FC = () => {
       setLoading(false);
     }
   };
-
   const handleSendRequest = async (targetUid: string): Promise<void> => {
     if (!user || !targetUid) return;
-    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     try {
       const targetUserRef = doc(db, 'users', targetUid);
       const currentUserRef = doc(db, 'users', user.uid);
-      
       // Add request to target user's friendRequests array
       await updateDoc(targetUserRef, {
         friendRequests: arrayUnion(user.uid)
       });
-      
       // Add to current user's sentRequests array
       await updateDoc(currentUserRef, {
         sentRequests: arrayUnion(targetUid)
       });
-      
       // Optionally, update the local state
       if (myProfile) {
         setMyProfile({
@@ -349,7 +276,6 @@ const SocialScreen: React.FC = () => {
           sentRequests: [...(myProfile.sentRequests || []), targetUid]
         });
       }
-      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Success", "Friend request sent successfully");
     } catch (error) {
@@ -358,12 +284,10 @@ const SocialScreen: React.FC = () => {
       Alert.alert("Error", "Failed to send friend request. Please try again.");
     }
   };
-
   const renderActivityItem = ({ item, index }: { item: ActivityItem; index: number }) => {
     const isWorkout = item.type === 'workout';
     const workoutSet = isWorkout ? item.data as WorkoutSet : null;
     const weightLog = !isWorkout ? item.data as WeightLog : null;
-    
     return (
       <Card 
         style={{
@@ -376,7 +300,7 @@ const SocialScreen: React.FC = () => {
             style={styles.activityHeader}
             onPress={() => {
               if (item.userId) {
-                navigation.navigate('FriendProfileScreen', { userId: item.userId });
+                navigation.navigate('FriendProfile', { userId: item.userId });
               }
             }}
           >
@@ -387,7 +311,6 @@ const SocialScreen: React.FC = () => {
                 <Ionicons name="person" size={24} color={theme.textSecondary} />
               </View>
             )}
-            
             <View style={styles.activityUserInfo}>
               <Text 
                 variant="subtitle" 
@@ -406,7 +329,6 @@ const SocialScreen: React.FC = () => {
                 {formatRelativeTime(item.date)}
               </Text>
             </View>
-            
             <View style={styles.activityTypeTag}>
               <Text 
                 variant="caption" 
@@ -419,7 +341,6 @@ const SocialScreen: React.FC = () => {
               </Text>
             </View>
           </TouchableOpacity>
-          
           <View style={styles.activityContent}>
             {isWorkout && workoutSet ? (
               <View style={styles.workoutDetails}>
@@ -441,7 +362,6 @@ const SocialScreen: React.FC = () => {
                     {workoutSet.exerciseName}
                   </Text>
                 </View>
-                
                 <View style={styles.workoutStats}>
                   <View style={styles.workoutStat}>
                     <Text 
@@ -461,7 +381,6 @@ const SocialScreen: React.FC = () => {
                       {workoutSet.weight} kg
                     </Text>
                   </View>
-                  
                   <View style={styles.workoutStat}>
                     <Text 
                       variant="caption" 
@@ -502,7 +421,6 @@ const SocialScreen: React.FC = () => {
                     {weightLog.weight} kg
                   </Text>
                 </View>
-                
                 {weightLog.notes && (
                   <View style={styles.workoutStat}>
                     <Text 
@@ -530,7 +448,6 @@ const SocialScreen: React.FC = () => {
       </Card>
     );
   };
-
   return (
     <Container>
       {/* Fixed header with search bar */}
@@ -561,10 +478,9 @@ const SocialScreen: React.FC = () => {
               Search for friends...
             </Text>
           </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.requestsButton}
-            onPress={() => navigation.navigate('FriendRequestsScreen')}
+            onPress={() => navigation.navigate('FriendRequests')}
           >
             <Ionicons name="people" size={22} color={theme.text} />
             {requestsCount > 0 && (
@@ -583,7 +499,6 @@ const SocialScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </Animated.View>
-
       {/* Main content */}
       <Animated.ScrollView
         style={styles.container}
@@ -608,7 +523,6 @@ const SocialScreen: React.FC = () => {
           <Text variant="heading2">Social Feed</Text>
         </View>
       </Animated.ScrollView>
-
       {/* Search Modal */}
       <Modal
         visible={showSearchModal}
@@ -645,7 +559,6 @@ const SocialScreen: React.FC = () => {
                   <Ionicons name="close" size={24} color={theme.textSecondary} />
                 </TouchableOpacity>
               </View>
-              
               <View style={styles.searchInputContainer}>
                 <TextInput
                   style={[
@@ -678,7 +591,6 @@ const SocialScreen: React.FC = () => {
                   )}
                 </TouchableOpacity>
               </View>
-              
               {searchResults.length > 0 ? (
                 <FlatList
                   data={searchResults}
@@ -691,7 +603,7 @@ const SocialScreen: React.FC = () => {
                       ]}
                       onPress={() => {
                         if (item.id) {
-                          navigation.navigate('FriendProfileScreen', { userId: item.id });
+                          navigation.navigate('FriendProfile', { userId: item.id });
                         }
                       }}
                     >
@@ -771,12 +683,10 @@ const SocialScreen: React.FC = () => {
     </Container>
   );
 };
-
 const formatRelativeTime = (dateString: string): string => {
   const date = new Date(dateString);
   return formatDistance(date, new Date(), { addSuffix: true });
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -865,12 +775,12 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    height: 50,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    fontSize: Typography.body,
+    height: 38,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    fontSize: 14,
     borderWidth: 1,
-    marginRight: Spacing.sm,
+    marginRight: 8,
   },
   searchInputButton: {
     width: 50,
@@ -945,5 +855,4 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
 });
-
 export default SocialScreen; 

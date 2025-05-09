@@ -103,7 +103,7 @@ describe('Data Validation Tests', () => {
         array: ['<i>Item 1</i>', '<script>hack()</script>']
       };
       
-      const sanitized = sanitizeFirestoreData(data);
+      const sanitized = sanitizeFirestoreData<typeof data>(data);
       
       expect(sanitized.name).toContain('&lt;script&gt;');
       expect(sanitized.description).toContain('&#039;');
@@ -115,6 +115,30 @@ describe('Data Validation Tests', () => {
     it('should return empty object for null or undefined input', () => {
       expect(sanitizeFirestoreData(null as any)).toEqual({});
       expect(sanitizeFirestoreData(undefined as any)).toEqual({});
+    });
+    
+    it('should sanitize HTML content in object properties', () => {
+      const data: {
+        name: string; 
+        description: string; 
+        nested: { field: string }; 
+        array: string[]
+      } = {
+        name: '<script>alert("hack")</script>',
+        description: 'Text with apostrophe\'s and quotes"',
+        nested: {
+          field: '<b>Bold</b>'
+        },
+        array: ['<i>Item 1</i>', '<script>hack()</script>']
+      };
+      
+      const sanitized = sanitizeFirestoreData<typeof data>(data);
+      
+      expect(sanitized.name).toContain('&lt;script&gt;');
+      expect(sanitized.description).toContain('&#039;');
+      expect(sanitized.nested.field).toContain('&lt;b&gt;');
+      expect(sanitized.array[0]).toContain('&lt;i&gt;');
+      expect(sanitized.array[1]).toContain('&lt;script&gt;');
     });
   });
   

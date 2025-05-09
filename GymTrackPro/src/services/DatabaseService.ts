@@ -15,7 +15,6 @@ import {
   FriendRequest,
   NetworkStatus 
 } from '../types/mergedTypes';
-
 /**
  * DatabaseService - Main service that coordinates all database operations
  * This class provides a unified interface for all database operations
@@ -27,7 +26,6 @@ class DatabaseService {
   private weightLogService: WeightLogDatabaseService;
   private exerciseService: ExerciseDatabaseService;
   private friendService: FriendDatabaseService;
-  
   constructor() {
     this.userService = new UserDatabaseService();
     this.weightLogService = new WeightLogDatabaseService();
@@ -35,11 +33,9 @@ class DatabaseService {
     this.exerciseService = new ExerciseDatabaseService();
     this.friendService = new FriendDatabaseService();
   }
-  
   // ======================================================
   // USER PROFILE OPERATIONS
   // ======================================================
-  
   /**
    * Save or update user profile
    * @param profile User profile data
@@ -49,7 +45,6 @@ class DatabaseService {
   async saveProfile(profile: Partial<User>, isOnline: boolean): Promise<ApiResponse<User>> {
     return this.userService.saveProfile(profile, isOnline);
   }
-  
   /**
    * Get user profile
    * @param uid User ID
@@ -59,7 +54,6 @@ class DatabaseService {
   async getProfile(uid: string, isOnline: boolean): Promise<ApiResponse<User>> {
     return this.userService.getProfile(uid, isOnline);
   }
-  
   /**
    * Get multiple user profiles by IDs
    * @param uids Array of user IDs
@@ -69,7 +63,6 @@ class DatabaseService {
   async getMultipleProfiles(uids: string[], isOnline: boolean): Promise<ApiResponse<User[]>> {
     return this.userService.getMultipleProfiles(uids, isOnline);
   }
-  
   /**
    * Delete user profile
    * @param uid User ID
@@ -79,7 +72,6 @@ class DatabaseService {
   async deleteProfile(uid: string, isOnline: boolean): Promise<ApiResponse<boolean>> {
     return this.userService.deleteProfile(uid, isOnline);
   }
-  
   /**
    * Update user settings
    * @param uid User ID
@@ -90,11 +82,9 @@ class DatabaseService {
   async updateUserSettings(uid: string, settings: any, isOnline: boolean): Promise<ApiResponse<any>> {
     return this.userService.updateUserSettings(uid, settings, isOnline);
   }
-  
   // ======================================================
   // WEIGHT LOG OPERATIONS
   // ======================================================
-  
   /**
    * Add a new weight log entry
    * @param entry Weight log entry data
@@ -104,7 +94,6 @@ class DatabaseService {
   async logWeight(entry: Partial<WeightLogEntry>, isOnline: boolean): Promise<ApiResponse<WeightLogEntry[]>> {
     return this.weightLogService.logWeight(entry, isOnline);
   }
-  
   /**
    * Get all weight log entries for a user
    * @param userId User ID
@@ -114,7 +103,6 @@ class DatabaseService {
   async getWeightLog(userId: string, isOnline: boolean): Promise<ApiResponse<WeightLogEntry[]>> {
     return this.weightLogService.getWeightLog(userId, isOnline);
   }
-  
   /**
    * Update a weight log entry
    * @param entryId Entry ID
@@ -131,7 +119,6 @@ class DatabaseService {
   ): Promise<ApiResponse<WeightLogEntry>> {
     return this.weightLogService.updateWeightLogEntry(entryId, userId, data, isOnline);
   }
-  
   /**
    * Delete a weight log entry
    * @param entryId Entry ID
@@ -146,11 +133,9 @@ class DatabaseService {
   ): Promise<ApiResponse<boolean>> {
     return this.weightLogService.deleteWeightLogEntry(entryId, userId, isOnline);
   }
-  
   // ======================================================
   // WORKOUT OPERATIONS
   // ======================================================
-  
   /**
    * Get recent workouts for a user
    * @param userId User ID
@@ -161,7 +146,6 @@ class DatabaseService {
   async getRecentWorkouts(userId: string, isOnline: boolean, count?: number): Promise<ApiResponse<Workout[]>> {
     return this.workoutService.getRecentWorkouts(userId, isOnline, count);
   }
-  
   /**
    * Get all workouts for a user
    * @param userId User ID
@@ -171,7 +155,6 @@ class DatabaseService {
   async getAllWorkouts(userId: string, isOnline: boolean): Promise<ApiResponse<Workout[]>> {
     return this.workoutService.getAllWorkouts(userId, isOnline);
   }
-  
   /**
    * Get a specific workout by ID
    * @param workoutId Workout ID
@@ -182,7 +165,6 @@ class DatabaseService {
   async getWorkoutById(workoutId: string, userId: string, isOnline: boolean): Promise<ApiResponse<Workout>> {
     return this.workoutService.getWorkoutById(workoutId, userId, isOnline);
   }
-  
   /**
    * Save a workout
    * @param workout Workout data
@@ -192,7 +174,6 @@ class DatabaseService {
   async saveWorkout(workout: Workout, isOnline: boolean): Promise<ApiResponse<Workout>> {
     return this.workoutService.saveWorkout(workout, isOnline);
   }
-  
   /**
    * Update a workout
    * @param workoutId Workout ID
@@ -209,7 +190,6 @@ class DatabaseService {
   ): Promise<ApiResponse<Workout>> {
     return this.workoutService.updateWorkout(workoutId, userId, data, isOnline);
   }
-  
   /**
    * Delete a workout
    * @param workoutId Workout ID
@@ -220,7 +200,6 @@ class DatabaseService {
   async deleteWorkout(workoutId: string, userId: string, isOnline: boolean): Promise<ApiResponse<boolean>> {
     return this.workoutService.deleteWorkout(workoutId, userId, isOnline);
   }
-  
   /**
    * Get workout plans for a user
    * @param userId User ID
@@ -230,7 +209,6 @@ class DatabaseService {
   async getWorkoutPlans(userId: string, isOnline: boolean): Promise<ApiResponse<WorkoutPlan[]>> {
     return this.workoutService.getWorkoutPlans(userId, isOnline);
   }
-  
   /**
    * Get a specific workout plan by ID
    * @param planId Plan ID
@@ -241,7 +219,6 @@ class DatabaseService {
   async getWorkoutPlanById(planId: string, userId: string, isOnline: boolean): Promise<ApiResponse<WorkoutPlan>> {
     return this.workoutService.getWorkoutPlanById(planId, userId, isOnline);
   }
-  
   /**
    * Save a workout plan
    * @param plan Workout plan data
@@ -251,7 +228,6 @@ class DatabaseService {
   async saveWorkoutPlan(plan: WorkoutPlan, isOnline: boolean): Promise<ApiResponse<WorkoutPlan>> {
     return this.workoutService.saveWorkoutPlan(plan, isOnline);
   }
-  
   /**
    * Update a workout plan
    * @param planId Plan ID
@@ -268,7 +244,6 @@ class DatabaseService {
   ): Promise<ApiResponse<WorkoutPlan>> {
     return this.workoutService.updateWorkoutPlan(planId, userId, data, isOnline);
   }
-  
   /**
    * Delete a workout plan
    * @param planId Plan ID
@@ -279,20 +254,21 @@ class DatabaseService {
   async deleteWorkoutPlan(planId: string, userId: string, isOnline: boolean): Promise<ApiResponse<boolean>> {
     return this.workoutService.deleteWorkoutPlan(planId, userId, isOnline);
   }
-  
   // ======================================================
   // EXERCISE OPERATIONS
   // ======================================================
-  
   /**
    * Get all exercises
    * @param isOnline Current online status
    * @returns API response with all exercises
    */
   async getAllExercises(isOnline: boolean): Promise<ApiResponse<Exercise[]>> {
-    return this.exerciseService.getAllExercises(isOnline);
+    const result = await this.exerciseService.getAllExercises(isOnline);
+    return {
+      ...result,
+      data: result.data as unknown as Exercise[]
+    };
   }
-  
   /**
    * Get exercise by ID
    * @param exerciseId Exercise ID
@@ -300,9 +276,12 @@ class DatabaseService {
    * @returns API response with exercise
    */
   async getExerciseById(exerciseId: string, isOnline: boolean): Promise<ApiResponse<Exercise>> {
-    return this.exerciseService.getExerciseById(exerciseId, isOnline);
+    const result = await this.exerciseService.getExerciseById(exerciseId, isOnline);
+    return {
+      ...result,
+      data: result.data as unknown as Exercise
+    };
   }
-  
   /**
    * Get exercises by muscle group
    * @param muscleGroupId Muscle group ID
@@ -310,9 +289,12 @@ class DatabaseService {
    * @returns API response with exercises
    */
   async getExercisesByMuscleGroup(muscleGroupId: string, isOnline: boolean): Promise<ApiResponse<Exercise[]>> {
-    return this.exerciseService.getExercisesByMuscleGroup(muscleGroupId, isOnline);
+    const result = await this.exerciseService.getExercisesByMuscleGroup(muscleGroupId, isOnline);
+    return {
+      ...result,
+      data: result.data as unknown as Exercise[]
+    };
   }
-  
   /**
    * Get exercises by category
    * @param categoryId Category ID
@@ -320,9 +302,12 @@ class DatabaseService {
    * @returns API response with exercises
    */
   async getExercisesByCategory(categoryId: string, isOnline: boolean): Promise<ApiResponse<Exercise[]>> {
-    return this.exerciseService.getExercisesByCategory(categoryId, isOnline);
+    const result = await this.exerciseService.getExercisesByCategory(categoryId, isOnline);
+    return {
+      ...result,
+      data: result.data as unknown as Exercise[]
+    };
   }
-  
   /**
    * Get all muscle groups
    * @param isOnline Current online status
@@ -331,7 +316,6 @@ class DatabaseService {
   async getAllMuscleGroups(isOnline: boolean): Promise<ApiResponse<any[]>> {
     return this.exerciseService.getAllMuscleGroups(isOnline);
   }
-  
   /**
    * Get all workout categories
    * @param isOnline Current online status
@@ -340,11 +324,9 @@ class DatabaseService {
   async getAllWorkoutCategories(isOnline: boolean): Promise<ApiResponse<any[]>> {
     return this.exerciseService.getAllWorkoutCategories(isOnline);
   }
-  
   // ======================================================
   // SOCIAL / FRIENDS OPERATIONS
   // ======================================================
-  
   /**
    * Get friends for a user
    * @param userId User ID
@@ -354,7 +336,6 @@ class DatabaseService {
   async getFriends(userId: string, isOnline: boolean): Promise<ApiResponse<Friend[]>> {
     return this.friendService.getFriends(userId, isOnline);
   }
-  
   /**
    * Send friend request
    * @param fromUserId Sender user ID
@@ -373,7 +354,6 @@ class DatabaseService {
   ): Promise<ApiResponse<FriendRequest>> {
     return this.friendService.sendFriendRequest(fromUserId, toUserId, username, photoUrl, isOnline);
   }
-  
   /**
    * Get received friend requests
    * @param userId User ID
@@ -383,7 +363,6 @@ class DatabaseService {
   async getReceivedFriendRequests(userId: string, isOnline: boolean): Promise<ApiResponse<FriendRequest[]>> {
     return this.friendService.getReceivedFriendRequests(userId, isOnline);
   }
-  
   /**
    * Get sent friend requests
    * @param userId User ID
@@ -393,7 +372,6 @@ class DatabaseService {
   async getSentFriendRequests(userId: string, isOnline: boolean): Promise<ApiResponse<FriendRequest[]>> {
     return this.friendService.getSentFriendRequests(userId, isOnline);
   }
-  
   /**
    * Accept friend request
    * @param requestId Request ID
@@ -404,7 +382,6 @@ class DatabaseService {
   async acceptFriendRequest(requestId: string, userId: string, isOnline: boolean): Promise<ApiResponse<boolean>> {
     return this.friendService.acceptFriendRequest(requestId, userId, isOnline);
   }
-  
   /**
    * Reject friend request
    * @param requestId Request ID
@@ -415,7 +392,6 @@ class DatabaseService {
   async rejectFriendRequest(requestId: string, userId: string, isOnline: boolean): Promise<ApiResponse<boolean>> {
     return this.friendService.rejectFriendRequest(requestId, userId, isOnline);
   }
-  
   /**
    * Remove friend
    * @param friendshipId Friendship ID
@@ -426,11 +402,9 @@ class DatabaseService {
   async removeFriend(friendshipId: string, userId: string, isOnline: boolean): Promise<ApiResponse<boolean>> {
     return this.friendService.removeFriend(friendshipId, userId, isOnline);
   }
-  
   // ======================================================
   // DATA SYNCHRONIZATION
   // ======================================================
-  
   /**
    * Synchronize all user data
    * @param userId User ID
@@ -447,14 +421,12 @@ class DatabaseService {
         }
       };
     }
-    
     try {
       // Sync user profile
       const userSyncResult = await this.userService.syncUserData(userId, true);
       if (!userSyncResult.success) {
         throw new Error('User data sync failed');
       }
-      
       try {
         // Sync workout data (may fail in tests, so handle separately)
         const workoutSyncResult = await this.workoutService.syncWorkoutData(userId, true);
@@ -469,7 +441,6 @@ class DatabaseService {
           throw workoutError;
         }
       }
-      
       // Sync weight log
       try {
         const weightLogSyncSuccess = await this.weightLogService.syncWeightLogData(userId, true);
@@ -479,7 +450,6 @@ class DatabaseService {
       } catch (weightLogError) {
         console.error("Error syncing weight logs:", weightLogError);
       }
-      
       return {
         success: true,
         data: true
@@ -496,12 +466,159 @@ class DatabaseService {
       };
     }
   }
+  /**
+   * Get all workout lists
+   * @param isOnline Current online status
+   * @returns API response with all workout lists
+   */
+  async getAllWorkoutLists(isOnline: boolean = true): Promise<any[]> {
+    try {
+      // This is a temporary implementation until proper workout lists are implemented
+      const userId = this.userService.getCurrentUserId();
+      if (!userId) {
+        return [];
+      }
+      const workoutsResponse = await this.getAllWorkouts(userId, isOnline);
+      if (!workoutsResponse.success || !workoutsResponse.data) {
+        return [];
+      }
+      // Convert workouts to workout lists format
+      return workoutsResponse.data.map(workout => ({
+        id: workout.id,
+        name: workout.name,
+        description: workout.description,
+        exercises: workout.exercises.map(ex => ex.id),
+        lastUpdated: workout.updatedAt || workout.createdAt
+      }));
+    } catch (error) {
+      console.error('Error getting workout lists:', error);
+      return [];
+    }
+  }
+  /**
+   * Add an exercise to a workout list
+   * @param listId List ID (workout ID)
+   * @param exerciseId Exercise ID
+   * @returns Promise resolving to true if successful
+   */
+  async addExerciseToList(listId: string, exerciseId: string): Promise<boolean> {
+    try {
+      const userId = this.userService.getCurrentUserId();
+      if (!userId) {
+        return false;
+      }
+      // Get the current workout
+      const workoutResponse = await this.getWorkoutById(listId, userId, true);
+      if (!workoutResponse.success || !workoutResponse.data) {
+        return false;
+      }
+      const workout = workoutResponse.data;
+      // Check if exercise is already in the workout
+      if (workout.exercises.some(ex => ex.id === exerciseId)) {
+        return true; // Already added
+      }
+      // Get exercise details
+      const exerciseResponse = await this.getExerciseById(exerciseId, true);
+      if (!exerciseResponse.success || !exerciseResponse.data) {
+        return false;
+      }
+      const exercise = exerciseResponse.data;
+      // Add exercise to workout
+      workout.exercises.push({
+        id: exerciseId,
+        name: exercise.name,
+        sets: []
+      });
+      // Save updated workout
+      const updateResponse = await this.saveWorkout(workout, true);
+      return updateResponse.success;
+    } catch (error) {
+      console.error('Error adding exercise to list:', error);
+      return false;
+    }
+  }
+  /**
+   * Remove an exercise from a workout list
+   * @param listId List ID (workout ID)
+   * @param exerciseId Exercise ID
+   * @returns Promise resolving to true if successful
+   */
+  async removeExerciseFromList(listId: string, exerciseId: string): Promise<boolean> {
+    try {
+      const userId = this.userService.getCurrentUserId();
+      if (!userId) {
+        return false;
+      }
+      // Get the current workout
+      const workoutResponse = await this.getWorkoutById(listId, userId, true);
+      if (!workoutResponse.success || !workoutResponse.data) {
+        return false;
+      }
+      const workout = workoutResponse.data;
+      // Remove exercise from workout
+      workout.exercises = workout.exercises.filter(ex => ex.id !== exerciseId);
+      // Save updated workout
+      const updateResponse = await this.saveWorkout(workout, true);
+      return updateResponse.success;
+    } catch (error) {
+      console.error('Error removing exercise from list:', error);
+      return false;
+    }
+  }
+  /**
+   * Update workout settings
+   * @param workoutId Workout ID
+   * @param settings Settings to update
+   * @returns Promise resolving to true if successful
+   */
+  async updateWorkoutSettings(workoutId: string, settings: any): Promise<boolean> {
+    try {
+      const userId = this.userService.getCurrentUserId();
+      if (!userId) {
+        return false;
+      }
+      // Get the current workout
+      const workoutResponse = await this.getWorkoutById(workoutId, userId, true);
+      if (!workoutResponse.success || !workoutResponse.data) {
+        return false;
+      }
+      const workout = workoutResponse.data;
+      // Update settings
+      workout.settings = {
+        ...(workout.settings || {}),
+        ...settings
+      };
+      // Save updated workout
+      const updateResponse = await this.updateWorkout(workoutId, userId, { settings: workout.settings }, true);
+      return updateResponse.success;
+    } catch (error) {
+      console.error('Error updating workout settings:', error);
+      return false;
+    }
+  }
+  /**
+   * Get workout history
+   * @param workoutId Workout ID
+   * @returns Promise with workout history
+   */
+  async getWorkoutHistory(workoutId: string): Promise<any[]> {
+    try {
+      const userId = this.userService.getCurrentUserId();
+      if (!userId) {
+        return [];
+      }
+      // This is a placeholder for workout history functionality
+      // In a real implementation, this would fetch actual workout history data
+      return [];
+    } catch (error) {
+      console.error('Error getting workout history:', error);
+      return [];
+    }
+  }
 }
-
 // Export a singleton instance
 const databaseService = new DatabaseService();
 export default databaseService;
-
 // Also export individual services for direct access when needed
 export const userService = new UserDatabaseService();
 export const workoutService = new WorkoutDatabaseService();

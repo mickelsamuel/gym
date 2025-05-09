@@ -1,5 +1,4 @@
 import { FIREBASE_PATHS } from './firebase';
-
 /**
  * Get the subcollection path for a user
  * @param subcollection The subcollection name
@@ -8,167 +7,131 @@ import { FIREBASE_PATHS } from './firebase';
 const getUserSubcollectionPath = (subcollection: keyof typeof FIREBASE_PATHS.USER_SUBCOLLECTIONS): string => {
   return FIREBASE_PATHS.USER_SUBCOLLECTIONS[subcollection];
 };
-
 /**
- * Firebase Security Rules for GymTrackPro
- * 
- * This file contains the security rules that should be deployed to Firebase Firestore.
- * These rules ensure that users can only access the data they're authorized to access.
+ * GymTrackPro Firebase Security Rules
+ * These rules should be deployed to Firebase to secure the application
  */
-
-// Export the security rules as a string that can be used for deployment
 export const firestoreSecurityRules = `
+// Firestore rules
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
+    // Function to check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
-
-    function isUserAuthenticated(userId) {
+    // Function to check if user is the owner of a document
+    function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
-
-    function isValidTimestamp(timestamp) {
-      return timestamp is timestamp && timestamp <= request.time;
+    // Function to check if a user is a friend
+    function isFriend(userId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(userId));
     }
-
-    function userExists(userId) {
-      return exists(/databases/$(database)/documents/users/$(userId));
+    // Function to validate fields
+    function validateFields(requiredFields, optionalFields) {
+      let allFields = requiredFields.concat(optionalFields);
+      return request.resource.data.keys().hasOnly(allFields) &&
+             requiredFields.hasAll(request.resource.data.keys());
     }
-
-    function hasAllRequiredFields(requiredFields) {
-      return requiredFields.all(field => request.resource.data[field] != null);
+    // Global rate limiting for creation
+    function notRateLimited() {
+      return request.time > get(/databases/$(database)/documents/users/$(request.auth.uid)).data.lastCreate + duration.value(10, 's');
     }
-
-    function unchangedField(field) {
-      return request.resource.data[field] == resource.data[field];
-    }
-
-    // Allow read of public app data to any authenticated user
-    match /muscleGroups/{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if false; // Only admins can write (via admin SDK)
-    }
-
-    match /workoutCategories/{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if false; // Only admins can write (via admin SDK)
-    }
-
-    match /exercises/{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if false; // Only admins can write (via admin SDK)
-    }
-
-    match /goals/{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if false; // Only admins can write (via admin SDK)
-    }
-
-    // User data - only accessible by the user themselves
-    match /users/{userId} {
-      allow read: if isUserAuthenticated(userId);
-      allow create: if isUserAuthenticated(userId) && 
-                     hasAllRequiredFields(['uid', 'email', 'username']) &&
-                     request.resource.data.uid == userId;
-      allow update: if isUserAuthenticated(userId) && 
-                     unchangedField('uid');
-      allow delete: if false; // Users shouldn't be deleted, only marked as inactive
-
-      // User subcollections
-      match /weightLog/{entry} {
-        allow read: if isUserAuthenticated(userId);
-        allow create: if isUserAuthenticated(userId) && 
-                       hasAllRequiredFields(['weight', 'date', 'userId']) &&
-                       request.resource.data.userId == userId;
-        allow update: if isUserAuthenticated(userId) && 
-                       unchangedField('userId');
-        allow delete: if isUserAuthenticated(userId);
-      }
-
-      match /workoutHistory/{workout} {
-        allow read: if isUserAuthenticated(userId);
-        allow create: if isUserAuthenticated(userId) && 
-                       hasAllRequiredFields(['userId', 'name', 'date', 'exercises']) &&
-                       request.resource.data.userId == userId;
-        allow update: if isUserAuthenticated(userId) && 
-                       unchangedField('userId');
-        allow delete: if isUserAuthenticated(userId);
-      }
-
-      match /workoutPlans/{plan} {
-        allow read: if isUserAuthenticated(userId);
-        allow create: if isUserAuthenticated(userId) && 
-                       hasAllRequiredFields(['userId', 'name', 'exercises']) &&
-                       request.resource.data.userId == userId;
-        allow update: if isUserAuthenticated(userId) && 
-                       unchangedField('userId');
-        allow delete: if isUserAuthenticated(userId);
-      }
-
-      match /achievements/{achievement} {
-        allow read: if isUserAuthenticated(userId);
-        allow write: if false; // Only server-side code should write achievements
-      }
-
-      match /notifications/{notification} {
-        allow read: if isUserAuthenticated(userId);
-        allow update: if isUserAuthenticated(userId) && 
-                       unchangedField('userId') &&
-                       unchangedField('title') &&
-                       unchangedField('message') &&
-                       unchangedField('type');
-        allow create, delete: if false; // Only server-side code should create/delete notifications
-      }
-    }
-
-    // Friend system
-    match /friends/{document} {
-      allow read: if isUserAuthenticated(resource.data.userId) || 
-                   isUserAuthenticated(resource.data.friendId);
-      allow create: if isUserAuthenticated(request.resource.data.userId) && 
-                     userExists(request.resource.data.friendId);
-      allow delete: if isUserAuthenticated(resource.data.userId) || 
-                     isUserAuthenticated(resource.data.friendId);
-      allow update: if false; // Friend records shouldn't be updated, only created/deleted
-    }
-
-    match /friendRequests/{document} {
-      allow read: if isUserAuthenticated(resource.data.fromUid) || 
-                   isUserAuthenticated(resource.data.toUid);
-      allow create: if isUserAuthenticated(request.resource.data.fromUid) && 
-                     userExists(request.resource.data.toUid) &&
-                     request.resource.data.status == 'pending';
-      allow update: if isUserAuthenticated(resource.data.toUid) && 
-                     unchangedField('fromUid') && 
-                     unchangedField('toUid') &&
-                     unchangedField('sentAt') &&
-                     (request.resource.data.status == 'accepted' || 
-                      request.resource.data.status == 'rejected');
-      allow delete: if isUserAuthenticated(resource.data.fromUid) || 
-                     isUserAuthenticated(resource.data.toUid);
-    }
-
-    // Test connection document for checking Firebase availability
+    // Test document for connection check
     match /test/connection {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if false;
     }
-
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
+    // Users collection
+    match /users/{userId} {
+      // User profiles are readable by the owner and friends
+      allow read: if isOwner(userId) || isFriend(userId);
+      // User profile creation and updates only by owner
+      allow create: if isOwner(userId) &&
+                     validateFields(['email', 'username', 'createdAt'], 
+                    ['displayName', 'bio', 'profilePic', 'goal', 'fitnessLevel', 'lastActive', 'settings']);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+      // Friend subcollection
+      match /friends/{friendId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+      // Workout history subcollection
+      match /workoutHistory/{workoutId} {
+        allow read: if isOwner(userId) || (isFriend(userId) && resource.data.isPublic == true);
+        allow create, update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+      // Weight logs are private to the user
+      match /weightLog/{logId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+      // Workout plans can be shared
+      match /workoutPlans/{planId} {
+        allow read: if isOwner(userId) || (isFriend(userId) && resource.data.isShared == true);
+        allow write: if isOwner(userId);
+      }
+      // User achievements
+      match /achievements/{achievementId} {
+        allow read: if isOwner(userId) || isFriend(userId);
+        allow write: if isOwner(userId);
+      }
+    }
+    // Friend requests
+    match /friendRequests/{requestId} {
+      allow read: if isAuthenticated() && 
+                  (request.auth.uid == resource.data.senderId || 
+                   request.auth.uid == resource.data.receiverId);
+      allow create: if isAuthenticated() && 
+                     request.auth.uid == request.resource.data.senderId &&
+                     notRateLimited();
+      allow update, delete: if isAuthenticated() && 
+                            (request.auth.uid == resource.data.senderId || 
+                             request.auth.uid == resource.data.receiverId);
+    }
+    // Global exercise library - readable by all authenticated users
+    match /exercises/{exerciseId} {
+      allow read: if isAuthenticated();
+      // Only allow admin writes (handled via Firebase Admin SDK)
+      allow write: if false;
+    }
+    // Muscle groups - readable by all authenticated users
+    match /muscleGroups/{muscleId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    // Workout categories - readable by all authenticated users
+    match /workoutCategories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    // Global workout templates - readable by all authenticated users
+    match /workoutTemplates/{templateId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    // Goals - readable by all authenticated users
+    match /goals/{goalId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    // Shared workouts collection
+    match /sharedWorkouts/{workoutId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
     }
   }
 }
 `;
-
-// Function to get the security rules programmatically
-export const getFirestoreSecurityRules = (): string => {
+export const getFirestoreSecurityRules = () => {
   return firestoreSecurityRules;
 };
-
+export default firestoreSecurityRules;
 /**
  * Firebase Security Rules for Firestore
  */
@@ -190,9 +153,7 @@ export const FirebaseSecurityRules = {
   ): boolean => {
     // This function is used to check permissions client-side before performing operations
     // This doesn't replace server-side rules but helps prevent unnecessary failed operations
-    
     if (!currentUser) return false;
-    
     // Basic permission checks based on user identity
     if (collectionPath === FIREBASE_PATHS.USERS) {
       // For users collection, only the user can access their own document
@@ -201,12 +162,10 @@ export const FirebaseSecurityRules = {
       }
       return false;
     }
-    
     if (collectionPath === FIREBASE_PATHS.WORKOUT_HISTORY) {
       // For workout history, only the owner can access their workouts
       return currentUser.uid === userId;
     }
-    
     if (collectionPath === FIREBASE_PATHS.FRIEND_REQUESTS) {
       if (action === 'update') {
         // For friend requests, recipient can update to accept/reject
@@ -214,14 +173,12 @@ export const FirebaseSecurityRules = {
       }
       return false;
     }
-    
     if ([FIREBASE_PATHS.EXERCISES, FIREBASE_PATHS.MUSCLE_GROUPS, 
          FIREBASE_PATHS.WORKOUT_CATEGORIES, FIREBASE_PATHS.GOALS].includes(collectionPath)) {
       if (action === 'read') return true;
       // Only admins can modify these collections
       return false;
     }
-    
     // Default to denying permission
     return false;
   }

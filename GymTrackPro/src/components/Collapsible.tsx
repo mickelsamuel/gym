@@ -1,55 +1,48 @@
-import { PropsWithChildren, useState } from 'react';
-import { StyleSheet, TouchableOpacity } from 'react-native';
-
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-export function Collapsible({ children, title }: PropsWithChildren & { title: string }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const theme = useColorScheme() ?? 'light';
-  
-  // Fallback colors in case Colors is undefined
-  const fallbackColors = {
-    light: { icon: '#333333' },
-    dark: { icon: '#FFFFFF' }
-  };
-  
-  // Use Colors if available, otherwise use fallback
-  const colorScheme = Colors || fallbackColors;
-  const iconColor = theme === 'light' ? colorScheme.light.icon : colorScheme.dark.icon;
-
+import React, { useState, PropsWithChildren } from 'react';
+import {TouchableOpacity, StyleSheet} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { ThemedText } from './ThemedText';
+import { ThemedView } from './ThemedView';
+import Colors from '../constants/Colors';
+import { useColorScheme } from '../hooks/useColorScheme';
+;
+export function Collapsible({ children, title }: PropsWithChildren<{ title: string }>) {
+  const [collapsed, setCollapsed] = useState(true);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const iconColor = isDark ? Colors.dark.text : Colors.light.text;
   return (
-    <ThemedView>
+    <ThemedView style={styles.container}>
       <TouchableOpacity
-        style={styles.heading}
-        onPress={() => setIsOpen((value) => !value)}
-        activeOpacity={0.8}>
-        <IconSymbol
-          name="chevron.right"
-          size={18}
-          weight="medium"
-          color={iconColor}
-          style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
-        />
-
+        style={styles.header}
+        onPress={() => setCollapsed(!collapsed)}
+        activeOpacity={0.7}
+      >
         <ThemedText type="defaultSemiBold">{title}</ThemedText>
+        <Ionicons
+          name={collapsed ? 'chevron-down' : 'chevron-up'}
+          size={20}
+          color={iconColor}
+        />
       </TouchableOpacity>
-      {isOpen && <ThemedView style={styles.content}>{children}</ThemedView>}
+      {!collapsed && <ThemedView style={styles.content}>{children}</ThemedView>}
     </ThemedView>
   );
 }
-
 const styles = StyleSheet.create({
-  heading: {
+  container: {
+    marginVertical: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 6,
+    padding: 16,
   },
   content: {
-    marginTop: 6,
-    marginLeft: 24,
+    padding: 16,
+    paddingTop: 0,
   },
 });

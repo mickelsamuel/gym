@@ -2,7 +2,6 @@
  * Production Monitoring and Logging Utilities
  * Comprehensive system for tracking app performance and issues
  */
-
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
@@ -10,13 +9,11 @@ import { getAnalytics, logEvent } from 'firebase/analytics';
 import { app } from '../services/firebase';
 import * as Sentry from 'sentry-expo';
 import Constants from 'expo-constants';
-
 // Constants
 const LOG_STORAGE_KEY = 'app_error_logs';
 const PERFORMANCE_LOG_KEY = 'app_performance_logs';
 const MAX_STORED_LOGS = 50;
 const LOG_UPLOAD_INTERVAL = 60 * 60 * 1000; // 1 hour
-
 // Initialize Sentry if not in development
 if (!__DEV__) {
   Sentry.init({
@@ -30,7 +27,6 @@ if (!__DEV__) {
     environment: __DEV__ ? 'development' : 'production',
   });
 }
-
 // Log severity levels
 export enum LogLevel {
   DEBUG = 'debug',
@@ -39,7 +35,6 @@ export enum LogLevel {
   ERROR = 'error',
   CRITICAL = 'critical'
 }
-
 // Log entry interface
 export interface LogEntry {
   id: string;
@@ -62,7 +57,6 @@ export interface LogEntry {
     username?: string;
   };
 }
-
 // Performance metric interface
 export interface PerformanceMetric {
   id: string;
@@ -73,7 +67,6 @@ export interface PerformanceMetric {
   category: string;
   data?: any;
 }
-
 /**
  * Monitoring service for handling logging and performance tracking
  */
@@ -85,7 +78,6 @@ class MonitoringService {
   private isInitialized: boolean;
   private analytics: any | null;
   private currentUser: any | null;
-
   constructor() {
     this.errorLogs = [];
     this.performanceMetrics = {};
@@ -94,46 +86,38 @@ class MonitoringService {
     this.isInitialized = false;
     this.analytics = null;
     this.currentUser = null;
-    
     // Initialize service
     this.initialize();
   }
-
   /**
    * Initialize the monitoring service
    */
   private async initialize(): Promise<void> {
     if (this.isInitialized) return;
-    
     try {
       // Load existing logs from storage
       await this.loadLogs();
-      
       // Initialize analytics if available
       try {
         this.analytics = getAnalytics(app);
       } catch (error) {
         console.warn('Analytics not available:', error);
       }
-      
       // Set up automatic log upload
       this.uploadTimer = setInterval(() => {
         this.uploadLogs();
       }, LOG_UPLOAD_INTERVAL);
-      
       this.isInitialized = true;
     } catch (error) {
       console.error('Failed to initialize monitoring service:', error);
     }
   }
-
   /**
    * Set the current user for logging context
    * @param user Current user information
    */
   public setUser(user: { id: string; email?: string; username?: string }): void {
     this.currentUser = user;
-    
     // Also set user in Sentry for error tracking context
     if (!__DEV__ && user) {
       Sentry.setUser({
@@ -143,19 +127,16 @@ class MonitoringService {
       });
     }
   }
-
   /**
    * Clear current user information
    */
   public clearUser(): void {
     this.currentUser = null;
-    
     // Also clear user in Sentry
     if (!__DEV__) {
       Sentry.setUser(null);
     }
   }
-
   /**
    * Set the application version
    * @param version Application version string
@@ -163,7 +144,6 @@ class MonitoringService {
   public setAppVersion(version: string): void {
     this.appVersion = version;
   }
-
   /**
    * Log a message with the specified level
    * @param level Log severity level
@@ -179,7 +159,6 @@ class MonitoringService {
       appVersion: this.appVersion,
       memoryUsage: this.getMemoryUsage(),
     };
-    
     // Create log entry
     const logEntry: LogEntry = {
       id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
@@ -191,18 +170,14 @@ class MonitoringService {
       deviceInfo,
       user: this.currentUser || undefined
     };
-    
     // Add to logs
     this.errorLogs.push(logEntry);
-    
     // Trim logs if they exceed maximum
     if (this.errorLogs.length > MAX_STORED_LOGS) {
       this.errorLogs = this.errorLogs.slice(-MAX_STORED_LOGS);
     }
-    
     // Save logs
     this.saveLogs();
-    
     // If production and error/critical, send to Sentry
     if (!__DEV__ && (level === LogLevel.ERROR || level === LogLevel.CRITICAL)) {
       if (data instanceof Error) {
@@ -211,17 +186,14 @@ class MonitoringService {
         Sentry.captureMessage(message, 
           level === LogLevel.CRITICAL ? Sentry.Severity.Fatal : Sentry.Severity.Error
         );
-        
         // Add context
         Sentry.setContext(category, data || {});
       }
     }
-    
     // If critical error, try to upload immediately
     if (level === LogLevel.CRITICAL) {
       this.uploadLogs();
     }
-    
     // Log to console in development
     if (__DEV__) {
       switch(level) {
@@ -241,7 +213,6 @@ class MonitoringService {
       }
     }
   }
-
   /**
    * Log a debug message
    * @param message Debug message
@@ -250,7 +221,6 @@ class MonitoringService {
    */
   public debug(message: string, category: string = 'app', data?: any): void {
     this.log(LogLevel.DEBUG, message, category, data);
-    
     // Add breadcrumb for context in error reports
     if (!__DEV__) {
       Sentry.addBreadcrumb({
@@ -261,7 +231,6 @@ class MonitoringService {
       });
     }
   }
-
   /**
    * Log an info message
    * @param message Info message
@@ -270,7 +239,6 @@ class MonitoringService {
    */
   public info(message: string, category: string = 'app', data?: any): void {
     this.log(LogLevel.INFO, message, category, data);
-    
     // Add breadcrumb for context in error reports
     if (!__DEV__) {
       Sentry.addBreadcrumb({
@@ -281,7 +249,6 @@ class MonitoringService {
       });
     }
   }
-
   /**
    * Log a warning message
    * @param message Warning message
@@ -290,7 +257,6 @@ class MonitoringService {
    */
   public warning(message: string, category: string = 'app', data?: any): void {
     this.log(LogLevel.WARNING, message, category, data);
-    
     // Add breadcrumb and capture message
     if (!__DEV__) {
       Sentry.addBreadcrumb({
@@ -299,12 +265,10 @@ class MonitoringService {
         level: Sentry.Severity.Warning,
         data
       });
-      
       // For warnings, we'll add as a message but with lower severity
       Sentry.captureMessage(message, Sentry.Severity.Warning);
     }
   }
-
   /**
    * Log an error message
    * @param message Error message
@@ -319,19 +283,15 @@ class MonitoringService {
       stack: error.stack,
       ...data
     } : data;
-    
     this.log(LogLevel.ERROR, message, category, errorData);
-    
     // In production, send additional context to Sentry
     if (!__DEV__) {
       Sentry.setContext(category, data || {});
-      
       if (error) {
         Sentry.captureException(error);
       }
     }
   }
-
   /**
    * Log a critical error message
    * @param message Critical error message
@@ -346,13 +306,10 @@ class MonitoringService {
       stack: error.stack,
       ...data
     } : data;
-    
     this.log(LogLevel.CRITICAL, message, category, errorData);
-    
     // In production, send to Sentry with fatal level
     if (!__DEV__) {
       Sentry.setContext(category, data || {});
-      
       if (error) {
         Sentry.captureException(error);
       } else {
@@ -360,7 +317,6 @@ class MonitoringService {
       }
     }
   }
-
   /**
    * Start a performance metric measurement
    * @param name Metric name
@@ -370,7 +326,6 @@ class MonitoringService {
    */
   public startPerformanceMetric(name: string, category: string = 'performance', data?: any): string {
     const id = `metric_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    
     this.performanceMetrics[id] = {
       id,
       name,
@@ -378,7 +333,6 @@ class MonitoringService {
       category,
       data
     };
-    
     // Start Sentry performance transaction if available
     if (!__DEV__) {
       try {
@@ -386,7 +340,6 @@ class MonitoringService {
           name,
           op: category
         });
-        
         // Store transaction ID in the data
         if (transaction) {
           this.performanceMetrics[id].data = {
@@ -399,10 +352,8 @@ class MonitoringService {
         console.warn('Could not start Sentry transaction:', e);
       }
     }
-    
     return id;
   }
-
   /**
    * End a performance metric measurement
    * @param id Metric ID
@@ -414,10 +365,8 @@ class MonitoringService {
     if (!metric) {
       return undefined;
     }
-    
     const now = Date.now();
     const duration = now - metric.startTime;
-    
     this.performanceMetrics[id] = {
       ...metric,
       endTime: now,
@@ -427,16 +376,13 @@ class MonitoringService {
         ...additionalData
       }
     };
-    
     // Save completed metrics
     this.savePerformanceMetrics();
-    
     // Finish Sentry transaction for performance monitoring
     if (!__DEV__ && metric.data?.sentryTransactionId) {
       try {
         const scope = Sentry.getCurrentHub().getScope();
         const transaction = scope?.getTransaction();
-        
         if (transaction && transaction.traceId === metric.data.sentryTransactionId) {
           if (additionalData?.error) {
             transaction.setStatus('internal_error');
@@ -448,7 +394,6 @@ class MonitoringService {
         console.warn('Could not finish Sentry transaction:', e);
       }
     }
-    
     // Log slow operations
     if (duration > 1000) {
       this.warning(`Slow operation: ${metric.name} took ${duration}ms`, 'performance', {
@@ -456,10 +401,8 @@ class MonitoringService {
         ...additionalData
       });
     }
-    
     return duration;
   }
-
   /**
    * Track an analytics event
    * @param eventName Event name
@@ -468,7 +411,6 @@ class MonitoringService {
   public trackEvent(eventName: string, params?: Record<string, any>): void {
     // Log the event
     this.info(`Event: ${eventName}`, 'analytics', params);
-    
     // Send to Firebase Analytics if available
     if (this.analytics && typeof logEvent === 'function') {
       try {
@@ -477,7 +419,6 @@ class MonitoringService {
         this.error('Analytics event error', 'analytics', error as Error);
       }
     }
-    
     // Add breadcrumb in Sentry
     if (!__DEV__) {
       Sentry.addBreadcrumb({
@@ -488,7 +429,6 @@ class MonitoringService {
       });
     }
   }
-
   /**
    * Get current memory usage if available
    * @returns Memory usage in MB or undefined
@@ -505,7 +445,6 @@ class MonitoringService {
       return undefined;
     }
   }
-
   /**
    * Load logs from persistent storage
    */
@@ -515,12 +454,10 @@ class MonitoringService {
       if (storedLogs) {
         this.errorLogs = JSON.parse(storedLogs);
       }
-      
       const storedMetrics = await AsyncStorage.getItem(PERFORMANCE_LOG_KEY);
       if (storedMetrics) {
         const metrics = JSON.parse(storedMetrics) as Record<string, PerformanceMetric>;
         this.performanceMetrics = {};
-        
         // Only keep completed metrics
         Object.entries(metrics).forEach(([id, metric]) => {
           if (metric.duration !== undefined) {
@@ -532,7 +469,6 @@ class MonitoringService {
       console.error('Failed to load logs:', error);
     }
   }
-
   /**
    * Save logs to persistent storage
    */
@@ -543,7 +479,6 @@ class MonitoringService {
       console.error('Failed to save logs:', error);
     }
   }
-
   /**
    * Save performance metrics to persistent storage
    */
@@ -551,19 +486,16 @@ class MonitoringService {
     try {
       // Only save completed metrics
       const completedMetrics: Record<string, PerformanceMetric> = {};
-      
       Object.values(this.performanceMetrics).forEach(metric => {
         if (metric.duration !== undefined) {
           completedMetrics[metric.id] = metric;
         }
       });
-      
       await AsyncStorage.setItem(PERFORMANCE_LOG_KEY, JSON.stringify(completedMetrics));
     } catch (error) {
       console.error('Failed to save performance metrics:', error);
     }
   }
-
   /**
    * Upload logs to backend/analytics
    */
@@ -575,13 +507,11 @@ class MonitoringService {
         // Skip upload if offline
         return;
       }
-      
       // In production, upload any error logs to Sentry that may not have been sent
       if (!__DEV__ && this.errorLogs.length > 0) {
         const errorsToUpload = this.errorLogs.filter(
           log => log.level === LogLevel.ERROR || log.level === LogLevel.CRITICAL
         );
-        
         if (errorsToUpload.length > 0) {
           // Set current session data
           Sentry.setContext('bulk_upload', {
@@ -589,7 +519,6 @@ class MonitoringService {
             oldest: errorsToUpload[0].timestamp,
             newest: errorsToUpload[errorsToUpload.length - 1].timestamp
           });
-          
           // Send each error
           for (const log of errorsToUpload) {
             Sentry.captureMessage(
@@ -597,7 +526,6 @@ class MonitoringService {
               log.level === LogLevel.CRITICAL ? Sentry.Severity.Fatal : Sentry.Severity.Error
             );
           }
-          
           // After successful upload, clear only the error logs
           this.errorLogs = this.errorLogs.filter(
             log => log.level !== LogLevel.ERROR && log.level !== LogLevel.CRITICAL
@@ -609,7 +537,6 @@ class MonitoringService {
       console.error('Failed to upload logs:', error);
     }
   }
-
   /**
    * Clean up resources
    */
@@ -618,17 +545,14 @@ class MonitoringService {
       clearInterval(this.uploadTimer);
       this.uploadTimer = null;
     }
-    
     // Save any unsaved logs before destruction
     this.saveLogs();
     this.savePerformanceMetrics();
-    
     // Close Sentry transaction if active
     if (!__DEV__) {
       try {
         const scope = Sentry.getCurrentHub().getScope();
         const transaction = scope?.getTransaction();
-        
         if (transaction) {
           transaction.finish();
         }
@@ -639,12 +563,9 @@ class MonitoringService {
     }
   }
 }
-
 // Export singleton instance
 export const monitoring = new MonitoringService();
-
 // Helper functions for global use
-
 /**
  * Log a debug message
  * @param message Debug message
@@ -654,7 +575,6 @@ export const monitoring = new MonitoringService();
 export const logDebug = (message: string, category?: string, data?: any): void => {
   monitoring.debug(message, category, data);
 };
-
 /**
  * Log an info message
  * @param message Info message
@@ -664,7 +584,6 @@ export const logDebug = (message: string, category?: string, data?: any): void =
 export const logInfo = (message: string, category?: string, data?: any): void => {
   monitoring.info(message, category, data);
 };
-
 /**
  * Log a warning message
  * @param message Warning message
@@ -674,7 +593,6 @@ export const logInfo = (message: string, category?: string, data?: any): void =>
 export const logWarning = (message: string, category?: string, data?: any): void => {
   monitoring.warning(message, category, data);
 };
-
 /**
  * Log an error message
  * @param message Error message
@@ -688,7 +606,6 @@ export const logError = (message: string, category?: string, error?: Error | any
     monitoring.error(message, category, undefined, error);
   }
 };
-
 /**
  * Time a function execution
  * @param name Metric name
@@ -711,7 +628,6 @@ export const timeFunction = async <T>(
     throw error;
   }
 };
-
 /**
  * Track an analytics event
  * @param eventName Event name

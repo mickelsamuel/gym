@@ -6,5 +6,12 @@ export const StorageKeys = {
   CACHE_METADATA: 'cache_metadata',
   APP_SETTINGS: 'app_settings',
   EXERCISE_FAVORITES: 'exercise_favorites',
-  FRIEND_LIST: 'friend_list'
+  FRIEND_LIST: 'friend_list',
+  EXERCISES_DATA: 'exercises_data',
+  MUSCLE_GROUPS_DATA: 'muscle_groups_data',
+  WORKOUT_CATEGORIES_DATA: 'workout_categories_data',
+  DARK_MODE: 'dark_mode',
+  FAVORITES: 'favorites',
+  RECENT_EXERCISES: 'recent_exercises',
+  EXERCISES: 'exercises'
 };

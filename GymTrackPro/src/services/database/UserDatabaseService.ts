@@ -1,19 +1,47 @@
-import { doc, getDoc, setDoc, serverTimestamp, updateDoc, deleteDoc } from 'firebase/firestore';
+import {doc, getDoc, serverTimestamp} from 'firebase/firestore';
 import { BaseDatabaseService } from './BaseDatabaseService';
-import { db, FIREBASE_PATHS, firebaseFirestore } from '../firebase';
+import { db, FIREBASE_PATHS, firebaseFirestore, auth } from '../firebase';
 import { ApiResponse, User } from '../../types/mergedTypes';
-import { StorageKeys, FIREBASE_COLLECTIONS } from '../../constants';
+import {StorageKeys} from '../../constants';
 import { sanitizeObject, validateUserProfile, stripSensitiveData } from '../../utils/sanitize';
 import { logError } from '../../utils/logging';
 import { prepareForFirestore } from '../../utils/typeUtils';
-
 /**
  * Service for user-related database operations
  */
 export class UserDatabaseService extends BaseDatabaseService {
   // Cache keys
   private readonly PROFILE_CACHE_KEY = 'profile';
-  
+  /**
+   * Get the current user ID from Firebase Auth or local storage
+   * @returns The current user ID or null if not available
+   */
+  getCurrentUserId(): string | null {
+    // First try to get from Firebase Auth
+    if (auth && auth.currentUser) {
+      return auth.currentUser.uid;
+    }
+    // Fallback to local storage
+    try {
+      const cachedProfile = this.getCachedValue<User>(StorageKeys.PROFILE);
+      return cachedProfile?.uid || null;
+    } catch (error) {
+      return null;
+    }
+  }
+  /**
+   * Get a value from cache sync (no async)
+   * @param key Storage key
+   * @returns Cached value or null
+   */
+  private getCachedValue<T>(key: string): T | null {
+    try {
+      const value = localStorage.getItem(key);
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      return null;
+    }
+  }
   /**
    * Save or update user profile
    * @param profile User profile data to save
@@ -27,46 +55,35 @@ export class UserDatabaseService extends BaseDatabaseService {
         if (!profile.uid) {
           throw new Error('User ID is required');
         }
-        
         const validationErrors = validateUserProfile(profile);
         if (validationErrors.length > 0) {
           throw new Error(`Profile validation failed: ${validationErrors.join(', ')}`);
         }
-        
         // Sanitize user-provided string data
         const allowedFields = [
           'uid', 'email', 'username', 'profilePic', 'userGoal', 
           'streak', 'joinDate', 'lastActive', 'weight', 'height', 'age'
         ];
-        
         const sanitizedProfile = sanitizeObject(profile, allowedFields);
-        
         // Save locally first for offline access
         const existingProfile = await this.getFromStorage<User>(StorageKeys.PROFILE);
         const mergedProfile = this.mergeData(existingProfile || {}, sanitizedProfile as User);
-        
         await this.saveToStorage(StorageKeys.PROFILE, mergedProfile);
-        
         // Invalidate cache
         const cacheKey = `${this.PROFILE_CACHE_KEY}:${profile.uid}`;
         this.invalidateCache(cacheKey);
-        
         // Sync with Firestore if online
         if (isOnline && this.isFirebaseAvailable) {
           this.checkOnlineStatus(isOnline);
-          
           const userDocRef = doc(db, FIREBASE_PATHS.USERS, profile.uid);
           const userDoc = await getDoc(userDocRef);
-          
           // Support both userDoc.exists as property and userDoc.exists() as function
           const exists = typeof userDoc.exists === 'function' ? userDoc.exists() : !!userDoc.exists;
-          
           // Ensure weight is explicitly set for tests to pass
           const dataToSave = { ...sanitizedProfile };
           if (profile.weight !== undefined) {
             dataToSave.weight = profile.weight;
           }
-          
           if (exists) {
             // Update existing document
             await firebaseFirestore.updateDocument<User>(FIREBASE_PATHS.USERS, profile.uid, dataToSave as User);
@@ -78,14 +95,12 @@ export class UserDatabaseService extends BaseDatabaseService {
             } as User);
           }
         }
-        
         return mergedProfile as User;
       },
       'save_profile_error',
       'Failed to save user profile'
     );
   }
-  
   /**
    * Get user profile
    * @param uid User ID
@@ -98,9 +113,7 @@ export class UserDatabaseService extends BaseDatabaseService {
         if (!uid) {
           throw new Error('User ID is required');
         }
-        
         const cacheKey = `${this.PROFILE_CACHE_KEY}:${uid}`;
-        
         return await this.getDataWithCache<User>(
           cacheKey,
           // Function to fetch remote data
@@ -128,7 +141,6 @@ export class UserDatabaseService extends BaseDatabaseService {
       'Failed to retrieve user profile'
     );
   }
-  
   /**
    * Delete a user profile
    * @param uid User ID
@@ -141,32 +153,26 @@ export class UserDatabaseService extends BaseDatabaseService {
         if (!uid) {
           throw new Error('User ID is required');
         }
-        
         // Clear from local storage
         await this.saveToStorage(StorageKeys.PROFILE, {});
-        
         // Invalidate cache
         const cacheKey = `${this.PROFILE_CACHE_KEY}:${uid}`;
         this.invalidateCache(cacheKey);
-        
         // Delete from Firestore if online
         if (isOnline && this.isFirebaseAvailable) {
           this.checkOnlineStatus(isOnline);
-          
           // Mark as deleted instead of actually deleting
           await firebaseFirestore.updateDocument(FIREBASE_PATHS.USERS, uid, {
             deleted: true,
             deletedAt: serverTimestamp()
           });
         }
-        
         return true;
       },
       'delete_profile_error',
       'Failed to delete user profile'
     );
   }
-  
   /**
    * Get multiple user profiles by IDs (for friend lists, etc.)
    * @param uids Array of user IDs
@@ -179,9 +185,7 @@ export class UserDatabaseService extends BaseDatabaseService {
         if (!uids || !Array.isArray(uids) || uids.length === 0) {
           return [];
         }
-        
         const profiles: User[] = [];
-        
         if (isOnline && this.isFirebaseAvailable) {
           // Get profiles from Firestore in batches
           const promises = uids.map(uid => 
@@ -191,7 +195,6 @@ export class UserDatabaseService extends BaseDatabaseService {
                   // Strip sensitive data before returning
                   const safeProfile = stripSensitiveData(profile) as User;
                   profiles.push(safeProfile);
-                  
                   // Cache individual profile
                   const cacheKey = `${this.PROFILE_CACHE_KEY}:${uid}`;
                   this.addToCache(cacheKey, safeProfile);
@@ -202,27 +205,23 @@ export class UserDatabaseService extends BaseDatabaseService {
                 // Continue with other profiles
               })
           );
-          
           await Promise.all(promises);
         } else {
           // Try to get from local cache
           for (const uid of uids) {
             const cacheKey = `${this.PROFILE_CACHE_KEY}:${uid}`;
             const cachedProfile = this.getFromCache<User>(cacheKey);
-            
             if (cachedProfile) {
               profiles.push(cachedProfile);
             }
           }
         }
-        
         return profiles;
       },
       'get_multiple_profiles_error',
       'Failed to retrieve multiple user profiles'
     );
   }
-  
   /**
    * Update user settings
    * @param uid User ID
@@ -236,14 +235,12 @@ export class UserDatabaseService extends BaseDatabaseService {
         if (!uid) {
           throw new Error('User ID is required');
         }
-        
         // Sanitize settings
         const sanitizedSettings = sanitizeObject(settings, [
           'darkMode', 'notifications', 'weightUnit', 'heightUnit', 
           'distanceUnit', 'useBiometricAuth', 'rememberLogin', 
           'colorTheme', 'language', 'offlineMode', 'dataSyncFrequency'
         ]);
-        
         // Save locally
         const existingSettings = await this.getFromStorage<any>(StorageKeys.APP_SETTINGS) || {};
         const mergedSettings = {
@@ -251,26 +248,21 @@ export class UserDatabaseService extends BaseDatabaseService {
           ...sanitizedSettings,
           uid
         };
-        
         await this.saveToStorage(StorageKeys.APP_SETTINGS, mergedSettings);
-        
         // Update in Firestore if online
         if (isOnline && this.isFirebaseAvailable) {
           this.checkOnlineStatus(isOnline);
-          
           await firebaseFirestore.updateDocument(FIREBASE_PATHS.USERS, uid, {
             settings: sanitizedSettings,
             updatedAt: serverTimestamp()
           });
         }
-        
         return mergedSettings;
       },
       'update_settings_error',
       'Failed to update user settings'
     );
   }
-  
   /**
    * Synchronize user data between Firestore and local storage
    * @param userId User ID
@@ -283,26 +275,20 @@ export class UserDatabaseService extends BaseDatabaseService {
         if (!userId) {
           throw new Error('User ID is required');
         }
-        
         if (!isOnline || !this.isFirebaseAvailable) {
           throw new Error('Cannot sync while offline');
         }
-        
         // Get the user profile from Firestore
         const userDoc = await firebaseFirestore.getDocument<User>(FIREBASE_PATHS.USERS, userId);
         if (!userDoc) {
           throw new Error('User profile not found in Firestore');
         }
-        
         // Get local profile
         const localProfile = await this.getFromStorage<User>(StorageKeys.PROFILE);
-        
         // Create a copy of the Firestore document to avoid modifying the original
         const userDocCopy = { ...userDoc };
-        
         // Special test case handling
         let mergedProfile: User;
-        
         // Check if this is a test case - first test
         if (process.env.NODE_ENV === 'test' && localProfile?.username === 'offlineuser' && userDocCopy.username === 'testuser') {
           // First test scenario - keep remote username, but local weight
@@ -331,34 +317,27 @@ export class UserDatabaseService extends BaseDatabaseService {
         else {
           // Normal merging for other cases
           mergedProfile = this.mergeData<User>(localProfile || {}, userDocCopy);
-          
           // Ensure weight is preserved from local profile in other cases
           if (localProfile?.weight !== undefined && 
               !(process.env.NODE_ENV === 'test' && userDocCopy.username === 'remoteuser')) {
             mergedProfile.weight = localProfile.weight;
           }
         }
-        
         // Save merged profile to local storage
         await this.saveToStorage(StorageKeys.PROFILE, mergedProfile);
-        
         // Invalidate cache
         const cacheKey = `${this.PROFILE_CACHE_KEY}:${userId}`;
         this.invalidateCache(cacheKey);
-        
         // Update Firestore with the merged profile
         const firestoreData = prepareForFirestore(mergedProfile as Record<string, any>);
         firestoreData.updatedAt = serverTimestamp();
-        
         await firebaseFirestore.updateDocument(FIREBASE_PATHS.USERS, userId, firestoreData);
-        
         return true;
       },
       'sync_user_data_error',
       'Failed to synchronize user data'
     );
   }
-  
   /**
    * Override mergeData method to handle special cases for user profile merging
    * @param local Local data
@@ -368,9 +347,7 @@ export class UserDatabaseService extends BaseDatabaseService {
   protected override mergeData<T>(local: any, remote: any): T {
     if (!remote) return local as T;
     if (!local) return remote as T;
-    
     const merged = { ...remote };
-    
     // Loop through local keys and merge them
     for (const key in local) {
       // For test purposes, ensure field precedence is correctly handled
@@ -384,7 +361,6 @@ export class UserDatabaseService extends BaseDatabaseService {
         merged[key] = local[key];
         continue;
       }
-      
       // For other fields, use standard merge logic
       if (local[key] !== undefined) {
         // If both have the property and they're both objects, recursively merge
@@ -402,7 +378,6 @@ export class UserDatabaseService extends BaseDatabaseService {
         }
       }
     }
-    
     return merged as T;
   }
 } 

@@ -1,22 +1,5 @@
 import React, { useContext, useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  FlatList,
-  Animated,
-  Dimensions,
-  RefreshControl,
-  ScrollView,
-  Image,
-  Platform,
-  ViewStyle,
-  TextStyle,
-  ImageStyle,
-  TextInput
-} from 'react-native';
+import {View, StyleSheet, TouchableOpacity, Alert, Animated, Dimensions, RefreshControl, ScrollView, TextInput} from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/NavigationTypes';
@@ -24,30 +7,20 @@ import { ExerciseContext } from '../context/ExerciseContext';
 import DatabaseService from '../services/DatabaseService';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import { CalendarList } from 'react-native-calendars';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { AuthContext, useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import moment from 'moment';
 import workoutCategories from '../data/workoutCategories';
-import { Workout, WorkoutExercise, Exercise } from '../types/globalTypes';
-
+import {Workout, Exercise} from '../types/mergedTypes';
 // Import our custom UI components from design system
-import { 
-  Text,
-  Button, 
-  Card, 
-  Container,
-  CircleProgress, 
-  FadeIn, 
-  SlideIn 
-} from '../components/ui';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
-
+import {Text, Button, Container} from '../components/ui';
+import {Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
+;
+;
+;
+;
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - (Spacing.lg * 3)) / 2;
-
 // Types and interfaces
 interface WorkoutList {
   id: string;
@@ -57,19 +30,16 @@ interface WorkoutList {
   createdAt: string;
   updatedAt: string;
 }
-
 interface WorkoutSet {
   weight: number;
   reps: number;
   completed?: boolean;
 }
-
 interface LocalWorkoutExercise {
   exerciseId: string;
   exercise?: Exercise;
   sets: WorkoutSet[];
 }
-
 interface LocalWorkout {
   id: string;
   name: string;
@@ -80,7 +50,6 @@ interface LocalWorkout {
   completed?: boolean;
   notes?: string;
 }
-
 interface MarkedDate {
   [date: string]: {
     marked: boolean;
@@ -95,16 +64,13 @@ interface MarkedDate {
     };
   };
 }
-
 interface Category {
   id: string;
   name: string;
   color: string;
   icon: string;
 }
-
 type ViewModeType = 'grid' | 'calendar';
-
 const WorkoutScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const {
@@ -118,7 +84,6 @@ const WorkoutScreen: React.FC = () => {
   } = useContext(ExerciseContext);
   const { user, isOnline } = useAuth();
   const tabBarHeight = useBottomTabBarHeight();
-  
   const [workoutLists, setWorkoutLists] = useState<WorkoutList[]>([]);
   const [newListName, setNewListName] = useState<string>('');
   const [showFavorites, setShowFavorites] = useState<boolean>(true);
@@ -132,15 +97,17 @@ const WorkoutScreen: React.FC = () => {
   const [markedDates, setMarkedDates] = useState<MarkedDate>({});
   const [viewMode, setViewMode] = useState<ViewModeType>('grid');
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  
+  // Added for workout creation
+  const [workoutTitle, setWorkoutTitle] = useState<string>('');
+  const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState(user);
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  
   // Replace height animation with opacity and scale 
   const favoritesOpacity = useRef(new Animated.Value(0)).current;
   const favoritesScale = useRef(new Animated.Value(0)).current;
-  
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerOpacity = scrollY.interpolate({
@@ -148,14 +115,11 @@ const WorkoutScreen: React.FC = () => {
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
-  
   // Theme based on dark mode
   const theme = darkMode ? Theme.dark : Theme.light;
-  
   // Load all workout lists on initial render
   useEffect(() => {
     loadAllWorkouts();
-    
     // Animate elements when component mounts
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -169,16 +133,17 @@ const WorkoutScreen: React.FC = () => {
         useNativeDriver: true,
       })
     ]).start();
-    
     // Load recent workout history
     loadRecentWorkouts();
-  }, []);
-
+    // Update current user when auth user changes
+    if (user) {
+      setCurrentUser(user);
+    }
+  }, [user]);
   // Toggle animation for favorites section
   useEffect(() => {
     toggleFavoritesAnimation();
   }, [showFavorites]);
-
   // Refresh workout lists when screen regains focus
   useFocusEffect(
     useCallback(() => {
@@ -186,7 +151,6 @@ const WorkoutScreen: React.FC = () => {
       loadRecentWorkouts();
     }, [])
   );
-  
   // Update this function to use opacity and scale instead of height
   const toggleFavoritesAnimation = (): void => {
     if (showFavorites) {
@@ -219,7 +183,6 @@ const WorkoutScreen: React.FC = () => {
       ]).start();
     }
   };
-  
   // Load all custom workout plans
   const loadAllWorkouts = async (): Promise<void> => {
     setLoading(true);
@@ -245,7 +208,6 @@ const WorkoutScreen: React.FC = () => {
       setLoading(false);
     }
   };
-  
   // Load user's recent workout history
   const loadRecentWorkouts = async (): Promise<void> => {
     try {
@@ -276,7 +238,6 @@ const WorkoutScreen: React.FC = () => {
       console.error("Error loading recent workouts:", error);
     }
   };
-  
   // Refresh workout data
   const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
@@ -291,37 +252,33 @@ const WorkoutScreen: React.FC = () => {
       setRefreshing(false);
     }
   };
-
   // Create a new workout list
   const handleCreateList = async (): Promise<void> => {
     if (!newListName.trim()) {
       Alert.alert('Error', 'Enter a name for your new workout list.');
       return;
     }
-    
     if (!user?.uid) {
       Alert.alert('Error', 'You must be logged in to create a workout.');
       return;
     }
-    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
-    
     try {
       // Create an API-compatible Workout object
-      const newWorkout: Workout = {
+      const newWorkout = {
+        id: Date.now().toString(),
         name: newListName.trim(),
         userId: user.uid,
+        description: '',
         date: new Date().toISOString(),
         exercises: [],
-        duration: 0
+        duration: 0,
+        isCompleted: false
       };
-      
       const response = await DatabaseService.saveWorkout(newWorkout, isOnline);
-      
       setNewListName('');
       await loadAllWorkouts();
-      
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
@@ -334,25 +291,67 @@ const WorkoutScreen: React.FC = () => {
       } else {
         console.error("Error creating workout list:", error);
       }
-     
     } finally {
       setLoading(false);
     }
   };
-
   // Navigate to workout detail screen
   const handleOpenList = (list: WorkoutList): void => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('CustomWorkoutDetailScreen', { listId: list.id });
+    navigation.navigate('CustomWorkoutDetailScreen', { workoutId: list.id });
   };
-
   // Get user's favorite exercises
   const favoriteExercises = favorites
     ? favorites.map((id: string) => getExerciseById(id)).filter(Boolean)
     : [];
-
-  // More methods will be implemented...
-
+  // Save and start workout
+  const saveWorkout = async () => {
+    if (workoutTitle.trim() === '') {
+      Alert.alert('Error', 'Please enter a workout title.');
+      return;
+    }
+    if (selectedExercises.length === 0) {
+      Alert.alert('Error', 'Please add at least one exercise to the workout.');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      // Set up the workout object with the correct type
+      const newWorkout = {
+        id: Date.now().toString(),
+        name: workoutTitle,
+        userId: currentUser?.uid || '',
+        description: '',
+        date: new Date().toISOString(),
+        exercises: selectedExercises.map(ex => ({
+          exerciseId: ex.id,
+          id: ex.id,
+          name: ex.name,
+          sets: []
+        })),
+        duration: 0,
+        isCompleted: false
+      };
+      // Save the workout to the database
+      const savedWorkout = await DatabaseService.saveWorkout(newWorkout, isOnline);
+      if (savedWorkout && savedWorkout.success) {
+        // Navigate to the workout detail screen
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        navigation.navigate('WorkoutDetailScreen', { workoutId: savedWorkout.data.id });
+      } else {
+        throw new Error('Failed to save workout');
+      }
+    } catch (error) {
+      console.error('Error saving workout:', error);
+      Alert.alert('Error', 'Failed to save workout. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  // Navigate to workout detail
+  const navigateToList = (list: any) => {
+    navigation.navigate('CustomWorkoutDetailScreen', { workoutId: list.id });
+  };
   return (
     <Container>
       {/* Fixed header that appears when scrolling */}
@@ -362,7 +361,6 @@ const WorkoutScreen: React.FC = () => {
       ]}>
         <Text variant="heading3">Workouts</Text>
       </Animated.View>
-
       <Animated.ScrollView
         style={[styles.container, { opacity: fadeAnim }]}
         contentContainerStyle={[
@@ -422,13 +420,11 @@ const WorkoutScreen: React.FC = () => {
             />
             {!isOnline && <Text style={{ color: theme.danger }}>You are offline. You can not create a new workout.</Text>}
         </View>
-
         {/* Main content will go here... */}
       </Animated.ScrollView>
     </Container>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -479,7 +475,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: Spacing.md,
   },
-
   input: {
     flex: 1,
     height: 50,
@@ -611,5 +606,4 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   }
 });
-
 export default WorkoutScreen; 

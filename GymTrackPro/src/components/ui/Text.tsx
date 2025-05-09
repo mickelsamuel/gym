@@ -1,189 +1,139 @@
 import React from 'react';
-import { Text as RNText, TextStyle, StyleSheet, Platform, StyleProp } from 'react-native';
+import { Text as RNText, StyleSheet, TextStyle, StyleProp, TextProps as RNTextProps } from 'react-native';
 import { useExercise } from '../../context/ExerciseContext';
 import { Theme, Typography } from '../../constants/Theme';
-
 export type TextVariant = 
-  | 'heading1' 
-  | 'heading2' 
-  | 'heading3' 
-  | 'title' 
-  | 'subtitle' 
-  | 'body' 
-  | 'bodySmall' 
-  | 'caption' 
+  | 'display'
+  | 'title'
+  | 'heading1'
+  | 'heading2'
+  | 'heading3'
+  | 'subtitle'
+  | 'bodyLarge'
+  | 'body'
+  | 'bodySmall'
+  | 'caption'
+  | 'micro'
   | 'tiny';
-
-export interface TextProps {
-  children: React.ReactNode;
+export interface TextProps extends RNTextProps {
+  children?: React.ReactNode;
   variant?: TextVariant;
   style?: StyleProp<TextStyle>;
   color?: string;
-  centered?: boolean;
-  numberOfLines?: number;
-  selectable?: boolean;
+  weight?: 'bold' | 'medium' | 'regular' | 'light';
+  align?: 'left' | 'center' | 'right';
+  accessibilityLabel?: string;
   testID?: string;
-  onPress?: () => void;
+  maxFontSizeMultiplier?: number;
+  selectable?: boolean;
 }
-
+// Default max font size multiplier
+const defaultMaxFontSizeMultiplier = 1.5;
 /**
  * Text component following the GymTrackPro design system
+ * Uses the Inter font family with appropriate weights and styles
  */
-export default function Text({
+const Text: React.FC<TextProps> = ({
   children,
   variant = 'body',
   style,
   color,
-  centered = false,
-  numberOfLines,
-  selectable = false,
+  weight,
+  align = 'left',
+  accessibilityLabel,
   testID,
-  onPress,
-}: TextProps) {
+  maxFontSizeMultiplier,
+  selectable = false,
+  ...rest
+}) => {
   const { darkMode } = useExercise();
-  const colors = darkMode ? Theme.dark : Theme.light;
-  
-  // Get style based on variant
-  const getVariantStyle = (): TextStyle => {
-    
-    switch (variant) {
-      case 'heading1':
-        return {
-          color: color || colors.text,
-          textAlign: centered ? 'center' : undefined,
-          fontSize: Typography.heading1,
-
-
-
-          fontWeight: '700',
-          letterSpacing: -0.5,
-          lineHeight: Typography.heading1 * 1.2,
-          fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif',
-        };
-      case 'heading2':
-        return {
-          color: color || colors.text,
-          fontSize: Typography.heading2,
-          textAlign: centered ? 'center' : undefined,
-          fontWeight: '700',
-          letterSpacing: -0.3,
-          lineHeight: Typography.heading2 * 1.2,
-          fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif',
-        };
-      case 'heading3':
-        return {
-          color: color || colors.text,
-          fontSize: Typography.heading3,
-          textAlign: centered ? 'center' : undefined,
-          fontWeight: '600',
-          letterSpacing: -0.2,
-          lineHeight: Typography.heading3 * 1.2,
-          fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif',
-        };
-      case 'title':
-        return {
-          color: color || colors.text,
-          fontSize: Typography.title,
-          textAlign: centered ? 'center' : undefined,
-          fontWeight: '600',
-          letterSpacing: -0.1,
-          lineHeight: Typography.title * 1.3,
-          fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif-medium',
-        };
-      case 'subtitle':
-        return {
-          color: color || colors.text,
-          fontSize: Typography.subtitle,
-          textAlign: centered ? 'center' : undefined,
-          fontWeight: '500',
-          lineHeight: Typography.subtitle * 1.3,
-          fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif-medium',
-        };
-      case 'body':
-        return {
-          color: color || colors.text,
-          fontSize: Typography.body,
-          textAlign: centered ? 'center' : undefined,
-          fontWeight: '400',
-          lineHeight: Typography.body * 1.5,
-          fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
-        };
-      case 'bodySmall':
-        return {
-          color: color || colors.text,
-          fontSize: Typography.bodySmall,
-          textAlign: centered ? 'center' : undefined,
-          fontWeight: '400',
-          lineHeight: Typography.bodySmall * 1.5,
-          fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
-        };
-      case 'caption':
-        return {
-          color: color || colors.textSecondary,
-          fontSize: Typography.caption,
-          textAlign: centered ? 'center' : undefined,
-          fontWeight: '500',
-          lineHeight: Typography.caption * 1.4,
-          fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
-          color: color || colors.textSecondary,
-        };
-      case 'tiny':
-        return {
-          color: color || colors.textTertiary,
-          fontSize: Typography.tiny,
-          textAlign: centered ? 'center' : undefined,
-          fontWeight: '500',
-          lineHeight: Typography.tiny * 1.3,
-          fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
-          letterSpacing: 0.2,
-        };
-      default:
-        return { color: color || colors.text,
-          textAlign: centered ? 'center' : undefined,};
+  const theme = darkMode ? Theme.dark : Theme.light;
+  // Get the variant style from Typography
+  const variantStyle = Typography[variant as keyof typeof Typography] || Typography.body;
+  // Get font family based on weight and variant
+  const getFontFamily = () => {
+    // If weight is explicitly provided, use that to determine font family
+    if (weight) {
+      switch (weight) {
+        case 'bold': return 'Inter-Bold';
+        case 'medium': return 'Inter-Medium';
+        case 'light': return 'Inter-Light';
+        case 'regular': return 'Inter';
+        default: return 'Inter';
+      }
+    }
+    // Otherwise determine based on the variantStyle fontWeight
+    const fontStyleWeight = typeof variantStyle === 'object' && 'fontWeight' in variantStyle 
+      ? variantStyle.fontWeight 
+      : '400';
+    switch (fontStyleWeight) {
+      case '700': return 'Inter-Bold';
+      case '800': return 'Inter-ExtraBold';
+      case '900': return 'Inter-Black';
+      case '500': return 'Inter-Medium';
+      case '600': return 'Inter-SemiBold';
+      case '300': return 'Inter-Light';
+      case '200': return 'Inter-ExtraLight';
+      case '100': return 'Inter-Thin';
+      default: return 'Inter';
     }
   };
-  
+  // Handle color with fallbacks
+  const finalColor = color || theme.text;
   return (
     <RNText
-      style={[getVariantStyle(), style]}
-      numberOfLines={numberOfLines}
-      selectable={selectable}
+      style={[
+        styles.base,
+        variantStyle,
+        {
+          color: finalColor,
+          textAlign: align,
+          fontFamily: getFontFamily(),
+        },
+        style
+      ]}
+      accessible={!!accessibilityLabel}
+      accessibilityLabel={accessibilityLabel}
       testID={testID}
-      onPress={onPress}
+      selectable={selectable}
+      maxFontSizeMultiplier={maxFontSizeMultiplier || defaultMaxFontSizeMultiplier}
+      allowFontScaling={true}
+      {...rest}
     >
       {children}
     </RNText>
   );
-}
-
+};
+const styles = StyleSheet.create({
+  base: {
+    // Base text styles
+  },
+});
+export default Text;
 /**
  * Title component - Convenience wrapper for Text with 'heading1' variant
  */
 export function Title(props: Omit<TextProps, 'variant'>) {
   return <Text {...props} variant="heading1" />;
 }
-
 /**
  * Heading component - Convenience wrapper for Text with 'heading2' variant
  */
 export function Heading(props: Omit<TextProps, 'variant'>) {
   return <Text {...props} variant="heading2" />;
 }
-
 /**
  * Subheading component - Convenience wrapper for Text with 'heading3' variant
  */
 export function Subheading(props: Omit<TextProps, 'variant'>) {
   return <Text {...props} variant="heading3" />;
 }
-
 /**
  * Body component - Convenience wrapper for Text with 'body' variant
  */
 export function Body(props: Omit<TextProps, 'variant'>) {
   return <Text {...props} variant="body" />;
 }
-
 /**
  * Caption component - Convenience wrapper for Text with 'caption' variant
  */

@@ -1,61 +1,35 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Animated,
-  Platform,
-  Alert,
-  SectionList,
-  Switch,
-  ViewStyle,
-  TextStyle,
-  Dimensions,
-  FlatList
-} from 'react-native';
+import {View, StyleSheet, ScrollView, TouchableOpacity, Animated, Platform, Alert, Switch, ViewStyle, Dimensions} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/NavigationTypes';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ExerciseContext } from '../context/ExerciseContext';
 import { AuthContext } from '../context/AuthContext';
 import DraggableFlatList from 'react-native-draggable-flatlist';
-import { LineChart } from 'react-native-chart-kit';
 import moment from 'moment';
 import DatabaseService from '../services/DatabaseService';
 import workoutCategories from '../data/workoutCategories';
-
+import { NetworkContext } from '../context/NetworkContext';
 // Import custom UI components
-import { 
-  Text, 
-  Button, 
-  Card, 
-  Container,
-  CircleProgress,
-  FadeIn,
-  SlideIn
-} from '../components/ui';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
-
+import {Text, Button, Container, CircleProgress} from '../components/ui';
+import {Colors, Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
+;
+;
+;
 const { width } = Dimensions.get('window');
-
 // Types and interfaces
 interface WorkoutSet {
   weight: number;
   reps: number;
   completed?: boolean;
 }
-
 interface WorkoutExercise {
   exerciseId: string;
   sets: WorkoutSet[];
 }
-
 interface Exercise {
   id: string;
   name: string;
@@ -70,13 +44,11 @@ interface Exercise {
   reps?: number;
   weight?: number;
 }
-
 interface WorkoutSettings {
   restTimerEnabled: boolean;
   restTimerDuration: number;
   notificationsEnabled: boolean;
 }
-
 interface Workout {
   id: string;
   name: string;
@@ -88,44 +60,39 @@ interface Workout {
   userId: string;
   settings?: WorkoutSettings;
 }
-
 interface WorkoutSession {
   id: string;
   workoutId: string;
   date: string;
   startTime: string;
   endTime: string;
-  exercises: Array<{
+  exercises: {
     exerciseId: string;
     sets: WorkoutSet[];
-  }>;
+  }[];
 }
-
 interface PerformanceData {
   labels: string[];
   volumeData: number[];
   timeData: number[];
 }
-
 interface Category {
   id: string;
   name: string;
   color: string;
   icon: string;
 }
-
 type WorkoutDetailScreenRouteProp = RouteProp<RootStackParamList, 'WorkoutDetail'>;
-
 const WorkoutDetailScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<WorkoutDetailScreenRouteProp>();
   const { workoutId } = route.params || {};
   const insets = useSafeAreaInsets();
   const { darkMode, getExerciseById } = useContext(ExerciseContext);
-  
+  const { currentUser } = useContext(AuthContext);
+  const { isOnline } = useContext(NetworkContext);
   // Theme based on dark mode
   const theme = darkMode ? Theme.dark : Theme.light;
-  
   // State variables
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -136,94 +103,89 @@ const WorkoutDetailScreen: React.FC = () => {
   const [restTimerDuration, setRestTimerDuration] = useState<number>(60);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [performanceData, setPerformanceData] = useState<PerformanceData | null>(null);
-  
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
-  
   // Header animations
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 120],
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
-  
   const headerHeight = scrollY.interpolate({
     inputRange: [0, 120],
     outputRange: [Platform.OS === 'ios' ? 90 + insets.top : 70, Platform.OS === 'ios' ? 50 + insets.top : 50],
     extrapolate: 'clamp',
   });
-  
   // Load data when screen mounts
   useEffect(() => {
     loadWorkoutDetails();
     loadWorkoutPerformance();
   }, [workoutId]);
-  
   // Load workout details
   const loadWorkoutDetails = async (): Promise<void> => {
     try {
       setIsLoading(true);
-      
-      const workoutData = await DatabaseService.getWorkoutById(workoutId);
-      setWorkout(workoutData);
-      
-      const exercisesList = workoutData.exercises.map((exercise: WorkoutExercise) => {
-        const exerciseDetails = getExerciseById(exercise.exerciseId);
-        return {
-          ...exerciseDetails,
-          sets: exercise.sets?.length || 3,
-          reps: exercise.sets?.[0]?.reps || 10,
-          weight: exercise.sets?.[0]?.weight || 0,
-          restTime: exerciseDetails?.restTime || restTimerDuration,
-        };
-      });
-      
-      setExercises(exercisesList);
-      setRestTimerEnabled(workoutData.settings?.restTimerEnabled ?? true);
-      setRestTimerDuration(workoutData.settings?.restTimerDuration ?? 60);
-      setNotificationsEnabled(workoutData.settings?.notificationsEnabled ?? true);
-      
-      setIsLoading(false);
+      // Get current user ID from auth
+      const userId = currentUser?.uid;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+      const workoutData = await DatabaseService.getWorkoutById(workoutId, userId, isOnline);
+      if (workoutData.success && workoutData.data) {
+        // Use type assertion to fix type mismatch
+        setWorkout(workoutData.data as unknown as Workout);
+        // Add type assertion to fix the WorkoutExercise mismatch
+        const exercisesList = workoutData.data.exercises.map((exercise: any) => {
+          // Find exercise details from the context
+          const exerciseDetails = getExerciseById(exercise.id || exercise.exerciseId);
+          return {
+            ...exercise,
+            exerciseDetails,
+            restTime: exerciseDetails?.restTime || restTimerDuration,
+          };
+        });
+        // Use type assertion for exercises array
+        setExercises(exercisesList as unknown as Exercise[]);
+        // Load workout settings
+        setRestTimerEnabled(workoutData.data.settings?.restTimerEnabled ?? true);
+        setRestTimerDuration(workoutData.data.settings?.restTimerDuration ?? 60);
+        setNotificationsEnabled(workoutData.data.settings?.notificationsEnabled ?? true);
+      } else {
+        throw new Error(workoutData.error?.message || 'Failed to load workout');
+      }
     } catch (error) {
       console.error("Error loading workout details:", error);
       setIsLoading(false);
     }
   };
-  
   // Load workout performance data
   const loadWorkoutPerformance = async (): Promise<void> => {
     try {
       const performanceHistory = await DatabaseService.getWorkoutHistory(workoutId);
-      
       if (performanceHistory.length > 0) {
         setHistory(performanceHistory);
-        
         // Process data for the chart
         const lastSixSessions = performanceHistory.slice(-6).reverse();
-        
         // Calculate total volume
         const volumeData = lastSixSessions.map(session => {
           let totalVolume = 0;
-          session.exercises.forEach((exercise: { sets: Array<{ weight: number, reps: number }> }) => {
+          session.exercises.forEach((exercise: { sets: { weight: number, reps: number }[] }) => {
             exercise.sets.forEach((set: { weight: number, reps: number }) => {
               totalVolume += set.weight * set.reps;
             });
           });
           return totalVolume;
         });
-        
         // Calculate completion time (in minutes)
         const timeData = lastSixSessions.map(session => {
           const startTime = new Date(session.startTime);
           const endTime = new Date(session.endTime);
           return Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
         });
-        
         // Format dates for labels
         const labels = lastSixSessions.map(session => {
           return moment(session.date).format('MM/DD');
         });
-        
         setPerformanceData({
           labels,
           volumeData,
@@ -234,30 +196,25 @@ const WorkoutDetailScreen: React.FC = () => {
       console.error("Error loading workout performance:", error);
     }
   };
-  
   // Start workout
   const startWorkout = (): void => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate('WorkoutLog', { workoutId, isStarting: true });
   };
-  
   // Edit workout
   const editWorkout = (): void => {
     navigation.navigate('CustomWorkoutDetail', { workoutId, isEditing: true });
   };
-  
   // Share workout
   const shareWorkout = async (): Promise<void> => {
     Haptics.selectionAsync();
     // Implementation for sharing
   };
-  
   // Get Category Color
   const getCategoryColor = (category?: string): string => {
     const cat = workoutCategories.find(c => c.id === category);
     return cat ? cat.color : Colors.primaryBlue;
   };
-  
   // Get Category Icon
   const getSafeIconName = (category?: string): string => {
     const safeIcons: Record<string, string> = {
@@ -267,10 +224,8 @@ const WorkoutDetailScreen: React.FC = () => {
       'yoga': 'body-outline',
       'default': 'fitness-outline'
     };
-    
     return safeIcons[category || ''] || safeIcons.default;
   };
-  
   // Delete workout
   const handleDeleteWorkout = (): void => {
     Alert.alert(
@@ -285,7 +240,12 @@ const WorkoutDetailScreen: React.FC = () => {
           text: "Delete", 
           onPress: async () => {
             try {
-              await DatabaseService.deleteWorkout(workoutId);
+              // Get user ID for deletion
+              const userId = currentUser?.uid;
+              if (!userId) {
+                throw new Error('User not authenticated');
+              }
+              await DatabaseService.deleteWorkout(workoutId, userId, isOnline);
               navigation.goBack();
             } catch (error) {
               console.error("Error deleting workout:", error);
@@ -297,7 +257,6 @@ const WorkoutDetailScreen: React.FC = () => {
       ]
     );
   };
-  
   // Handle rest timer setting change
   const handleRestTimerChange = (value: boolean): void => {
     setRestTimerEnabled(value);
@@ -309,7 +268,6 @@ const WorkoutDetailScreen: React.FC = () => {
       });
     }
   };
-  
   // Handle notifications setting change
   const handleNotificationsChange = (value: boolean): void => {
     setNotificationsEnabled(value);
@@ -321,7 +279,6 @@ const WorkoutDetailScreen: React.FC = () => {
       });
     }
   };
-  
   // Chart configuration
   const chartConfig = {
     backgroundGradientFrom: theme.card,
@@ -342,7 +299,6 @@ const WorkoutDetailScreen: React.FC = () => {
       strokeDasharray: '5, 5',
     },
   };
-
   // Render header
   const renderHeader = () => (
     <Animated.View 
@@ -362,7 +318,6 @@ const WorkoutDetailScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        
         <Animated.View 
           style={[
             styles.headerTitleContainer,
@@ -377,7 +332,6 @@ const WorkoutDetailScreen: React.FC = () => {
             {workout?.name || 'Workout'}
           </Text>
         </Animated.View>
-        
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.headerButton} 
@@ -385,7 +339,6 @@ const WorkoutDetailScreen: React.FC = () => {
           >
             <Ionicons name="share-outline" size={24} color={theme.text} />
           </TouchableOpacity>
-          
           <TouchableOpacity 
             style={styles.headerButton} 
             onPress={handleDeleteWorkout}
@@ -396,12 +349,10 @@ const WorkoutDetailScreen: React.FC = () => {
       </View>
     </Animated.View>
   );
-
   // Main render
   return (
     <Container>
       {renderHeader()}
-      
       <Animated.ScrollView
         contentContainerStyle={[
           styles.container,
@@ -423,7 +374,6 @@ const WorkoutDetailScreen: React.FC = () => {
             <View style={styles.headerSection}>
               <View style={styles.workoutInfo}>
                 <Text variant="heading1">{workout?.name}</Text>
-                
                 {workout?.category && (
                   <View style={[
                     styles.categoryBadge, 
@@ -443,7 +393,6 @@ const WorkoutDetailScreen: React.FC = () => {
                     </Text>
                   </View>
                 )}
-                
                 {workout?.description && (
                   <Text 
                     variant="body"
@@ -456,7 +405,6 @@ const WorkoutDetailScreen: React.FC = () => {
                   </Text>
                 )}
               </View>
-              
               <Button
                 title="Start Workout"
                 onPress={startWorkout}
@@ -467,7 +415,6 @@ const WorkoutDetailScreen: React.FC = () => {
                 style={{ marginTop: Spacing.md }}
               />
             </View>
-
             {/* Rest Timer */}
             <TouchableOpacity 
               style={styles.settingRow}
@@ -501,7 +448,6 @@ const WorkoutDetailScreen: React.FC = () => {
                 thumbColor={restTimerEnabled ? theme.primary : theme.border}
               />
             </TouchableOpacity>
-
             {/* Rest of content will go here */}
           </>
         )}
@@ -509,7 +455,6 @@ const WorkoutDetailScreen: React.FC = () => {
     </Container>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
@@ -693,5 +638,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
 export default WorkoutDetailScreen; 

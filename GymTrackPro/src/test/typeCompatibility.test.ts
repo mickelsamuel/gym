@@ -25,7 +25,10 @@ describe('Type Compatibility Tests', () => {
     const mockTimestamp: FirebaseTimestamp = {
       toDate: () => new Date(),
       seconds: 1234567890,
-      nanoseconds: 123456789
+      nanoseconds: 123456789,
+      toMillis: () => 1234567890000,
+      isEqual: (other: FirebaseTimestamp) => other.seconds === 1234567890 && other.nanoseconds === 123456789,
+      toJSON: () => ({ seconds: 1234567890, nanoseconds: 123456789 })
     };
 
     // This should work with either a string or a FirebaseTimestamp
@@ -49,7 +52,10 @@ describe('Type Compatibility Tests', () => {
     const mockTimestamp: FirebaseTimestamp = {
       toDate: () => new Date('2023-01-15T12:30:45.000Z'),
       seconds: 1673789445,
-      nanoseconds: 0
+      nanoseconds: 0,
+      toMillis: () => 1673789445000,
+      isEqual: (other: FirebaseTimestamp) => other.seconds === 1673789445 && other.nanoseconds === 0,
+      toJSON: () => ({ seconds: 1673789445, nanoseconds: 0 })
     };
     
     const stringTimestamp = '2023-01-15T12:30:45.000Z';
@@ -68,18 +74,12 @@ describe('Type Compatibility Tests', () => {
   });
 
   it('should prepare objects correctly for Firestore', () => {
-    const mockTimestamp: FirebaseTimestamp = {
-      toDate: () => new Date(),
-      seconds: 1234567890,
-      nanoseconds: 123456789
-    };
-
     // Create test objects with timestamp values
     const mockUser: User = {
       uid: "user123",
       email: "user@example.com",
       username: "testuser",
-      createdAt: mockTimestamp,
+      createdAt: "2023-01-01T00:00:00.000Z",
       updatedAt: "2023-01-01T00:00:00.000Z"
     };
 
@@ -89,7 +89,7 @@ describe('Type Compatibility Tests', () => {
       name: "Test Workout",
       date: "2023-01-01",
       exercises: [],
-      createdAt: mockTimestamp,
+      createdAt: "2023-01-01T00:00:00.000Z",
       updatedAt: "2023-01-01T00:00:00.000Z"
     };
 
@@ -125,12 +125,6 @@ describe('Type Compatibility Tests', () => {
   });
   
   it('should handle nested objects when preparing for Firestore', () => {
-    const mockTimestamp: FirebaseTimestamp = {
-      toDate: () => new Date(),
-      seconds: 1234567890,
-      nanoseconds: 123456789
-    };
-    
     // Create a workout with nested exercise data
     const mockWorkout: Workout = {
       id: "workout123",
@@ -154,7 +148,7 @@ describe('Type Compatibility Tests', () => {
           ]
         }
       ],
-      createdAt: mockTimestamp
+      createdAt: "2023-01-01T00:00:00.000Z"
     };
     
     const prepared = prepareForFirestore(mockWorkout);

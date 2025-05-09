@@ -218,11 +218,10 @@ export default function AchievementCard({
   
   return (
     <Card
-      category="achievement"
-      gradientColors={getGradientColors()}
-      onPress={onPress}
       style={style}
-      compact={compact}
+      onPress={onPress}
+      background={getGradientColors()[0]}
+      noPadding={compact}
     >
       {compact ? renderCompactVersion() : renderFullVersion()}
     </Card>

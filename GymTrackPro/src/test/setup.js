@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 // Test setup file for Jest
 
 // Mock Expo
@@ -191,4 +192,9 @@ jest.mock('firebase/analytics', () => ({
   getAnalytics: jest.fn(() => ({})),
   isSupported: jest.fn(() => Promise.resolve(true)),
   Analytics: jest.fn(),
+}));
+
+// Mock react-native's useColorScheme function
+jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
+  // ... existing code ...
 })); 

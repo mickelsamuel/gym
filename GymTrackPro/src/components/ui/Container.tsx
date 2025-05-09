@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useExercise } from '../../context/ExerciseContext';
 import { Theme, Spacing } from '../../constants/Theme';
-
 interface ContainerProps {
   children: ReactNode;
   style?: ViewStyle;
@@ -26,7 +25,6 @@ interface ContainerProps {
   testID?: string;
   contentContainerStyle?: ViewStyle;
 }
-
 /**
  * Container component following the GymTrackPro design system
  * Provides consistent padding and layout across the app
@@ -47,15 +45,12 @@ export default function Container({
 }: ContainerProps) {
   const { darkMode } = useExercise();
   const colors = darkMode ? Theme.dark : Theme.light;
-  
   // Determine background color
   const bgColor = backgroundColor || colors.background;
-  
   // Determine horizontal padding
   const hPadding = paddingHorizontal !== undefined 
     ? paddingHorizontal 
     : (fullWidth ? 0 : Spacing.md);
-  
   // Base container styles
   const containerStyles = [
     styles.container,
@@ -66,7 +61,6 @@ export default function Container({
     },
     style,
   ];
-  
   // Content styles for scrollable container
   const contentStyles = [
     styles.content,
@@ -76,7 +70,6 @@ export default function Container({
     },
     contentContainerStyle,
   ];
-  
   // Render scrollable container
   if (scrollable) {
     return (
@@ -105,7 +98,6 @@ export default function Container({
       </SafeAreaView>
     );
   }
-  
   // Render regular container
   return (
     <SafeAreaView style={containerStyles} testID={testID}>
@@ -120,7 +112,6 @@ export default function Container({
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

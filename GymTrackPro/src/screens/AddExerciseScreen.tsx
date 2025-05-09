@@ -21,17 +21,15 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DatabaseService from '../services/DatabaseService';
 import { ExerciseContext } from '../context/ExerciseContext';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
+import {Theme, Spacing, BorderRadius} from '../constants/Theme';
 import { RootStackParamList } from '../navigation/NavigationTypes';
 import { Text } from '../components/ui';
 import { Exercise } from '../types/data';
-
 // Define types
 interface MuscleGroup {
   id: string;
   name: string;
 }
-
 interface WorkoutList {
   id: string;
   name: string;
@@ -40,23 +38,22 @@ interface WorkoutList {
   isPublic?: boolean;
   lastUpdated?: string;
 }
-
 // Extended Exercise interface with muscle properties
-interface ExtendedExercise extends Exercise {
+interface ExtendedExercise {
+  id: string;
+  name: string;
+  muscleGroup?: string;
   primaryMuscles?: string[];
 }
-
 // Define navigation and route prop types
 type AddExerciseScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AddExerciseScreen'>;
 type AddExerciseScreenRouteProp = RouteProp<RootStackParamList, 'AddExerciseScreen'>;
-
 const AddExerciseScreen: React.FC = () => {
   const navigation = useNavigation<AddExerciseScreenNavigationProp>();
   const route = useRoute<AddExerciseScreenRouteProp>();
   const insets = useSafeAreaInsets();
-  const { listId } = route.params;
+  const { workoutId } = route.params;
   const { getAllExercises, favorites, addFavorite, darkMode } = useContext(ExerciseContext);
-  
   // State
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
   const [workoutList, setWorkoutList] = useState<WorkoutList | null>(null);
@@ -64,14 +61,11 @@ const AddExerciseScreen: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [filterCategory, setFilterCategory] = useState<string>('all');
-  
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
-  
   // Theme
   const theme = darkMode ? Theme.dark : Theme.light;
-  
   // Custom neumorphism style for card effects
   const neumorphism = !darkMode ? {
     shadowColor: '#000',
@@ -87,16 +81,14 @@ const AddExerciseScreen: React.FC = () => {
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.03)'
   };
-
   useEffect(() => {
     async function loadWorkout() {
       setLoading(true);
       try {
         const allLists = await DatabaseService.getAllWorkoutLists();
-        const found = allLists.find(l => l.id === listId);
+        const found = allLists.find(l => l.id === workoutId);
         if (found) {
           setWorkoutList(found);
-          
           // Run animations after data is loaded
           Animated.parallel([
             Animated.timing(fadeAnim, {
@@ -122,10 +114,8 @@ const AddExerciseScreen: React.FC = () => {
       }
     }
     loadWorkout();
-  }, [listId, navigation]);
-
-  const allExercises = getAllExercises() as ExtendedExercise[];
-  
+  }, [workoutId, navigation]);
+  const allExercises = getAllExercises() as unknown as ExtendedExercise[];
   // Define muscle groups for filtering
   const muscleGroups: MuscleGroup[] = [
     { id: 'all', name: 'All' },
@@ -137,25 +127,20 @@ const AddExerciseScreen: React.FC = () => {
     { id: 'core', name: 'Core' },
     { id: 'cardio', name: 'Cardio' },
   ];
-
   // Filter exercises based on search query and category
   const filteredExercises = allExercises.filter((ex) => {
     const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (ex.primaryMuscles && ex.primaryMuscles.some(muscle => 
         muscle.toLowerCase().includes(searchQuery.toLowerCase())
       ));
-      
     const matchesCategory = filterCategory === 'all' || 
       (ex.primaryMuscles && ex.primaryMuscles.some(muscle => 
         muscle.toLowerCase().includes(filterCategory.toLowerCase())
       ));
-      
     return matchesSearch && matchesCategory;
   });
-
   const toggleSelection = (exerciseId: string): void => {
     Haptics.selectionAsync();
-    
     if (selectedExercises.includes(exerciseId)) {
       setSelectedExercises(selectedExercises.filter(id => id !== exerciseId));
     } else {
@@ -167,26 +152,22 @@ const AddExerciseScreen: React.FC = () => {
       }
     }
   };
-
   const handleDone = async (): Promise<void> => {
     if (selectedExercises.length === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('No Selection', 'Please select at least one exercise.');
       return;
     }
-    
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     try {
       // Loop through selected exercises and add each one.
       for (const exerciseId of selectedExercises) {
         if (!favorites.includes(exerciseId)) {
           addFavorite(exerciseId);
         }
-        await DatabaseService.addExerciseToList(listId, exerciseId);
+        await DatabaseService.addExerciseToList(workoutId, exerciseId);
       }
-      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         'Success', 
@@ -205,7 +186,6 @@ const AddExerciseScreen: React.FC = () => {
       setSubmitting(false);
     }
   };
-
   const renderCategoryPill = ({ item }: ListRenderItemInfo<MuscleGroup>) => (
     <TouchableOpacity
       style={[
@@ -233,11 +213,9 @@ const AddExerciseScreen: React.FC = () => {
       </Text>
     </TouchableOpacity>
   );
-
   const renderExerciseItem = ({ item }: ListRenderItemInfo<ExtendedExercise>) => {
     const isSelected = selectedExercises.includes(item.id);
     const isAlreadyInWorkout = workoutList && workoutList.exercises.includes(item.id);
-    
     return (
       <Animated.View
         style={{
@@ -294,7 +272,6 @@ const AddExerciseScreen: React.FC = () => {
                   </View>
                 )}
               </View>
-              
               <Text 
                 variant="caption"
                 style={[
@@ -305,7 +282,6 @@ const AddExerciseScreen: React.FC = () => {
                 {item.primaryMuscles?.join(', ')}
               </Text>
             </View>
-            
             <View style={[
               styles.selectionCircle, 
               { 
@@ -322,7 +298,6 @@ const AddExerciseScreen: React.FC = () => {
       </Animated.View>
     );
   };
-
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { 
@@ -343,7 +318,6 @@ const AddExerciseScreen: React.FC = () => {
       </View>
     );
   }
-
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={[styles.container, { 
@@ -351,7 +325,6 @@ const AddExerciseScreen: React.FC = () => {
         paddingTop: insets.top 
       }]}>
         <StatusBar barStyle={(darkMode || false) ? "light-content" : "dark-content"} />
-        
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -366,7 +339,6 @@ const AddExerciseScreen: React.FC = () => {
               color={theme.text} 
             />
           </TouchableOpacity>
-          
           <View style={styles.titleContainer}>
             <Text 
               variant="title"
@@ -381,7 +353,6 @@ const AddExerciseScreen: React.FC = () => {
               {workoutList?.name || 'Workout'}
             </Text>
           </View>
-          
           <TouchableOpacity
             style={[
               styles.doneButton,
@@ -407,7 +378,6 @@ const AddExerciseScreen: React.FC = () => {
             )}
           </TouchableOpacity>
         </View>
-        
         <Animated.View
           style={[
             styles.contentContainer,
@@ -438,7 +408,6 @@ const AddExerciseScreen: React.FC = () => {
               clearButtonMode="while-editing"
             />
           </View>
-          
           <View style={styles.categoriesContainer}>
             <FlatList
               horizontal
@@ -449,7 +418,6 @@ const AddExerciseScreen: React.FC = () => {
               contentContainerStyle={styles.categoriesList}
             />
           </View>
-          
           <View style={styles.resultsHeader}>
             <Text 
               variant="caption"
@@ -469,7 +437,6 @@ const AddExerciseScreen: React.FC = () => {
               </Text>
             )}
           </View>
-          
           <FlatList
             data={filteredExercises}
             renderItem={renderExerciseItem}
@@ -506,7 +473,6 @@ const AddExerciseScreen: React.FC = () => {
             }
           />
         </Animated.View>
-        
         {selectedExercises.length > 0 && (
           <Animated.View 
             style={[
@@ -546,7 +512,6 @@ const AddExerciseScreen: React.FC = () => {
     </TouchableWithoutFeedback>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -714,5 +679,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-
 export default AddExerciseScreen; 

@@ -1,52 +1,30 @@
 import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
-import {
-  View,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Dimensions,
-  ScrollView,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
-  Modal,
-  Animated,
-  Easing,
-  RefreshControl,
-  ActivityIndicator,
-  ViewStyle,
-  TextStyle,
-  ImageStyle
-} from 'react-native';
-import { Calendar } from 'react-native-calendars';
-import { LineChart } from 'react-native-chart-kit';
+import {View, TextInput, StyleSheet, TouchableOpacity, Alert, Dimensions, ScrollView, Image, Platform, Animated, Easing, RefreshControl} from 'react-native';
 import DatabaseService from '../services/DatabaseService';
 import MockDataService from '../services/MockDataService';
 import { ExerciseContext } from '../context/ExerciseContext';
-import { AuthContext, useAuth } from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Text, Button, Card, Container } from '../components/ui';
-import { CalendarList } from 'react-native-calendars';
-import { LinearGradient } from 'expo-linear-gradient';
+import {Text, Button, Container} from '../components/ui';
 import { BlurView } from 'expo-blur';
-import { getAuth } from 'firebase/auth';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { getDatabase, ref, onValue, set } from 'firebase/database';
-import { getFirestore, doc, getDoc, updateDoc, collection, query, orderBy, getDocs, Timestamp, addDoc } from 'firebase/firestore';
-import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
+import {ref} from 'firebase/database';
+import {getFirestore, doc, getDoc, updateDoc, collection, query, orderBy, getDocs, addDoc} from 'firebase/firestore';
+import {ref as storageRef} from 'firebase/storage';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
-
+import {Colors, Theme, Typography, Spacing} from '../constants/Theme';
+;
+;
+;
+;
+;
+;
 // Get the screen dimensions
 const screenWidth = Dimensions.get('window').width - 40; // 40px padding
-
 // Types and interfaces
 interface UserProfile {
   uid: string;
@@ -61,14 +39,12 @@ interface UserProfile {
   lastActive?: string;
   friends?: string[];
 }
-
 interface WeightLogEntry {
   id?: string;
   date: string;
   weight: number;
   notes?: string;
 }
-
 interface WorkoutSet {
   id?: string;
   date: string;
@@ -78,7 +54,6 @@ interface WorkoutSet {
   reps: number;
   notes?: string;
 }
-
 interface ChartData {
   labels: string[];
   datasets: {
@@ -88,7 +63,6 @@ interface ChartData {
   }[];
   legend?: string[];
 }
-
 interface MarkedDates {
   [date: string]: {
     marked: boolean;
@@ -103,17 +77,13 @@ interface MarkedDates {
     };
   };
 }
-
 const ProfileScreen: React.FC = () => {
   const colorScheme = useColorScheme();
   const darkMode = colorScheme === 'dark';
-  
   // Use theme from Theme constants
   const theme = darkMode ? Theme.dark : Theme.light;
-  
   const { user, userProfile, logout, emailVerified, deleteAccount } = useContext(AuthContext);
   const { isOnline } = useAuth();  const navigation = useNavigation();
-  
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerHeight = useRef(new Animated.Value(220)).current;
@@ -121,7 +91,6 @@ const ProfileScreen: React.FC = () => {
   const headerOpacity = useRef(new Animated.Value(1)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const spinValue = useRef(new Animated.Value(0)).current;
-  
   // State variables
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -138,10 +107,8 @@ const ProfileScreen: React.FC = () => {
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [markedDates, setMarkedDates] = useState<MarkedDates>({});
   const [weightLogModalVisible, setWeightLogModalVisible] = useState<boolean>(false);
-  
   // Reference to scroll view for programmatic scrolling
   const scrollViewRef = useRef<ScrollView>(null);
-
   // Create a spinning animation for the loading indicator
   useEffect(() => {
     if (loading) {
@@ -157,49 +124,41 @@ const ProfileScreen: React.FC = () => {
       spinValue.setValue(0);
     }
   }, [loading]);
-  
   // Interpolate the spin value to rotate from 0 to 360 degrees
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
-
   const { darkMode: exerciseDarkMode, userGoal: exerciseUserGoal, setGoal } = useContext(ExerciseContext);
   const [dailyWeight, setDailyWeight] = useState<string>('');
   const [weightLog, setWeightLog] = useState<WeightLogEntry[]>([]);
   const [weightHistory, setWeightHistory] = useState<number[]>([]); // For weight chart
-  
   // Animation interpolations
   const headerTranslateY = scrollY.interpolate({
     inputRange: [0, 100],
     outputRange: [0, -80],
     extrapolate: 'clamp'
   });
-  
   const headerAnimatedOpacity = scrollY.interpolate({
     inputRange: [0, 80],
     outputRange: [1, darkMode ? 0.7 : 0.95],
     extrapolate: 'clamp'
   });
-  
   const profileAnimatedScale = scrollY.interpolate({
     inputRange: [0, 100],
     outputRange: [1, 0.8],
     extrapolate: 'clamp'
   });
-  
   const profileAnimatedOpacity = scrollY.interpolate({
     inputRange: [0, 100],
     outputRange: [1, 0.6],
     extrapolate: 'clamp'
   });
-  
   const blurAnimatedOpacity = scrollY.interpolate({
     inputRange: [0, 80],
     outputRange: [0, 1],
     extrapolate: 'clamp'
   });
-  
   // Setup animations
   useEffect(() => {
     // Initialize animation values
@@ -209,7 +168,6 @@ const ProfileScreen: React.FC = () => {
     headerOpacity.setValue(1);
     contentOpacity.setValue(0);
   }, []);
-
   // Check for email verification and redirect if not verified
   useEffect(() => {
     if (user && !emailVerified) {
@@ -217,12 +175,10 @@ const ProfileScreen: React.FC = () => {
       navigation.navigate('EmailVerification');
     }
   }, [user, emailVerified, navigation]);
-
   // Load profile data on mount
   useEffect(() => {
     loadProfileData();
   }, []);
-
   // Refresh data when screen is focused
   useFocusEffect(
     useCallback(() => {
@@ -230,33 +186,28 @@ const ProfileScreen: React.FC = () => {
       return () => {};
     }, [])
   );
-
   const loadProfileData = async (): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
-      
       try {
         await loadProfile();
       } catch (profileError) {
         console.error("Error loading profile:", profileError);
         // Don't throw here, continue with other data loading
       }
-      
       try {
         await loadWeightLog();
       } catch (weightError) {
         console.error("Error loading weight logs:", weightError);
         // Don't throw here, continue with other data loading
       }
-      
       try {
         await loadAllHistory();
       } catch (historyError) {
         console.error("Error loading workout history:", historyError);
         // Don't throw here, continue with other data loading
       }
-      
       // Animate content in after data loads, even if some data failed to load
       Animated.timing(contentOpacity, {
         toValue: 1,
@@ -265,9 +216,7 @@ const ProfileScreen: React.FC = () => {
       }).start();
     } catch (error: any) {
       console.error("Error loading profile data:", error);
-      
       setError("Failed to load profile data. Please try again.");
-      
       // Don't show alert unless user action is required
       if (error.message && error.message.includes("authentication") || 
           error.message && error.message.includes("permission")) {
@@ -287,24 +236,19 @@ const ProfileScreen: React.FC = () => {
       setLoading(false);
     }
   };
-
   const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
     await loadProfileData();
     setRefreshing(false);
   };
-
   async function loadProfile(): Promise<void> {
     if (!user) return;
-
     try {
       const db = getFirestore();
       const userDoc = doc(db, 'users', user.uid);
       const userSnapshot = await getDoc(userDoc);
-
       if (userSnapshot.exists()) {
         const userData = userSnapshot.data();
-        
         setProfile({
           uid: user.uid,
           email: user.email || '',
@@ -318,17 +262,14 @@ const ProfileScreen: React.FC = () => {
           lastActive: userData.lastActive || new Date().toISOString(),
           friends: userData.friends || [],
         });
-        
         // Update profile pic URL
         if (userData.profilePic) {
           setProfilePicUrl(userData.profilePic as string);
         } else {
           setProfilePicUrl(null);
         }
-        
         // Update username
         setUsernameInput(userData.username || '');
-        
         // Update goal
         if (userData.goal) {
           setUserGoal(userData.goal);
@@ -340,20 +281,16 @@ const ProfileScreen: React.FC = () => {
       setError("Failed to load profile data. Please try again.");
     }
   }
-
   async function loadWeightLog(): Promise<void> {
     if (!user) return;
-    
     try {
       const db = getFirestore();
       const weightLogsRef = collection(db, 'users', user.uid, 'weightLog');
       const q = query(weightLogsRef, orderBy('date', 'desc'));
       const querySnapshot = await getDocs(q);
-      
       const logs: WeightLogEntry[] = [];
       const historyData: number[] = [];
       const labels: string[] = [];
-      
       querySnapshot.forEach((doc) => {
         const data = doc.data() as Omit<WeightLogEntry, 'id'>;
         logs.push({
@@ -361,16 +298,13 @@ const ProfileScreen: React.FC = () => {
           ...data,
           weight: parseFloat(data.weight.toString()) // Ensure weight is a number
         });
-        
         // Only use the first 10 entries for the chart (most recent)
         if (logs.length <= 10) {
           historyData.unshift(parseFloat(data.weight.toString()));
           labels.unshift(format(parseISO(data.date), 'MM/dd'));
         }
       });
-      
       setWeightLogs(logs);
-      
       // Create chart data if we have enough entries
       if (historyData.length > 1) {
         setChartData({
@@ -390,27 +324,21 @@ const ProfileScreen: React.FC = () => {
       throw error;
     }
   }
-
   async function loadAllHistory(): Promise<void> {
     if (!user) return;
-    
     try {
       const db = getFirestore();
       const workoutsRef = collection(db, 'users', user.uid, 'workoutSessions');
       const q = query(workoutsRef, orderBy('date', 'desc'));
       const querySnapshot = await getDocs(q);
-      
       const workoutsByDate: { [date: string]: WorkoutSet[] } = {};
       const dates: MarkedDates = {};
-      
       querySnapshot.forEach((doc) => {
         const workoutData = doc.data();
         const workoutDate = workoutData.date.substring(0, 10); // YYYY-MM-DD
-        
         if (!workoutsByDate[workoutDate]) {
           workoutsByDate[workoutDate] = [];
         }
-        
         // Add workout data to the corresponding date
         // Create a proper WorkoutSet object with all required properties
         workoutsByDate[workoutDate].push({
@@ -422,7 +350,6 @@ const ProfileScreen: React.FC = () => {
           notes: workoutData.notes,
           id: doc.id
         });
-        
         // Mark date in calendar with custom styles
         dates[workoutDate] = {
           marked: true,
@@ -437,7 +364,6 @@ const ProfileScreen: React.FC = () => {
           }
         };
       });
-      
       // Set state with workout history and marked dates
       setAllWorkoutHistory(workoutsByDate);
       setMarkedDates(dates);
@@ -445,41 +371,31 @@ const ProfileScreen: React.FC = () => {
       console.error("Error loading workout history:", error);
     }
   }
-
   async function handleLogWeight(): Promise<void> {
     if (!isOnline) {
       Alert.alert('Error', 'You are offline. Cannot log weight.');
       return;
     }
-
     if (!weightToLog || isNaN(parseFloat(weightToLog))) {
       Alert.alert('Error', 'Please enter a valid weight');
       return;
     }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     try {
       const weight = parseFloat(weightToLog);
       const date = new Date().toISOString();
-      
       const db = getFirestore();
       const weightLogRef = collection(db, 'users', user?.uid || '', 'weightLog');
-      
       await addDoc(weightLogRef, {
         weight,
         date,
         notes: ''
       });
-      
       setWeightToLog('');
       setWeightLogModalVisible(false);
-      
       // Refresh the weight log
       await loadWeightLog();
-      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
       // Also update the calendar
       await loadAllHistory();
     } catch (error) {
@@ -487,28 +403,22 @@ const ProfileScreen: React.FC = () => {
       Alert.alert('Error', 'Failed to log weight. Please try again.');
     }
   }
-
   const saveUsername = async (): Promise<void> => {
     if (!isOnline) {
       Alert.alert('Error', 'You are offline. Cannot save username.');
       return;
     }
-
     if (!usernameInput.trim()) {
       Alert.alert('Error', 'Username cannot be empty');
       return;
     }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     try {
       const db = getFirestore();
       const userDocRef = doc(db, 'users', user?.uid || '');
-      
       await updateDoc(userDocRef, {
         username: usernameInput.trim()
       });
-      
       // Update local state
       if (profile) {
         setProfile({
@@ -516,7 +426,6 @@ const ProfileScreen: React.FC = () => {
           username: usernameInput.trim()
         });
       }
-      
       setEditingUsername(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
@@ -524,20 +433,16 @@ const ProfileScreen: React.FC = () => {
       Alert.alert('Error', 'Failed to update username. Please try again.');
     }
   };
-
   const handleSelectGoal = (goalId: string): void => {
     if (!isOnline) {
       Alert.alert('Error', 'You are offline. Cannot select goal.');
       return;
     }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     // Update the goal both in context and Firestore
     setGoal(goalId);
     setUserGoal(goalId);
     setGoalSelectionVisible(false);
-    
     // Also update the local profile state
     if (profile) {
       setProfile({
@@ -545,12 +450,10 @@ const ProfileScreen: React.FC = () => {
         goal: goalId
       });
     }
-
     // Update in Firestore
     try {
       const db = getFirestore();
       const userDocRef = doc(db, 'users', user?.uid || '');
-      
       updateDoc(userDocRef, {
         goal: goalId
       });
@@ -559,7 +462,6 @@ const ProfileScreen: React.FC = () => {
       // We don't show an alert here as this is a non-critical operation
     }
   };
-
   const formatRelativeTime = (dateString: string): string => {
     try {
       const date = parseISO(dateString);
@@ -568,12 +470,10 @@ const ProfileScreen: React.FC = () => {
       return 'Unknown time';
     }
   };
-
   const handleScroll = (event: any): void => {
     const scrollOffset = event.nativeEvent.contentOffset.y;
     scrollY.setValue(scrollOffset);
   };
-
   // A simplified render implementation for now, to be completed later
   return (
     <Container>
@@ -603,7 +503,6 @@ const ProfileScreen: React.FC = () => {
           </Animated.View>
         )}
       </Animated.View>
-
       <ScrollView
         ref={scrollViewRef}
         style={styles.container}
@@ -676,7 +575,6 @@ const ProfileScreen: React.FC = () => {
                   <Ionicons name="camera" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
               </Animated.View>
-
               <View style={styles.usernameContainer}>
                 {editingUsername ? (
                   <View style={styles.usernameEditContainer}>
@@ -726,7 +624,6 @@ const ProfileScreen: React.FC = () => {
                 </Text>
               </View>
             </View>
-
             {/* The rest of the profile page will come here */}
             <View style={styles.bodyContent}>
               <Text variant="heading3">Profile Content</Text>
@@ -737,7 +634,6 @@ const ProfileScreen: React.FC = () => {
     </Container>
   );
 };
-
 // Define styles
 const styles = StyleSheet.create({
   container: {
@@ -820,13 +716,13 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
   usernameInput: {
-    height: 50,
-    fontSize: Typography.heading3,
+    height: 48,
+    fontSize: Typography.subtitle.fontSize,
     textAlign: 'center',
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.xs,
+    paddingHorizontal: 12,
+    marginBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.3)',
+    borderBottomColor: 'rgba(150, 150, 150, 0.3)',
   },
   usernameButtonsContainer: {
     flexDirection: 'row',
@@ -854,5 +750,4 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   }
 });
-
 export default ProfileScreen; 

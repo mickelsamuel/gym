@@ -1,5 +1,4 @@
 import { Goal } from '../types/global';
-
 /**
  * Static data for fitness goals
  */
@@ -47,7 +46,6 @@ export const GOALS: Goal[] = [
     nutritionTips: "Aim for balanced macros with enough carbs to support high-intensity intervals. Stay hydrated."
   }
 ];
-
 /**
  * Get a goal by ID
  * @param id The ID of the goal to retrieve
@@ -56,7 +54,6 @@ export const GOALS: Goal[] = [
 export const getGoalById = (id: string): Goal | undefined => {
   return GOALS.find(goal => goal.id === id);
 };
-
 /**
  * Get all goals
  * @returns Array of all goals

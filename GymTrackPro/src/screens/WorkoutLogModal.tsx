@@ -1,35 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Modal,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Keyboard,
-  StyleSheet,
-  TextInput,
-  Animated,
-  Vibration,
-  Dimensions,
-  StatusBar,
-  ViewStyle,
-  TextStyle
-} from 'react-native';
+import {Modal, TouchableOpacity, TouchableWithoutFeedback, View, KeyboardAvoidingView, Platform, Keyboard, StyleSheet, TextInput, Animated, Vibration, Dimensions, StatusBar} from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { BlurView } from 'expo-blur';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
-import { LinearGradient } from 'expo-linear-gradient';
+import {Colors, Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
 import LottieView from 'lottie-react-native';
-
 // Import custom UI components
-import { Text, Button, Card, CircleProgress } from '../components/ui';
-
+import {Text, Button} from '../components/ui';
+;
+;
 const { width, height } = Dimensions.get('window');
-
 // Types and interfaces
 interface WorkoutLogData {
   date: string;
@@ -37,7 +17,6 @@ interface WorkoutLogData {
   reps: number;
   notes: string;
 }
-
 interface WorkoutLogModalProps {
   visible: boolean;
   onClose: () => void;
@@ -47,17 +26,15 @@ interface WorkoutLogModalProps {
   cardColor?: string;
   textColor?: string;
   initialData?: WorkoutLogData;
-  previousPerformance?: Array<{
+  previousPerformance?: {
     weight: number;
     reps: number;
-  }>;
+  }[];
 }
-
 interface FormErrors {
   weight?: string;
   reps?: string;
 }
-
 const formatDateTime = (date: Date): string => {
   const year = date.getFullYear();
   const month = (`0${date.getMonth() + 1}`).slice(-2);
@@ -66,7 +43,6 @@ const formatDateTime = (date: Date): string => {
   const minutes = (`0${date.getMinutes()}`).slice(-2);
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 };
-
 const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
   visible,
   onClose,
@@ -86,16 +62,13 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
   const [errors, setErrors] = useState<FormErrors>({});
   const [showCompletionAnimation, setShowCompletionAnimation] = useState<boolean>(false);
   const [isNewRecord, setIsNewRecord] = useState<boolean>(false);
-
   // Animation values
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const completionAnimation = useRef<LottieView>(null);
-
   // Theme
   const theme = darkMode ? Theme.dark : Theme.light;
-
   useEffect(() => {
     if (initialData) {
       setSelectedDate(new Date(initialData.date));
@@ -110,7 +83,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
     }
     setErrors({});
   }, [initialData, visible]);
-
   useEffect(() => {
     if (visible) {
       // Animate in
@@ -139,7 +111,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
       setShowCompletionAnimation(false);
     }
   }, [visible]);
-
   const validateInput = (field: 'weight' | 'reps', value: string): string | null => {
     if (field === 'weight') {
       if (!value.trim()) {
@@ -159,14 +130,11 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
     }
     return null;
   };
-
   const handleInputChange = (field: 'weight' | 'reps' | 'notes', value: string): void => {
     // Clear error when user starts typing
     setErrors(prev => ({...prev, [field]: null}));
-    
     // Provide haptic feedback
     Haptics.selectionAsync();
-    
     if (field === 'weight') {
       setWeight(value);
     } else if (field === 'reps') {
@@ -175,57 +143,45 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
       setNotes(value);
     }
   };
-
   const checkIfNewRecord = (): boolean => {
     if (!previousPerformance || !previousPerformance.length) return false;
-    
     const currentWeight = parseFloat(weight);
     const currentReps = parseInt(reps);
     const currentVolume = currentWeight * currentReps;
-    
     const previousMax = previousPerformance.reduce((max, set) => {
       const setVolume = set.weight * set.reps;
       return setVolume > max ? setVolume : max;
     }, 0);
-    
     return currentVolume > previousMax;
   };
-
   const handleSave = (): void => {
     // Validate all fields
     const weightError = validateInput('weight', weight);
     const repsError = validateInput('reps', reps);
-    
     if (weightError || repsError) {
       setErrors({
         weight: weightError || undefined,
         reps: repsError || undefined
       });
-      
       // Provide haptic feedback for error
       if (Platform.OS === 'ios') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } else {
         Vibration.vibrate(100);
       }
-      
       return;
     }
-    
     const setData: WorkoutLogData = {
       date: formatDateTime(selectedDate),
       weight: parseFloat(weight),
       reps: parseInt(reps),
       notes
     };
-    
     // Check if this is a new record
     const isRecord = checkIfNewRecord();
     setIsNewRecord(isRecord);
-    
     // Show completion animation
     setShowCompletionAnimation(true);
-    
     // Success haptic feedback
     if (Platform.OS === 'ios') {
       Haptics.notificationAsync(
@@ -233,7 +189,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
           ? Haptics.NotificationFeedbackType.Success 
           : Haptics.NotificationFeedbackType.Success
       );
-      
       if (isRecord) {
         // Double haptic for a record
         setTimeout(() => {
@@ -241,14 +196,12 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
         }, 300);
       }
     }
-    
     // Delay closing to show animation
     setTimeout(() => {
       onSave(setData);
       setShowCompletionAnimation(false);
     }, isRecord ? 1800 : 1200);
   };
-
   const handleCancel = (): void => {
     // Animate out before closing
     Animated.parallel([
@@ -266,17 +219,14 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
       onClose();
     });
   };
-
   const toggleDatePicker = (): void => {
     setDatePickerVisibility(!isDatePickerVisible);
     Haptics.selectionAsync();
   };
-
   const handleDateConfirm = (date: Date): void => {
     setSelectedDate(date);
     toggleDatePicker();
   };
-
   const renderCompletionAnimation = (): JSX.Element => {
     return (
       <View style={styles.completionAnimationContainer}>
@@ -304,7 +254,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
             </>
           )}
         </View>
-        
         <LottieView
           ref={completionAnimation}
           source={require('../../assets/animations/checkmark-success.json')}
@@ -315,13 +264,11 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
       </View>
     );
   };
-
   // Calculate the translate Y value for the modal content
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [300, 0],
   });
-
   return (
     <Modal
       visible={visible}
@@ -330,7 +277,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
       onRequestClose={handleCancel}
     >
       <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} />
-
       <TouchableWithoutFeedback onPress={handleCancel}>
         <Animated.View 
           style={[
@@ -374,7 +320,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                       color={textColor || theme.textSecondary} 
                     />
                   </TouchableOpacity>
-                  
                   <Text 
                     variant="heading3"
                     style={{ 
@@ -385,10 +330,8 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                   >
                     {initialData ? 'Edit Set' : 'Log Set'}
                   </Text>
-                  
                   <View style={styles.placeholderButton} />
                 </View>
-
                 {showCompletionAnimation ? (
                   renderCompletionAnimation()
                 ) : (
@@ -403,7 +346,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                     >
                       {exerciseName}
                     </Text>
-                    
                     <View style={styles.inputRow}>
                       {/* Weight Input */}
                       <View style={styles.inputContainer}>
@@ -451,7 +393,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                           </Text>
                         )}
                       </View>
-                      
                       {/* Reps Input */}
                       <View style={styles.inputContainer}>
                         <Text 
@@ -499,7 +440,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                         )}
                       </View>
                     </View>
-                    
                     {/* Date Picker */}
                     <View style={styles.dateContainer}>
                       <Text 
@@ -545,7 +485,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                         />
                       </TouchableOpacity>
                     </View>
-                    
                     {/* Notes Input */}
                     <View style={styles.notesContainer}>
                       <Text 
@@ -581,7 +520,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
                         textAlignVertical="top"
                       />
                     </View>
-                    
                     {/* Action Buttons */}
                     <View style={styles.buttonsContainer}>
                       <Button
@@ -604,7 +542,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
           </KeyboardAvoidingView>
         </Animated.View>
       </TouchableWithoutFeedback>
-
       <DateTimePickerModal
         isVisible={isDatePickerVisible}
         mode="datetime"
@@ -616,7 +553,6 @@ const WorkoutLogModal: React.FC<WorkoutLogModalProps> = ({
     </Modal>
   );
 };
-
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
@@ -663,10 +599,10 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   input: {
-    height: 50,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    fontSize: Typography.body,
+    height: 44,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
     borderWidth: 1,
   },
   dateContainer: {
@@ -685,9 +621,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   notesInput: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    fontSize: Typography.body,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
     borderWidth: 1,
     minHeight: 100,
   },
@@ -712,5 +648,4 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   }
 });
-
 export default WorkoutLogModal; 

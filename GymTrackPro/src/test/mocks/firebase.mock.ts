@@ -1,5 +1,4 @@
 // firebase.mock.ts - Mock implementation of Firebase for testing
-
 const mockUserData: Record<string, any> = {};
 const mockFirestoreData: Record<string, Record<string, any>> = {
   users: {},
@@ -9,14 +8,11 @@ const mockFirestoreData: Record<string, Record<string, any>> = {
   friends: {},
   friendRequests: {}
 };
-
 // Add nested collection storage
 // Export this to make it accessible in tests
 export const mockNestedCollections: Record<string, Record<string, any>> = {};
-
 export class MockFirebase {
   private static errorOperations: {[key: string]: {collection: string, docId: string}[]} = {};
-  
   /**
    * Configure the mock to throw an error for a specific operation
    * @param operation The operation name (e.g., 'setDocument', 'getDocument')
@@ -27,7 +23,6 @@ export class MockFirebase {
     if (!this.errorOperations[operation]) {
       this.errorOperations[operation] = [];
     }
-    
     // For testing sync errors, make sure we cover multiple operations
     if (operation === 'setDocument' && collection === 'workoutHistory') {
       this.errorOperations['addDocument'] = this.errorOperations['addDocument'] || [];
@@ -35,10 +30,8 @@ export class MockFirebase {
       this.errorOperations['updateDocument'] = this.errorOperations['updateDocument'] || [];
       this.errorOperations['updateDocument'].push({ collection, docId });
     }
-    
     this.errorOperations[operation].push({ collection, docId });
   }
-  
   /**
    * Check if an operation should throw an error
    * @param operation The operation name
@@ -49,17 +42,14 @@ export class MockFirebase {
   public static shouldThrowError(operation: string, collection: string, docId: string): boolean {
     const operations = this.errorOperations[operation];
     if (!operations) return false;
-    
     return operations.some(op => op.collection === collection && op.docId === docId);
   }
-  
   /**
    * Reset all error operations
    */
   public static resetErrors(): void {
     this.errorOperations = {};
   }
-  
   static setup() {
     // Reset mock data
     Object.keys(mockFirestoreData).forEach(collection => {
@@ -69,11 +59,9 @@ export class MockFirebase {
     mockAuth.currentUser = null;
     mockAuth.sendPasswordResetEmailCalls = [];
     mockAuth.sendEmailVerificationCalls = [];
-    
     // Clear all nested collections
     Object.keys(mockNestedCollections).forEach(key => delete mockNestedCollections[key]);
   }
-
   static mockAuthState(user: any | null): void {
     if (user) {
       mockUserData.currentUser = user;
@@ -81,33 +69,27 @@ export class MockFirebase {
       delete mockUserData.currentUser;
     }
   }
-
   static addDocument(collection: string, id: string, data: any): void {
     if (this.shouldThrowError('addDocument', collection, id)) {
       throw new Error(`Simulated error for addDocument operation: ${collection}/${id}`);
     }
-    
     // Handle nested paths (like users/userId/weightLog)
     if (collection.includes('/')) {
       const pathParts = collection.split('/');
       const mainCollection = pathParts[0];
       const docId = pathParts[1];
       const subCollection = pathParts[2];
-      
       // Create nested key
       const nestedKey = `${mainCollection}/${docId}/${subCollection}`;
       if (!mockNestedCollections[nestedKey]) {
         mockNestedCollections[nestedKey] = {};
       }
-      
       mockNestedCollections[nestedKey][id] = { ...data, id };
       return;
     }
-    
     if (!mockFirestoreData[collection]) {
       mockFirestoreData[collection] = {};
     }
-    
     // Special handling for different collections
     if (collection === 'workoutHistory') {
       mockFirestoreData[collection][id] = {
@@ -127,29 +109,23 @@ export class MockFirebase {
       mockFirestoreData[collection][id] = { ...data };
     }
   }
-
   static getDocument(collection: string, id: string): any | null {
     if (this.shouldThrowError('getDocument', collection, id)) {
       throw new Error(`Simulated error for getDocument operation: ${collection}/${id}`);
     }
-    
     // Handle nested paths (like users/userId/weightLog)
     if (collection.includes('/')) {
       const pathParts = collection.split('/');
       const mainCollection = pathParts[0];
       const docId = pathParts[1];
       const subCollection = pathParts[2];
-      
       const nestedKey = `${mainCollection}/${docId}/${subCollection}`;
       if (!mockNestedCollections[nestedKey]) return null;
-      
       return mockNestedCollections[nestedKey][id] || null;
     }
-    
     if (!mockFirestoreData[collection]) return null;
     return mockFirestoreData[collection][id] || null;
   }
-
   static getAllDocuments(collection: string): any[] {
     // Handle nested paths (like users/userId/weightLog)
     if (collection.includes('/')) {
@@ -159,20 +135,16 @@ export class MockFirebase {
       }
       return [];
     }
-    
     if (!mockFirestoreData[collection]) return [];
     return Object.values(mockFirestoreData[collection]);
   }
-
   static setConnectionDelay(delay: number): void {
     mockUserData.connectionDelay = delay;
   }
-
   static setConnectionState(isConnected: boolean): void {
     mockUserData.isConnected = isConnected;
   }
 }
-
 // Define the mockAuth type first
 interface MockAuth {
   currentUser: null | { 
@@ -190,15 +162,12 @@ interface MockAuth {
   sendEmailVerification: jest.Mock<Promise<void>, [any]>;
   onAuthStateChanged: jest.Mock<() => void, [any]>;
 }
-
 // Extend mock auth to include tracking for reset emails and verification emails
 export const mockAuth: MockAuth = {
   currentUser: null,
-  
   // Track calls to various methods
   sendPasswordResetEmailCalls: [],
   sendEmailVerificationCalls: [],
-  
   createUserWithEmailAndPassword: jest.fn(async (email: string, password: string): Promise<{ user: any }> => {
     // Simple password validation for tests
     if (password.length < 8) {
@@ -206,7 +175,6 @@ export const mockAuth: MockAuth = {
       (error as any).code = 'auth/weak-password';
       throw error;
     }
-    
     const user = { 
       uid: `user-${Math.random().toString(36).substring(2, 9)}`, 
       email, 
@@ -221,31 +189,26 @@ export const mockAuth: MockAuth = {
         signInSecondFactor: null
       })
     };
-    
     mockAuth.currentUser = user;
     return { user };
   }),
-  
   signInWithEmailAndPassword: jest.fn(async (email: string, password: string): Promise<{ user: any }> => {
     // To be configured by tests as needed, we'll make it more robust now
     if (mockAuth.currentUser && mockAuth.currentUser.email === email) {
       return { user: mockAuth.currentUser };
     }
-    
     // For testing wrong password scenarios
     if (email === "test2@example.com" && password === "WrongPassword123") {
       const error = new Error('Incorrect password. Please try again.');
       (error as any).code = 'auth/wrong-password';
       throw error;
     }
-    
     // For testing non-existent user scenarios
     if (email === "nonexistent@example.com") {
       const error = new Error('Account not found. Please check your credentials or sign up.');
       (error as any).code = 'auth/user-not-found';
       throw error;
     }
-    
     // Default login behavior for testing
     const user = { 
       uid: `user-login-${Math.random().toString(36).substring(2, 9)}`, 
@@ -261,19 +224,15 @@ export const mockAuth: MockAuth = {
         signInSecondFactor: null
       })
     };
-    
     mockAuth.currentUser = user;
     return { user };
   }),
-  
   signOut: jest.fn(async (): Promise<void> => {
     mockAuth.currentUser = null;
   }),
-  
   sendPasswordResetEmail: jest.fn(async (email: string): Promise<void> => {
     // Keep track of reset email requests
     mockAuth.sendPasswordResetEmailCalls.push(email);
-    
     // Simulate user not found error
     if (email === "nonexistent@example.com") {
       const error = new Error('Account not found. Please check your credentials or sign up.');
@@ -281,27 +240,22 @@ export const mockAuth: MockAuth = {
       throw error;
     }
   }),
-  
   sendEmailVerification: jest.fn(async (user: any): Promise<void> => {
     // Keep track of verification email requests
     mockAuth.sendEmailVerificationCalls.push(user);
     return Promise.resolve();
   }),
-  
   onAuthStateChanged: jest.fn((callback) => {
     // Immediately call with current user
     callback(mockAuth.currentUser);
-    
     // Return unsubscribe function
     return () => {};
   })
 };
-
 // Define type for mockFirestore to prevent circular reference
 interface MockFirestore {
   collection: jest.Mock<any, [string]>;
 }
-
 // Mock Firestore methods
 export const mockFirestore: MockFirestore = {
   collection: jest.fn((collectionPath: string) => ({
@@ -314,7 +268,6 @@ export const mockFirestore: MockFirestore = {
           id: docId
         };
       }),
-      
       set: jest.fn(async (data: any) => {
         MockFirebase.addDocument(collectionPath, docId, {
           ...data,
@@ -322,7 +275,6 @@ export const mockFirestore: MockFirestore = {
         });
         return Promise.resolve();
       }),
-      
       update: jest.fn(async (data: any) => {
         const existingData = MockFirebase.getDocument(collectionPath, docId) || {};
         MockFirebase.addDocument(collectionPath, docId, {
@@ -332,18 +284,15 @@ export const mockFirestore: MockFirestore = {
         });
         return Promise.resolve();
       }),
-      
       delete: jest.fn(async () => {
         if (mockFirestoreData[collectionPath]) {
           delete mockFirestoreData[collectionPath][docId];
         }
         return Promise.resolve();
       }),
-      
       collection: jest.fn((subcollectionPath: string) => 
         mockFirestore.collection(`${collectionPath}/${docId}/${subcollectionPath}`))
     })),
-    
     add: jest.fn(async (data: any) => {
       const docId = `doc-${Date.now()}`;
       MockFirebase.addDocument(collectionPath, docId, {
@@ -353,13 +302,11 @@ export const mockFirestore: MockFirestore = {
       });
       return { id: docId };
     }),
-    
     where: jest.fn(() => ({
       get: jest.fn(async () => {
         const allDocs = MockFirebase.getAllDocuments(collectionPath);
         // This is a simple implementation that doesn't actually filter
         // In a real mock, you would implement the filtering logic
-        
         return {
           docs: allDocs.map((doc, index) => ({
             id: doc.id || `mock-doc-${index}`,
@@ -369,7 +316,6 @@ export const mockFirestore: MockFirestore = {
         };
       })
     })),
-    
     get: jest.fn(async () => {
       const allDocs = MockFirebase.getAllDocuments(collectionPath);
       return {
@@ -383,18 +329,15 @@ export const mockFirestore: MockFirestore = {
     })
   }))
 };
-
 // Mock Firebase Firestore interface
 export const firebaseFirestore = {
   getDocument: jest.fn(async (collection: string, id: string) => {
     return MockFirebase.getDocument(collection, id);
   }),
-  
   setDocument: jest.fn(async (collection: string, id: string, data: any) => {
     MockFirebase.addDocument(collection, id, data);
     return true;
   }),
-  
   updateDocument: jest.fn(async (collection: string, id: string, data: any) => {
     const existingData = MockFirebase.getDocument(collection, id) || {};
     MockFirebase.addDocument(collection, id, {
@@ -403,7 +346,6 @@ export const firebaseFirestore = {
     });
     return true;
   }),
-  
   deleteDocument: jest.fn(async (collection: string, id: string) => {
     if (collection.includes('/')) {
       // For nested collections
@@ -416,12 +358,10 @@ export const firebaseFirestore = {
     }
     return true;
   }),
-  
   getCollection: jest.fn(async (collection: string) => {
     return MockFirebase.getAllDocuments(collection);
   })
 };
-
 // Overrides for testing
 jest.mock('firebase/auth', () => {
   return {
@@ -449,7 +389,6 @@ jest.mock('firebase/auth', () => {
     browserLocalPersistence: {}
   };
 });
-
 jest.mock('firebase/firestore', () => {
   return {
     getFirestore: jest.fn(() => mockFirestore),
@@ -490,7 +429,6 @@ jest.mock('firebase/firestore', () => {
     }
   };
 });
-
 jest.mock('firebase/app', () => {
   return {
     initializeApp: jest.fn(() => ({})),

@@ -79,10 +79,7 @@ export default function ChartCard({
       strokeWidth: '2',
       stroke: colors.primary,
     },
-    propsForLabels: {
-      fontSize: Typography.caption,
-      fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
-    },
+    propsForLabels: Typography.caption,
     propsForBackgroundLines: {
       stroke: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
       strokeDasharray: '5, 5',
@@ -135,7 +132,6 @@ export default function ChartCard({
   return (
     <Card
       style={style}
-      category="stats"
     >
       <View style={styles.header}>
         <View>

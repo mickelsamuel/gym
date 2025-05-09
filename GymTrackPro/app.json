@@ -10,14 +10,48 @@
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff",
+      "backgroundColor": "#FFFFFF",
       "dark": {
         "backgroundColor": "#1C1C1E"
       }
     },
+    "backgroundColor": "#F5F7FA",
+    "primaryColor": "#3772FF",
+    "updates": {
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/yourprojectid"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.gymtrackpro",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to let you take profile pictures.",
+        "NSPhotoLibraryUsageDescription": "This app uses the photo library to let you select profile pictures and share workout images.",
+        "NSPhotoLibraryAddUsageDescription": "This app saves photos to your library when you share workout images.",
+        "NSHealthShareUsageDescription": "This app reads your health data to track your workouts and activity.",
+        "NSHealthUpdateUsageDescription": "This app writes your workout data to Health to keep your fitness information up to date.",
+        "UIBackgroundModes": ["fetch"]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#3772FF"
+      },
+      "package": "com.yourcompany.gymtrackpro",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE"
+      ]
+    },
     "web": {
       "bundler": "metro",
       "favicon": "./assets/images/favicon.png"
@@ -65,6 +99,15 @@
     "jsEngine": "hermes",
     "description": "A comprehensive fitness tracking application for tracking workouts, weight, and connecting with friends.",
     "newArchEnabled": true,
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    },
+    "owner": "yourexpoorganization",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "hooks": {
       "postPublish": [
         {

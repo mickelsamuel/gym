@@ -1,25 +1,20 @@
 import CryptoJS from 'crypto-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logError } from './logging';
-
 // Storage key for encryption key
 const ENCRYPTION_KEY_STORAGE = 'encryption_key';
-
 // Generate a random encryption key if one doesn't exist
 export const getOrCreateEncryptionKey = async (): Promise<string> => {
   try {
     // Try to get existing key
     let encryptionKey = await AsyncStorage.getItem(ENCRYPTION_KEY_STORAGE);
-    
     if (!encryptionKey) {
       // Generate a new key - 32 random bytes encoded as hex
       const randomArray = Array.from({ length: 32 }, () => Math.floor(Math.random() * 256));
       encryptionKey = randomArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      
       // Store the key
       await AsyncStorage.setItem(ENCRYPTION_KEY_STORAGE, encryptionKey);
     }
-    
     return encryptionKey;
   } catch (error) {
     console.error('Error getting/creating encryption key:', error);
@@ -28,7 +23,6 @@ export const getOrCreateEncryptionKey = async (): Promise<string> => {
     return 'GymTrackPro_DefaultEncryptionKey_2023';
   }
 };
-
 /**
  * Encrypt sensitive data
  * @param data Data to encrypt
@@ -45,7 +39,6 @@ export const encryptData = async <T>(data: T): Promise<string> => {
     throw new Error('Failed to encrypt data');
   }
 };
-
 /**
  * Decrypt sensitive data
  * @param encryptedData Encrypted data string
@@ -63,7 +56,6 @@ export const decryptData = async <T>(encryptedData: string): Promise<T> => {
     throw new Error('Failed to decrypt data');
   }
 };
-
 /**
  * Encrypt and store sensitive data in AsyncStorage
  * @param key Storage key
@@ -79,7 +71,6 @@ export const secureStore = async <T>(key: string, data: T): Promise<void> => {
     throw error;
   }
 };
-
 /**
  * Retrieve and decrypt sensitive data from AsyncStorage
  * @param key Storage key
@@ -89,7 +80,6 @@ export const secureRetrieve = async <T>(key: string): Promise<T | null> => {
   try {
     const encryptedData = await AsyncStorage.getItem(key);
     if (!encryptedData) return null;
-    
     return await decryptData<T>(encryptedData);
   } catch (error) {
     console.error(`Error securely retrieving data (key: ${key}):`, error);
@@ -97,7 +87,6 @@ export const secureRetrieve = async <T>(key: string): Promise<T | null> => {
     return null;
   }
 };
-
 /**
  * Hash a string (e.g., for password storage)
  * @param input String to hash

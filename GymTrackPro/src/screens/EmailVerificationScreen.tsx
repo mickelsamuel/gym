@@ -1,15 +1,5 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  Platform,
-  StatusBar,
-  Alert,
-  SafeAreaView,
-  Animated
-} from 'react-native';
+import {View, StyleSheet, TouchableOpacity, StatusBar, Alert, SafeAreaView, Animated} from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -22,30 +12,24 @@ import {
   Button, 
   Card 
 } from '../components/ui';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
-
+import {Colors, Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
 type AuthStackParamList = {
   Login: undefined;
   EmailVerification: { email?: string };
   Main: undefined;
 };
-
 type EmailVerificationScreenProps = {
   navigation: StackNavigationProp<AuthStackParamList, 'EmailVerification'>;
 };
-
 const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navigation }) => {
   const { user, logout } = useContext(AuthContext);
   const insets = useSafeAreaInsets();
-  
   // State
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
-  
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(30)).current;
-  
   useEffect(() => {
     // Run entrance animations
     Animated.parallel([
@@ -61,7 +45,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
       })
     ]).start();
   }, []);
-  
   // Handle countdown for resend button
   useEffect(() => {
     let timer: NodeJS.Timeout | undefined;
@@ -74,13 +57,10 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
       if (timer) clearTimeout(timer);
     };
   }, [resendCooldown]);
-  
   const handleResendVerification = async (): Promise<void> => {
     if (resendCooldown > 0 || !user) return;
-    
     setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     try {
       await sendEmailVerification(user);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -100,22 +80,17 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
       setIsLoading(false);
     }
   };
-  
   const handleContinueToLogin = (): void => {
     Haptics.selectionAsync();
     logout();
     navigation.navigate('Login');
   };
-  
   const handleRefreshStatus = async (): Promise<void> => {
     if (!user) return;
-    
     Haptics.selectionAsync();
     setIsLoading(true);
-    
     try {
       await user.reload();
-      
       if (user.emailVerified) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
@@ -146,21 +121,17 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
       setIsLoading(false);
     }
   };
-  
   // Get theme colors
   const theme = Theme.light; // Always use light theme for auth screens
-  
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDarkBlue} />
-      
       <LinearGradient
         colors={[Colors.primaryDarkBlue, Colors.primaryBlue]}
         style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       />
-      
       <Animated.View
         style={[
           styles.contentContainer,
@@ -175,7 +146,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
         <View style={styles.iconContainer}>
           <Ionicons name="mail" size={80} color="#FFF" />
         </View>
-        
         <Text 
           variant="heading2" 
           style={{ 
@@ -186,7 +156,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
         >
           Verify Your Email
         </Text>
-        
         <Text 
           variant="body"
           style={{
@@ -206,7 +175,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
             {user?.email}
           </Text>
         </Text>
-        
         <Text
           variant="caption"
           style={{
@@ -220,7 +188,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
           Please check your inbox and follow the link to verify your email address.
           You need to verify your email before you can use all features of the app.
         </Text>
-        
         <View style={styles.cardContainer}>
           <Card
             style={styles.card}
@@ -233,7 +200,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
               }]}>
                 <Ionicons name="time-outline" size={24} color={theme.warning} />
               </View>
-              
               <Text 
                 variant="heading3" 
                 style={{ 
@@ -242,7 +208,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
               >
                 Pending Verification
               </Text>
-              
               <Text 
                 variant="caption" 
                 style={{ 
@@ -254,7 +219,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
                 Your email verification is pending. Check your inbox or spam folder.
               </Text>
             </View>
-            
             <Button
               title="Check Verification Status"
               icon="refresh"
@@ -264,9 +228,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
               fullWidth
               style={{ marginBottom: Spacing.lg }}
             />
-            
             <View style={styles.divider} />
-            
             <View style={styles.actionSection}>
               <Text 
                 variant="body" 
@@ -278,7 +240,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
               >
                 Didn't receive the email?
               </Text>
-              
               <Button
                 title={resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Email'}
                 icon="mail-outline"
@@ -289,7 +250,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
                 fullWidth
                 style={{ marginBottom: Spacing.md }}
               />
-              
               <TouchableOpacity
                 style={styles.loginButton}
                 onPress={handleContinueToLogin}
@@ -309,7 +269,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
             </View>
           </Card>
         </View>
-        
         <View style={styles.helpContainer}>
           <Text 
             variant="tiny" 
@@ -326,7 +285,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
     </SafeAreaView>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -394,5 +352,4 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
 });
-
 export default EmailVerificationScreen; 

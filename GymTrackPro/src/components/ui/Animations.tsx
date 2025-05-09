@@ -1,7 +1,6 @@
 import React, { ReactNode, useEffect, useRef } from 'react';
-import { ViewStyle, Animated as RNAnimated, Easing as RNEasing } from 'react-native';
+import {ViewStyle, Animated as RNAnimated} from 'react-native';
 import { Animation } from '../../constants/Theme';
-
 interface FadeInProps {
   children: ReactNode;
   duration?: number;
@@ -9,7 +8,6 @@ interface FadeInProps {
   style?: ViewStyle;
   onAnimationComplete?: () => void;
 }
-
 /**
  * FadeIn animation component for smooth entrance animations
  * Using React Native's Animated API instead of Reanimated
@@ -22,7 +20,6 @@ export function FadeIn({
   onAnimationComplete,
 }: FadeInProps) {
   const opacity = useRef(new RNAnimated.Value(0)).current;
-  
   useEffect(() => {
     const animation = RNAnimated.timing(opacity, {
       toValue: 1,
@@ -31,25 +28,21 @@ export function FadeIn({
       easing: RNEasing.bezier(0.16, 1, 0.3, 1),
       useNativeDriver: true,
     });
-    
     animation.start(({ finished }) => {
       if (finished && onAnimationComplete) {
         onAnimationComplete();
       }
     });
-    
     return () => {
       animation.stop();
     };
   }, []);
-  
   return (
     <RNAnimated.View style={[{ opacity }, style]}>
       {children}
     </RNAnimated.View>
   );
 }
-
 interface SlideInProps {
   children: ReactNode;
   direction?: 'up' | 'down' | 'left' | 'right';
@@ -58,7 +51,6 @@ interface SlideInProps {
   delay?: number;
   style?: ViewStyle;
 }
-
 /**
  * SlideIn animation component for smooth entrance animations
  * Using React Native's Animated API instead of Reanimated
@@ -78,7 +70,6 @@ export function SlideIn({
     direction === 'left' ? distance : 
     -distance
   )).current;
-  
   useEffect(() => {
     const animations = RNAnimated.parallel([
       RNAnimated.timing(opacity, {
@@ -96,14 +87,11 @@ export function SlideIn({
         useNativeDriver: true,
       })
     ]);
-    
     animations.start();
-    
     return () => {
       animations.stop();
     };
   }, []);
-  
   const animatedStyle = {
     opacity,
     transform: [
@@ -111,15 +99,13 @@ export function SlideIn({
         ? { translateY: translateValue } 
         : { translateX: translateValue }
     ]
-  };
-  
+  } as any;
   return (
     <RNAnimated.View style={[animatedStyle, style]}>
       {children}
     </RNAnimated.View>
   );
 }
-
 interface PulseProps {
   children: ReactNode;
   intensity?: number;
@@ -127,7 +113,6 @@ interface PulseProps {
   style?: ViewStyle;
   isActive?: boolean;
 }
-
 /**
  * Pulse animation component for skeleton loading states
  * Using React Native's Animated API instead of Reanimated
@@ -140,13 +125,11 @@ export function Pulse({
   isActive = true,
 }: PulseProps) {
   const opacity = useRef(new RNAnimated.Value(1)).current;
-  
   useEffect(() => {
     if (!isActive) {
       opacity.setValue(1);
       return;
     }
-    
     const animation = RNAnimated.loop(
       RNAnimated.sequence([
         RNAnimated.timing(opacity, {
@@ -163,21 +146,17 @@ export function Pulse({
         })
       ])
     );
-    
     animation.start();
-    
     return () => {
       animation.stop();
     };
   }, [isActive]);
-  
   return (
     <RNAnimated.View style={[{ opacity }, style]}>
       {children}
     </RNAnimated.View>
   );
 }
-
 interface ScaleProps {
   children: ReactNode;
   scale?: number;
@@ -185,7 +164,6 @@ interface ScaleProps {
   style?: ViewStyle;
   isActive?: boolean;
 }
-
 /**
  * Scale animation component for micro-interactions
  * Using React Native's Animated API instead of Reanimated
@@ -198,7 +176,6 @@ export function Scale({
   isActive = false,
 }: ScaleProps) {
   const scaleValue = useRef(new RNAnimated.Value(1)).current;
-  
   useEffect(() => {
     RNAnimated.spring(scaleValue, {
       toValue: isActive ? scale : 1,
@@ -207,14 +184,12 @@ export function Scale({
       useNativeDriver: true,
     }).start();
   }, [isActive]);
-  
   return (
     <RNAnimated.View style={[{ transform: [{ scale: scaleValue }] }, style]}>
       {children}
     </RNAnimated.View>
   );
 }
-
 export default {
   FadeIn,
   SlideIn,

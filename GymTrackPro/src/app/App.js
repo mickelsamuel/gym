@@ -6,11 +6,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, StyleSheet, Text } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ExerciseProvider, useExercise } from '../context/ExerciseContext';
+import NetworkProvider from '../context/NetworkContext';
 import AppNavigator from '../navigation/AppNavigator';
 import { Theme } from '../constants/Theme';
 import { auth, db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore'; // Import getDoc
 import { onAuthStateChanged } from "firebase/auth";
+import FontLoader from '../utils/FontLoader';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -22,11 +24,15 @@ SplashScreen.preventAutoHideAsync();
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <ExerciseProvider>
-          <AppRoot />
-        </ExerciseProvider>
-      </AuthProvider>
+      <FontLoader>
+        <NetworkProvider>
+          <AuthProvider>
+            <ExerciseProvider>
+              <AppRoot />
+            </ExerciseProvider>
+          </AuthProvider>
+        </NetworkProvider>
+      </FontLoader>
     </SafeAreaProvider>
   );
 }

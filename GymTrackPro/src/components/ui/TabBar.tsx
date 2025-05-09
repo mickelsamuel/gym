@@ -1,214 +1,193 @@
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  Dimensions,
-} from 'react-native';
-import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
+import {View, TouchableOpacity, StyleSheet, Platform, ViewStyle, } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { useExercise } from '../../context/ExerciseContext';
-import { Theme, Typography, BorderRadius, createElevation } from '../../constants/Theme';
+import {Theme, createElevation} from '../../constants/Theme';
 import Text from './Text';
-
-const { width } = Dimensions.get('window');
-
-interface TabBarProps {
-  state: any;
-  descriptors: any;
-  navigation: any;
+import TabBarBackground from './TabBarBackground';
+;
+type TabBarIconName = 
+  | 'home' 
+  | 'home-outline'
+  | 'barbell' 
+  | 'barbell-outline'
+  | 'calendar' 
+  | 'calendar-outline'
+  | 'people' 
+  | 'people-outline'
+  | 'person-circle' 
+  | 'person-circle-outline';
+interface TabBarIconProps {
+  name: TabBarIconName;
+  color: string;
+  size: number;
 }
-
-/**
- * Custom TabBar component for the bottom navigation
- * Modern design with frosted glass effect
- */
-export default function TabBar({ state, descriptors, navigation }: TabBarProps) {
+interface TabRoute {
+  key: string;
+  name: string;
+}
+export interface TabBarProps {
+  state: {
+    routes: TabRoute[];
+    index: number;
+  };
+  descriptors: {
+    [key: string]: {
+      options: {
+        title?: string;
+      };
+    };
+  };
+  navigation: {
+    emit: (event: { type: string; target: string; canPreventDefault?: boolean }) => { defaultPrevented: boolean };
+    navigate: (name: string) => void;
+  };
+  style?: ViewStyle;
+}
+const TabBarIcon = ({ name, color, size }: TabBarIconProps) => {
+  return <Ionicons name={name} size={size} color={color} />;
+};
+export const TabBar = ({ state, descriptors, navigation, style }: TabBarProps) => {
   const { darkMode } = useExercise();
-  const colors = darkMode ? Theme.dark : Theme.light;
-  
-  // Handle tab press with haptic feedback
-  const handleTabPress = (route: any, isFocused: boolean) => {
-    const event = navigation.emit({
-      type: 'tabPress',
-      target: route.key,
-      canPreventDefault: true,
-    });
-    
-    // Provide haptic feedback
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    
-    if (!isFocused && !event.defaultPrevented) {
-      navigation.navigate(route.name);
+  const insets = useSafeAreaInsets();
+  const theme = darkMode ? Theme.dark : Theme.light;
+  // Set the height based on platform according to the design specification
+  const tabBarHeight = Platform.OS === 'ios' ? 64 : 56;
+  // Get the icon name based on route name and focus state
+  const getIconName = (routeName: string, isFocused: boolean): TabBarIconName => {
+    switch (routeName) {
+      case 'Home':
+        return isFocused ? 'home' : 'home-outline';
+      case 'Exercises':
+        return isFocused ? 'barbell' : 'barbell-outline';
+      case 'Workout':
+        return isFocused ? 'calendar' : 'calendar-outline';
+      case 'Social':
+        return isFocused ? 'people' : 'people-outline';
+      case 'Profile':
+        return isFocused ? 'person-circle' : 'person-circle-outline';
+      default:
+        return 'home-outline';
     }
   };
-  
   return (
     <View style={[
       styles.container,
       {
-        backgroundColor: Platform.OS === 'ios' ? 'transparent' : colors.tabBar,
-        ...createElevation(3, darkMode),
-      }
+        height: tabBarHeight + insets.bottom,
+        paddingBottom: insets.bottom,
+        backgroundColor: 'transparent',
+      },
+      style
     ]}>
-      {/* Frosted glass effect for iOS */}
-      {Platform.OS === 'ios' && (
-        <BlurView
-          tint={darkMode ? 'dark' : 'light'}
-          intensity={darkMode ? 70 : 80}
-          style={StyleSheet.absoluteFill}
-        />
-      )}
-      
-      {/* Tab buttons */}
-      <View style={styles.tabContainer}>
-        {state.routes.map((route: any, index: number) => {
+      <TabBarBackground darkMode={darkMode} />
+      <View style={styles.content}>
+        {state.routes.map((route: TabRoute, index: number) => {
           const { options } = descriptors[route.key];
-          const label = options.tabBarLabel || options.title || route.name;
+          const label = options.title || route.name;
           const isFocused = state.index === index;
-          
-          // Define icons for each tab
-          let iconName: string;
-          switch (route.name) {
-            case 'Home':
-              iconName = isFocused ? 'home' : 'home-outline';
-              break;
-            case 'Exercises':
-              iconName = isFocused ? 'fitness' : 'fitness-outline';
-              break;
-            case 'Workout':
-              iconName = isFocused ? 'barbell' : 'barbell-outline';
-              break;
-            case 'Social':
-              iconName = isFocused ? 'people' : 'people-outline';
-              break;
-            case 'Profile':
-              iconName = isFocused ? 'person' : 'person-outline';
-              break;
-            default:
-              iconName = isFocused ? 'ellipse' : 'ellipse-outline';
-          }
-          
-          // Get tab color based on focused state
-          let tabColor;
-          if (isFocused) {
-            switch (index) {
-              case 0: // Home
-                tabColor = colors.primary;
-                break;
-              case 1: // Exercises
-                tabColor = colors.secondary;
-                break;
-              case 2: // Workouts
-                tabColor = colors.accent1;
-                break;
-              case 3: // Social
-                tabColor = colors.accent2;
-                break;
-              case 4: // Profile
-                tabColor = colors.primary;
-                break;
-              default:
-                tabColor = colors.primary;
+          const iconName = getIconName(route.name, isFocused);
+          const onPress = () => {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+            if (!isFocused && !event.defaultPrevented) {
+              // Provide haptic feedback on tab press
+              if (Platform.OS === 'ios') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              navigation.navigate(route.name);
             }
-          } else {
-            tabColor = colors.tabBarInactive;
-          }
-          
+          };
+          const onLongPress = () => {
+            // Provide haptic feedback on long press
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            navigation.emit({
+              type: 'tabLongPress',
+              target: route.key,
+            });
+          };
           return (
             <TouchableOpacity
               key={index}
               accessibilityRole="button"
               accessibilityState={isFocused ? { selected: true } : {}}
-              onPress={() => handleTabPress(route, isFocused)}
+              accessibilityLabel={`${label} tab`}
+              testID={`${label}-tab`}
+              onPress={onPress}
+              onLongPress={onLongPress}
               style={styles.tab}
               activeOpacity={0.7}
             >
-              {/* Indicator for selected tab */}
               {isFocused && (
-                <View 
-                  style={[
-                    styles.activeIndicator,
-                    { 
-                      backgroundColor: darkMode 
-                        ? `${tabColor}30` // 30% opacity version of the color
-                        : `${tabColor}15`, // 15% opacity version of the color
-                    }
-                  ]} 
-                />
+                <View style={[
+                  styles.indicator,
+                  { backgroundColor: theme.primary }
+                ]} />
               )}
-              
-              <View style={styles.iconContainer}>
-                <Ionicons
-                  name={iconName as any}
-                  size={24}
-                  color={tabColor}
-                  style={[
-                    styles.icon,
-                    isFocused && { transform: [{ scale: 1.1 }] }
-                  ]}
-                />
-                
-                <Text
-                  style={{
-                    color: tabColor,
-                    fontSize: Typography.caption,
-                    fontWeight: isFocused ? '600' : '500',
+              <TabBarIcon
+                name={iconName}
+                color={isFocused ? theme.tabBarActive : theme.tabBarInactive}
+                size={24}
+              />
+              <Text
+                style={[
+                  styles.label,
+                  { 
+                    color: isFocused ? theme.tabBarActive : theme.tabBarInactive,
                     marginTop: 4,
-                  }}
-                >
-                  {label}
-                </Text>
-              </View>
+                    fontFamily: isFocused ? 'Inter-Medium' : 'Inter',
+                  }
+                ]}
+                variant="caption"
+              >
+                {label}
+              </Text>
             </TouchableOpacity>
           );
         })}
       </View>
     </View>
   );
-}
-
+};
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 83,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
-    borderTopWidth: 0,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    ...createElevation(2),
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     overflow: 'hidden',
   },
-  tabContainer: {
+  content: {
     flexDirection: 'row',
-    height: '100%',
-    width,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    height: Platform.OS === 'ios' ? 64 : 56,
   },
   tab: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'center',
+    paddingTop: 8,
+    height: '100%',
   },
-  activeIndicator: {
+  indicator: {
     position: 'absolute',
     top: 8,
-    width: '80%',
-    height: '85%',
-    borderRadius: BorderRadius.pill,
+    width: '60%',
+    height: 32,
+    borderRadius: 16,
+    opacity: 0.15,
   },
-  iconContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  icon: {
-    marginBottom: 2,
+  label: {
+    textAlign: 'center',
+    fontSize: 12,
   },
 }); 

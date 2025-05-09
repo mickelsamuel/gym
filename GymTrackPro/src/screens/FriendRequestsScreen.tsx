@@ -1,18 +1,5 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
-import {
-  View,
-  FlatList,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-  Image,
-  StatusBar,
-  Animated,
-  ActivityIndicator,
-  ViewStyle,
-  TextStyle,
-  ImageStyle
-} from 'react-native';
+import {View, FlatList, TouchableOpacity, Alert, StyleSheet, Image, StatusBar, Animated, ActivityIndicator} from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { db } from '../services/firebase';
 import {
@@ -30,27 +17,18 @@ import { ExerciseContext } from '../context/ExerciseContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Theme, Typography, Spacing, BorderRadius, createElevation } from '../constants/Theme';
-import { BlurView } from 'expo-blur';
+import {Colors, Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/NavigationTypes';
-import { format, formatDistance, formatRelative } from 'date-fns';
-
-import { 
-  Text, 
-  Button, 
-  Card, 
-  Container,
-  FadeIn,
-} from '../components/ui';
-
+import {formatDistance} from 'date-fns';
+import {Text, Button, Card, Container, } from '../components/ui';
+;
+;
 // Simple SlideIn animation component
 const SlideIn = ({ children, delay = 0 }: { children: React.ReactNode, delay?: number }) => {
   const slideAnim = useRef(new Animated.Value(20)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -67,7 +45,6 @@ const SlideIn = ({ children, delay = 0 }: { children: React.ReactNode, delay?: n
       }),
     ]).start();
   }, []);
-  
   return (
     <Animated.View
       style={{
@@ -79,7 +56,6 @@ const SlideIn = ({ children, delay = 0 }: { children: React.ReactNode, delay?: n
     </Animated.View>
   );
 };
-
 // Types and interfaces
 interface FriendRequest {
   fromUid: string;
@@ -87,21 +63,18 @@ interface FriendRequest {
   fromPhotoUrl: string | null;
   sentAt: string;
 }
-
 interface SentRequest {
   toUid: string;
   toName: string;
   toPhotoUrl: string | null;
   sentAt: string;
 }
-
 interface FriendSuggestion {
   uid: string;
   username: string;
   profilePic: string | null;
   reason: string;
 }
-
 interface UserProfile {
   username?: string;
   profilePic?: string | null;
@@ -109,19 +82,16 @@ interface UserProfile {
   friendRequests?: FriendRequest[];
   sentRequests?: SentRequest[];
 }
-
 // Add formatRelativeTime function
 const formatRelativeTime = (dateString: string): string => {
   const date = new Date(dateString);
   return formatDistance(date, new Date(), { addSuffix: true });
 };
-
 const FriendRequestsScreen: React.FC = () => {
   const { user } = useContext(AuthContext);
   const { darkMode } = useContext(ExerciseContext);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  
   // State
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<SentRequest[]>([]);
@@ -129,11 +99,9 @@ const FriendRequestsScreen: React.FC = () => {
   const [processingIds, setProcessingIds] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<FriendSuggestion[]>([]);
   const [myProfile, setMyProfile] = useState<UserProfile | null>(null);
-  
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
-  
   // Theme
   const theme = darkMode ? Theme.dark : Theme.light;
   // Define custom colors not in theme
@@ -141,7 +109,6 @@ const FriendRequestsScreen: React.FC = () => {
     error: Colors.accentDanger,
     textLight: '#FFFFFF'
   };
-
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -155,18 +122,15 @@ const FriendRequestsScreen: React.FC = () => {
         useNativeDriver: true,
       }),
     ]).start();
-    
     loadRequests();
     loadSuggestions();
   }, []);
-
   async function loadRequests(): Promise<void> {
     setLoading(true);
     if (!user) {
       setLoading(false);
       return;
     }
-    
     try {
       const myRef = doc(db, 'users', user.uid);
       const snap = await getDoc(myRef);
@@ -183,17 +147,14 @@ const FriendRequestsScreen: React.FC = () => {
       setLoading(false);
     }
   }
-
   async function loadSuggestions(): Promise<void> {
     if (!user) return;
-    
     try {
       // This would normally be a more sophisticated algorithm based on mutual friends,
       // similar workout preferences, etc. For now, we'll just grab some random users.
       const usersRef = collection(db, 'users');
       const q = query(usersRef, limit(5));
       const querySnapshot = await getDocs(q);
-      
       let suggestionList: FriendSuggestion[] = [];
       querySnapshot.forEach(doc => {
         const userData = doc.data();
@@ -209,52 +170,42 @@ const FriendRequestsScreen: React.FC = () => {
           });
         }
       });
-      
       setSuggestions(suggestionList);
     } catch (error) {
       console.error('Error loading suggestions:', error);
     }
   }
-
   async function acceptRequest(request: FriendRequest): Promise<void> {
     if (!user) return;
-    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setProcessingIds(prev => [...prev, request.fromUid]);
-    
     try {
       const myRef = doc(db, 'users', user.uid);
       const theirRef = doc(db, 'users', request.fromUid);
-      
       const [mySnap, theirSnap] = await Promise.all([
         getDoc(myRef),
         getDoc(theirRef)
       ]);
-      
       if (!mySnap.exists() || !theirSnap.exists()) {
         Alert.alert('Error', 'User data could not be found.');
         setProcessingIds(prev => prev.filter(id => id !== request.fromUid));
         return;
       }
-      
       const myData = mySnap.data() as UserProfile;
       const theirData = theirSnap.data() as UserProfile;
       const myFriends = myData.friends || [];
       const theirFriends = theirData.friends || [];
-      
       await updateDoc(myRef, {
         friendRequests: arrayRemove(request),
         friends: myFriends.includes(request.fromUid)
           ? myFriends
           : [...myFriends, request.fromUid]
       });
-      
       await updateDoc(theirRef, {
         friends: theirFriends.includes(user.uid)
           ? theirFriends
           : [...theirFriends, user.uid]
       });
-      
       loadRequests();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
@@ -263,19 +214,15 @@ const FriendRequestsScreen: React.FC = () => {
       setProcessingIds(prev => prev.filter(id => id !== request.fromUid));
     }
   }
-
   async function rejectRequest(request: FriendRequest): Promise<void> {
     if (!user) return;
-    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setProcessingIds(prev => [...prev, request.fromUid]);
-    
     try {
       const myRef = doc(db, 'users', user.uid);
       await updateDoc(myRef, {
         friendRequests: arrayRemove(request)
       });
-      
       loadRequests();
     } catch (error) {
       console.error('Error rejecting request:', error);
@@ -283,27 +230,21 @@ const FriendRequestsScreen: React.FC = () => {
       setProcessingIds(prev => prev.filter(id => id !== request.fromUid));
     }
   }
-
   async function cancelSentRequest(request: SentRequest): Promise<void> {
     if (!user) return;
-    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setProcessingIds(prev => [...prev, request.toUid]);
-    
     try {
       const myRef = doc(db, 'users', user.uid);
       await updateDoc(myRef, {
         sentRequests: arrayRemove(request)
       });
-      
       // Also remove the request from the recipient's friendRequests
       const theirRef = doc(db, 'users', request.toUid);
       const theirSnap = await getDoc(theirRef);
-      
       if (theirSnap.exists()) {
         const theirData = theirSnap.data() as UserProfile;
         const theirRequests = theirData.friendRequests || [];
-        
         const requestToRemove = theirRequests.find(req => req.fromUid === user.uid);
         if (requestToRemove) {
           await updateDoc(theirRef, {
@@ -311,7 +252,6 @@ const FriendRequestsScreen: React.FC = () => {
           });
         }
       }
-      
       loadRequests();
     } catch (error) {
       console.error('Error canceling request:', error);
@@ -319,46 +259,37 @@ const FriendRequestsScreen: React.FC = () => {
       setProcessingIds(prev => prev.filter(id => id !== request.toUid));
     }
   }
-
   async function sendRequest(suggestion: FriendSuggestion): Promise<void> {
     if (!user) return;
-    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setProcessingIds(prev => [...prev, suggestion.uid]);
-    
     try {
       const myRef = doc(db, 'users', user.uid);
       const mySnap = await getDoc(myRef);
       const myData = mySnap.data() as UserProfile;
-      
       const request: FriendRequest = {
         fromUid: user.uid,
         fromName: myData.username || 'User',
         fromPhotoUrl: myData.profilePic || null,
         sentAt: new Date().toISOString()
       };
-      
       const sentRequest: SentRequest = {
         toUid: suggestion.uid,
         toName: suggestion.username,
         toPhotoUrl: suggestion.profilePic,
         sentAt: new Date().toISOString()
       };
-      
       // Add to recipient's friend requests
       const theirRef = doc(db, 'users', suggestion.uid);
       await updateDoc(theirRef, {
         friendRequests: arrayUnion(request)
       });
-      
       // Add to my sent requests
       await updateDoc(myRef, {
         sentRequests: arrayUnion(sentRequest)
       });
-      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadRequests();
-      
       // Remove from suggestions
       setSuggestions(prev => prev.filter(s => s.uid !== suggestion.uid));
     } catch (error) {
@@ -367,7 +298,6 @@ const FriendRequestsScreen: React.FC = () => {
       setProcessingIds(prev => prev.filter(id => id !== suggestion.uid));
     }
   }
-
   const renderRequest = ({ item, index }: { item: FriendRequest; index: number }) => {
     return (
       <SlideIn delay={index * 100}>
@@ -379,7 +309,7 @@ const FriendRequestsScreen: React.FC = () => {
         >
           <View style={styles.requestItem}>
             <TouchableOpacity
-              onPress={() => navigation.navigate('FriendProfileScreen', { userId: item.fromUid })}
+              onPress={() => navigation.navigate('FriendProfile', { userId: item.fromUid })}
               style={styles.userInfo}
             >
               <View style={styles.avatarContainer}>
@@ -411,7 +341,6 @@ const FriendRequestsScreen: React.FC = () => {
                 </Text>
               </View>
             </TouchableOpacity>
-            
             <View style={styles.actionButtons}>
               <TouchableOpacity
                 style={styles.actionButton}
@@ -433,7 +362,6 @@ const FriendRequestsScreen: React.FC = () => {
       </SlideIn>
     );
   };
-
   const renderSentRequest = ({ item, index }: { item: SentRequest; index: number }) => {
     return (
       <SlideIn delay={index * 100}>
@@ -445,7 +373,7 @@ const FriendRequestsScreen: React.FC = () => {
         >
           <View style={styles.requestItem}>
             <TouchableOpacity
-              onPress={() => navigation.navigate('FriendProfileScreen', { userId: item.toUid })}
+              onPress={() => navigation.navigate('FriendProfile', { userId: item.toUid })}
               style={styles.userInfo}
             >
               <View style={styles.avatarContainer}>
@@ -477,7 +405,6 @@ const FriendRequestsScreen: React.FC = () => {
                 </Text>
               </View>
             </TouchableOpacity>
-            
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => cancelSentRequest(item)}
@@ -490,7 +417,6 @@ const FriendRequestsScreen: React.FC = () => {
       </SlideIn>
     );
   };
-
   const renderSuggestion = ({ item, index }: { item: FriendSuggestion; index: number }) => {
     return (
       <SlideIn delay={index * 100}>
@@ -502,7 +428,7 @@ const FriendRequestsScreen: React.FC = () => {
         >
           <View style={styles.requestItem}>
             <TouchableOpacity
-              onPress={() => navigation.navigate('FriendProfileScreen', { userId: item.uid })}
+              onPress={() => navigation.navigate('FriendProfile', { userId: item.uid })}
               style={styles.userInfo}
             >
               <View style={styles.avatarContainer}>
@@ -534,7 +460,6 @@ const FriendRequestsScreen: React.FC = () => {
                 </Text>
               </View>
             </TouchableOpacity>
-            
             <TouchableOpacity
               style={styles.connectButton}
               onPress={() => sendRequest(item)}
@@ -547,14 +472,12 @@ const FriendRequestsScreen: React.FC = () => {
       </SlideIn>
     );
   };
-
   return (
     <Container>
       <StatusBar 
         barStyle={darkMode ? 'light-content' : 'dark-content'} 
         backgroundColor={theme.background} 
       />
-      
       <View 
         style={[
           styles.header, 
@@ -571,7 +494,6 @@ const FriendRequestsScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        
         <Text 
           variant="heading3" 
           style={{ 
@@ -582,10 +504,8 @@ const FriendRequestsScreen: React.FC = () => {
         >
           Friend Requests
         </Text>
-        
         <View style={styles.placeholderButton} />
       </View>
-      
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.primary} />
@@ -631,7 +551,6 @@ const FriendRequestsScreen: React.FC = () => {
                   >
                     Requests
                   </Text>
-                  
                   <FlatList
                     data={requests}
                     renderItem={renderRequest}
@@ -640,7 +559,6 @@ const FriendRequestsScreen: React.FC = () => {
                   />
                 </View>
               )}
-              
               {sentRequests.length > 0 && (
                 <View style={styles.section}>
                   <Text 
@@ -652,7 +570,6 @@ const FriendRequestsScreen: React.FC = () => {
                   >
                     Sent Requests
                   </Text>
-                  
                   <FlatList
                     data={sentRequests}
                     renderItem={renderSentRequest}
@@ -661,7 +578,6 @@ const FriendRequestsScreen: React.FC = () => {
                   />
                 </View>
               )}
-              
               {suggestions.length > 0 && (
                 <View style={styles.section}>
                   <Text 
@@ -673,7 +589,6 @@ const FriendRequestsScreen: React.FC = () => {
                   >
                     People You May Know
                   </Text>
-                  
                   <FlatList
                     data={suggestions}
                     renderItem={renderSuggestion}
@@ -695,7 +610,6 @@ const FriendRequestsScreen: React.FC = () => {
     </Container>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -802,5 +716,4 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.md,
   },
 });
-
 export default FriendRequestsScreen; 

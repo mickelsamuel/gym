@@ -24,36 +24,30 @@ import {
   Card,
   Input
 } from '../components/ui';
-import { Theme, Spacing, BorderRadius, Typography, createElevation } from '../constants/Theme';
-import { TransitionPresets } from '../constants/Animations';
+import {Theme, Spacing, BorderRadius, createElevation} from '../constants/Theme';
 import { StackNavigationProp } from '@react-navigation/stack';
-
+;
 interface FormErrors {
   email?: string;
   password?: string;
   server?: string;
 }
-
 type AuthStackParamList = {
   Login: undefined;
   SignUp: undefined;
   ForgotPassword: undefined;
   EmailVerification: undefined;
 };
-
 type LoginScreenProps = {
   navigation: StackNavigationProp<AuthStackParamList, 'Login'>;
 };
-
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const { login, error, clearError, user } = useContext(AuthContext);
   const insets = useSafeAreaInsets();
-  
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const logoScaleAnim = useRef(new Animated.Value(0.9)).current;
-  
   // State
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -62,18 +56,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [needsVerification, setNeedsVerification] = useState<boolean>(false);
-  
   // Get theme colors (always use light theme for login)
   const isDarkMode = false;
   const colors = isDarkMode ? Theme.dark : Theme.light;
-  
   // Helper function to check for email verification related errors
   const isEmailVerificationError = (err: any): boolean => {
     return err && (err.message && (err.message.includes('email not verified') || 
            err.message.includes('verify your email')) || err.includes('email not verified') || 
            err.includes('verify your email'))
   };
-  
   useEffect(() => {
     // Start animations when component mounts
     Animated.parallel([
@@ -94,7 +85,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         useNativeDriver: true
       })
     ]).start();
-    
     return () => {
       if (clearError) {
         clearError();
@@ -103,7 +93,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       setNeedsVerification(false);
     };
   }, []);
-  
   useEffect(() => {
     if (error) {
       setFormErrors({ server: error });
@@ -111,66 +100,49 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         setNeedsVerification(true);
       } else {
         setNeedsVerification(false);
-
       }
-      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setIsLoading(false);
     }
   }, [error]);
-  
   const validateForm = (): boolean => {
     let errors: FormErrors = {};
-    
     if (!email.trim()) {
       errors.email = 'Email address is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.email = 'Please enter a valid email address';
     }
-    
     if (!password) {
       errors.password = 'Password is required';
     } else if (password.length < 6) {
       errors.password = 'Password must be at least 6 characters';
     }
-    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
-  
   const handleLogin = async (): Promise<void> => {
     Keyboard.dismiss();
-    
     if (!validateForm()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
-    
     setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
     try {
-      await login(email, password, rememberMe);
-      // Navigation handled by AuthContext
-    } catch (error: any) {
-      if(isEmailVerificationError(error)){
-        setNeedsVerification(true)
-      }
-      // Error handled by AuthContext via error
+      await login(email, password);
+      // Login success is handled by the auth context
+    } catch (error) {
       setIsLoading(false);
     }
   };
-  
   const handleSignUpPress = (): void => {
     Haptics.selectionAsync();
     navigation.navigate('SignUp');
   };
-  
   const handleForgotPasswordPress = (): void => {
     Haptics.selectionAsync();
     navigation.navigate('ForgotPassword');
   };
-  
   const handleVerifyEmailPress = (): void => {
     Haptics.selectionAsync();
     if (user) {
@@ -183,12 +155,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       );
     }
   };
-  
   const toggleRememberMe = (): void => {
     Haptics.selectionAsync();
     setRememberMe(!rememberMe);
   };
-  
   return (
     <KeyboardAvoidingView 
       style={{ flex: 1 }}
@@ -203,7 +173,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           />
-          
           <ScrollView 
             contentContainerStyle={[
               styles.content,
@@ -229,7 +198,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               <View style={styles.logoCircle}>
                 <Ionicons name="barbell" size={60} color="#FFFFFF" />
               </View>
-              
               <Text 
                 variant="heading1"
                 style={{ 
@@ -252,7 +220,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 Your Fitness Journey, Elevated
               </Text>
             </Animated.View>
-            
             {/* Login Form Card */}
             <Animated.View style={{ 
               width: '100%',
@@ -273,7 +240,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 >
                   Welcome Back
                 </Text>
-                
                 {/* Email Input */}
                 <Input
                   label="Email Address"
@@ -288,7 +254,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   containerStyle={{ marginBottom: Spacing.md }}
                   autoCorrect={false}
                 />
-                
                 {/* Password Input */}
                 <Input
                   label="Password"
@@ -303,7 +268,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   touched={password.length > 0}
                   containerStyle={{ marginBottom: Spacing.md }}
                 />
-                
                 {/* Remember Me & Forgot Password */}
                 <View style={styles.optionsRow}>
                   <TouchableOpacity 
@@ -336,7 +300,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                       Remember Me
                     </Text>
                   </TouchableOpacity>
-                  
                   <TouchableOpacity 
                     onPress={handleForgotPasswordPress}
                     activeOpacity={0.7}
@@ -350,7 +313,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     </Text>
                   </TouchableOpacity>
                 </View>
-                
                 {/* Error Messages */}
                 {formErrors.server && (
                   <View style={styles.errorContainer}>
@@ -368,7 +330,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     </Text>
                   </View>
                 )}
-                
                 {/* Email Verification Message */}
                 {needsVerification && (
                   <View style={styles.verificationContainer}>
@@ -392,7 +353,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     </TouchableOpacity>
                   </View>
                 )}
-                
                 {/* Login Button */}
                 <Button
                   title="Log In"
@@ -403,7 +363,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   fullWidth
                   style={{ marginTop: Spacing.lg }}
                 />
-                
                 {/* Sign Up Link */}
                 <View style={styles.signupContainer}>
                   <Text 
@@ -427,7 +386,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     </KeyboardAvoidingView>
   );
 };
-
 const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
@@ -496,5 +454,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
   },
 });
-
 export default LoginScreen; 
