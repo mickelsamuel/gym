@@ -78,8 +78,8 @@ interface Achievement {
   color: string;
 }
 // Screen params type
-type FriendProfileScreenRouteProp = RouteProp<RootStackParamList, 'FriendProfileScreen'>;
-type FriendProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'FriendProfileScreen'>;
+type FriendProfileScreenRouteProp = RouteProp<RootStackParamList, 'FriendProfile'>;
+type FriendProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'FriendProfile'>;
 // Define types for Friend data
 interface FriendProfile {
   id: string;

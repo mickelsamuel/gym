@@ -45,6 +45,10 @@ export interface User extends FirestoreDocument {
   username: string;
   profilePic?: string;
   userGoal?: string; 
+  displayName?: string;
+  bio?: string;
+  fitnessLevel?: FitnessLevel;
+  friends?: string[];
   streak?: number;
   joinDate?: string;
   lastActive?: string;
@@ -729,8 +733,10 @@ export type RootStackParamList = {
   EmailVerification: undefined;
   ExerciseDetail: { exerciseId: string };
   WorkoutDetail: { workoutId: string };
+  CustomWorkoutDetail: { workoutId: string };
   CustomWorkoutDetailScreen: { workoutId: string };
-  AddExerciseScreen: { workoutId?: string; returnToWorkout?: boolean };
+  AddExercise: { workoutId: string; returnToWorkout?: boolean };
+  AddExerciseScreen: { workoutId: string; returnToWorkout?: boolean };
   FriendRequests: undefined;
   FriendProfile: { userId: string };
   WorkoutLogModal: { date?: string; workoutId?: string };

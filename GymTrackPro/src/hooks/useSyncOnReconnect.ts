@@ -92,7 +92,7 @@ export const useSyncOnReconnect = (
     if (isConnected && isInternetReachable && pendingOperations.length > 0) {
       syncPendingOperations();
     }
-  }, [isConnected, isInternetReachable]);
+  }, [isConnected, isInternetReachable, pendingOperations, syncPendingOperations]);
   return {
     addOperation,
     pendingOperations,

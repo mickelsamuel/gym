@@ -12,10 +12,14 @@ import {
   TextInput,
   ActivityIndicator,
   Modal,
-  Share
+  Share,
+  Text as RNText,
+  Alert,
+  Platform,
+  FlatList
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { Text, Button, Card, Container } from '../components/ui';
 import { Colors, Theme, Spacing, BorderRadius } from '../constants/Theme';
 import { WorkoutSet } from '../types/mergedTypes';
@@ -23,6 +27,11 @@ import MuscleMap, { MuscleGroup } from '../components/MuscleMap';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ExerciseContext } from '../context/ExerciseContext';
+import { StackNavigationProp } from '@react-navigation/stack';
+import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
+import { RootStackParamList } from '../navigation/NavigationTypes';
+import { LineChart } from 'react-native-chart-kit';
 
 // Types for exercise history and related data
 interface ExerciseHistoryEntry {
@@ -310,7 +319,11 @@ const ExerciseDetailScreen: React.FC = () => {
           
           <TouchableOpacity 
             style={styles.favoriteButton}
-            onPress={() => toggleFavorite(exerciseId)}
+            onPress={() => {
+              if (toggleFavorite) {
+                toggleFavorite(exerciseId);
+              }
+            }}
           >
             <Ionicons 
               name={isFavorite(exerciseId) ? "heart" : "heart-outline"} 
@@ -328,21 +341,29 @@ const ExerciseDetailScreen: React.FC = () => {
     const primaryMuscle = exercise.primaryMuscleGroup || (exercise.primaryMuscles && exercise.primaryMuscles[0]);
     const secondaryMuscles = exercise.secondaryMuscles || [];
     
-    // Cast the muscle groups to the proper type
-    const primaryMuscleTyped = primaryMuscle as MuscleGroup;
-    const secondaryMusclesTyped = (secondaryMuscles as unknown) as MuscleGroup[];
-    
     return (
       <Card style={styles.sectionCard}>
         <Text variant="subtitle" style={styles.sectionTitle}>
           Target Muscles
         </Text>
         
-        <MuscleMap
-          primaryMuscle={primaryMuscleTyped}
-          secondaryMuscles={secondaryMusclesTyped}
-          onSelectMuscle={() => {}}
-        />
+        <View style={{
+          width: '100%', 
+          height: 200, 
+          backgroundColor: theme.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderRadius: BorderRadius.md
+        }}>
+          <Text style={{ color: theme.text }}>
+            {primaryMuscle ? `Primary: ${primaryMuscle}` : 'No primary muscle specified'}
+          </Text>
+          {secondaryMuscles && secondaryMuscles.length > 0 && (
+            <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
+              Secondary: {secondaryMuscles.join(', ')}
+            </Text>
+          )}
+        </View>
         
         <View style={styles.muscleLabels}>
           <View style={styles.muscleLabelItem}>

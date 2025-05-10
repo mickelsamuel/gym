@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { User } from 'firebase/auth';
+import * as React from 'react';
 
 export interface UserProfile {
   uid: string;
@@ -57,4 +58,4 @@ export interface AuthProviderProps {
 
 export function useAuth(): AuthContextValue;
 export const AuthContext: React.Context<AuthContextValue>;
-export function AuthProvider(props: AuthProviderProps): JSX.Element; 
+export function AuthProvider(props: AuthProviderProps): React.ReactElement; 

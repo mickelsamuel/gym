@@ -23,8 +23,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/NavigationTypes';
 import {formatDistance} from 'date-fns';
 import {Text, Button, Card, Container, } from '../components/ui';
-;
-;
+import { useTheme } from '@react-navigation/native';
+
 // Simple SlideIn animation component
 const SlideIn = ({ children, delay = 0 }: { children: React.ReactNode, delay?: number }) => {
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -109,6 +109,10 @@ const FriendRequestsScreen: React.FC = () => {
     error: Colors.accentDanger,
     textLight: '#FFFFFF'
   };
+  
+  // Initialize styles with the theme
+  const styles = getStyles(theme);
+  
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -511,28 +515,10 @@ const FriendRequestsScreen: React.FC = () => {
           <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : requests.length === 0 && sentRequests.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons 
-            name="people" 
-            size={80} 
-            color={`${theme.textSecondary}50`} 
-          />
-          <Text 
-            variant="body" 
-            style={{ 
-              color: theme.textSecondary,
-              textAlign: 'center',
-              marginTop: Spacing.md,
-              marginBottom: Spacing.md
-            }}
-          >
-            You don't have any friend requests at the moment.
-          </Text>
-          <Button
-            title="Find Friends"
-            type="primary"
-            onPress={() => navigation.goBack()}
-          />
+        <View style={styles.emptyContainer}>
+          <Ionicons name="people" size={60} color={theme.textSecondary} />
+          <Text style={styles.emptyText}>You don&apos;t have any pending friend requests</Text>
+          <Text style={styles.emptySubText}>Check out the suggestions below to find friends</Text>
         </View>
       ) : (
         <FlatList
@@ -610,7 +596,9 @@ const FriendRequestsScreen: React.FC = () => {
     </Container>
   );
 };
-const styles = StyleSheet.create({
+
+// Move styles inside the component to access theme
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -685,11 +673,22 @@ const styles = StyleSheet.create({
   },
   rejectButton: {},
   cancelButton: {},
-  emptyState: {
+  emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: Spacing.xxl,
     paddingHorizontal: Spacing.lg,
+  },
+  emptyText: {
+    color: theme.textSecondary,
+    textAlign: 'center',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  emptySubText: {
+    color: theme.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
   },
   requestItem: {
     flexDirection: 'row',
@@ -716,4 +715,5 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.md,
   },
 });
+
 export default FriendRequestsScreen; 

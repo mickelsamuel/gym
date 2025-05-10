@@ -3,11 +3,11 @@ import {View, StyleSheet, Dimensions, RefreshControl, Animated, ViewStyle} from 
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ExerciseContext } from '../context/ExerciseContext';
 import { AuthContext } from '../context/AuthContext';
-import DatabaseService from '../services/DatabaseService';
+import _DatabaseService from '../services/DatabaseService';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import LottieView from 'lottie-react-native';
-import goals from '../data/goals';
+import _goals from '../data/goals';
 import { Exercise } from '../types/mergedTypes';
 // Import our custom UI components from design system
 import {Text, Container} from '../components/ui';
@@ -15,7 +15,8 @@ import ParallaxScrollView from '../components/ParallaxScrollView';
 import {Colors, Theme, Spacing, BorderRadius, createElevation, Animation} from '../constants/Theme';
 import { useAnimatedValue } from '../hooks';
 
-const { width, height } = Dimensions.get('window');
+const dimensions = Dimensions.get('window');
+const height = dimensions.height;
 // Types and interfaces
 interface HealthSummary {
   steps: number;
@@ -59,18 +60,14 @@ type TimeRange = 'week' | 'month' | 'year';
 type MetricType = 'weight' | 'volume' | 'reps';
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { user, userProfile } = useContext(AuthContext);
+  const { userProfile } = useContext(AuthContext);
   const {
     userGoal,
-    getGoalInfo,
     favorites,
     getExerciseById,
     darkMode,
-    setGoal,
     recentWorkouts,
-    loading,
     refreshWorkoutData,
-    getExerciseStats,
     reducedMotion
   } = useContext(ExerciseContext);
   const [profile, setProfile] = useState<any>(null);
@@ -96,12 +93,12 @@ const HomeScreen: React.FC = () => {
   // Get theme colors based on dark mode
   const theme = darkMode ? Theme.dark : Theme.light;
   // Chart configuration
-  const chartConfig = {
+  const _chartConfig = {
     backgroundGradientFrom: 'transparent',
     backgroundGradientTo: 'transparent',
     decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(10, 108, 255, ${opacity})`,
-    labelColor: (opacity = 1) => theme.textSecondary,
+    color: (_opacity = 1) => `rgba(10, 108, 255, ${_opacity})`,
+    labelColor: (_opacity = 1) => theme.textSecondary,
     style: {
       borderRadius: 16,
     } as ViewStyle,
@@ -116,67 +113,13 @@ const HomeScreen: React.FC = () => {
     },
     formatYLabel: (value: string) => value.toString(),
   };
-  // Load initial data
-  useEffect(() => {
-    loadProfile();
-    loadRecentExercises();
-    identifyLatestAchievement();
-    loadFriendsWorkouts();
-    calculateWorkoutStreak();
-    generateDemoHealthData();
-    loadProgressData();
-    
-    // Start entrance animations - this will respect reduced motion
-    animateFade({
-      toValue: 1,
-      duration: Animation.medium,
-      useNativeDriver: true
-    }).start();
-    
-    animateSlide({
-      toValue: 0,
-      duration: Animation.medium,
-      useNativeDriver: true
-    }).start();
-  }, [favorites, recentWorkouts]);
-  // Show goal modal if no goal is set
-  useEffect(() => {
-    if (!userGoal) {
-      setShowGoalModal(true);
-    }
-  }, [userGoal]);
-  // Refresh data when screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      loadProfile();
-      loadRecentExercises();
-      identifyLatestAchievement();
-      loadFriendsWorkouts();
-      calculateWorkoutStreak();
-      loadProgressData();
-    }, [favorites, recentWorkouts, timeRange, selectedMetric])
-  );
-  // Pull-to-refresh handler
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchAllUserData();
-    setRefreshing(false);
-  }, []);
-  // Fetch all user data
-  const fetchAllUserData = async (): Promise<void> => {
-    try {
-      await Promise.all([
-        loadProfile(),
-        loadRecentExercises(),
-        refreshWorkoutData(),
-        loadFriendsWorkouts(),
-        loadProgressData()
-      ]);
-      identifyLatestAchievement();
-      calculateWorkoutStreak();
-      generateDemoHealthData();
-    } catch (error) {
-      console.error("Error fetching user data:", error);
+  // Get display name for selected metric
+  const getMetricName = (metric: MetricType): string => {
+    switch (metric) {
+      case 'weight': return 'Weight (kg)';
+      case 'volume': return 'Volume (kg)';
+      case 'reps': return 'Total Reps';
+      default: return metric;
     }
   };
   // Update this function to use real data
@@ -188,6 +131,10 @@ const HomeScreen: React.FC = () => {
       water: Math.floor(Math.random() * 8) + 1,
       sleep: Math.floor(Math.random() * 3) + 5
     });
+  };
+  const calculateWorkoutStreak = (): void => {
+    // Demo data for streak
+    setWorkoutStreak(Math.floor(Math.random() * 10) + 3);
   };
   // Load progress data based on selected metric and time range
   const loadProgressData = (): void => {
@@ -230,19 +177,6 @@ const HomeScreen: React.FC = () => {
       ],
       legend: [getMetricName(selectedMetric)]
     });
-  };
-  // Get display name for selected metric
-  const getMetricName = (metric: MetricType): string => {
-    switch (metric) {
-      case 'weight': return 'Weight (kg)';
-      case 'volume': return 'Volume (kg)';
-      case 'reps': return 'Total Reps';
-      default: return metric;
-    }
-  };
-  const calculateWorkoutStreak = (): void => {
-    // Demo data for streak
-    setWorkoutStreak(Math.floor(Math.random() * 10) + 3);
   };
   async function loadProfile(): Promise<void> {
     try {
@@ -333,6 +267,69 @@ const HomeScreen: React.FC = () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };
+  // Fetch all user data
+  const fetchAllUserData = async (): Promise<void> => {
+    try {
+      await Promise.all([
+        loadProfile(),
+        loadRecentExercises(),
+        refreshWorkoutData ? refreshWorkoutData() : Promise.resolve(),
+        loadFriendsWorkouts(),
+        loadProgressData()
+      ]);
+      identifyLatestAchievement();
+      calculateWorkoutStreak();
+      generateDemoHealthData();
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
+  };
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAllUserData();
+    setRefreshing(false);
+  }, []);
+  // Load initial data
+  useEffect(() => {
+    loadProfile();
+    loadRecentExercises();
+    identifyLatestAchievement();
+    loadFriendsWorkouts();
+    calculateWorkoutStreak();
+    generateDemoHealthData();
+    loadProgressData();
+    
+    // Start entrance animations - this will respect reduced motion
+    animateFade({
+      toValue: 1,
+      duration: Animation.medium,
+      useNativeDriver: true
+    }).start();
+    
+    animateSlide({
+      toValue: 0,
+      duration: Animation.medium,
+      useNativeDriver: true
+    }).start();
+  }, [favorites, recentWorkouts, animateFade, animateSlide, loadProfile, loadProgressData, loadRecentExercises]);
+  // Show goal modal if no goal is set
+  useEffect(() => {
+    if (!userGoal) {
+      setShowGoalModal(true);
+    }
+  }, [userGoal]);
+  // Refresh data when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+      loadRecentExercises();
+      identifyLatestAchievement();
+      loadFriendsWorkouts();
+      calculateWorkoutStreak();
+      loadProgressData();
+    }, [favorites, recentWorkouts, timeRange, selectedMetric, loadProfile, loadProgressData, loadRecentExercises])
+  );
   return (
     <Container>
       <ParallaxScrollView

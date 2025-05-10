@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,9 +73,34 @@ function MainTabNavigator() {
     </Tab.Navigator>
   );
 }
+// Create a wrapper component for WorkoutLogModal 
+const WorkoutLogModalWrapper = React.memo(({ route }: any) => {
+  // Extract params from route or use defaults
+  const { date, workoutId, exerciseName } = route.params || {};
+  const navigation = useNavigation();
+  const { darkMode } = useExercise();
+  
+  return (
+    <WorkoutLogModal
+      visible={true}
+      onClose={() => {
+        // Handle close by navigating back
+        navigation.goBack();
+      }}
+      onSave={(data) => {
+        // Handle save logic
+        console.log('Saved workout data:', data);
+        navigation.goBack();
+      }}
+      exerciseName={exerciseName || 'Exercise'}
+      darkMode={darkMode}
+    />
+  );
+});
 // Root Navigator
 export default function Navigation() {
   const { currentUser } = useAuth();
+  
   return (
     <NavigationContainer>
       <Stack.Navigator 
@@ -92,7 +117,7 @@ export default function Navigation() {
             <Stack.Screen name="CustomWorkoutDetailScreen" component={CustomWorkoutDetailScreen} />
             <Stack.Screen name="AddExerciseScreen" component={AddExerciseScreen} />
             <Stack.Screen name="FriendRequests" component={FriendRequestsScreen} />
-            <Stack.Screen name="WorkoutLogModal" component={WorkoutLogModal} />
+            <Stack.Screen name="WorkoutLogModal" component={WorkoutLogModalWrapper} />
           </>
         ) : (
           // User is not logged in

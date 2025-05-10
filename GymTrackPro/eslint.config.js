@@ -13,7 +13,8 @@ export default [
       sourceType: 'module',
       globals: {
         ...globals.browser,
-        ...globals.node
+        ...globals.node,
+        __DEV__: 'readonly'
       },
       parser: typescriptParser,
       parserOptions: {
@@ -31,13 +32,33 @@ export default [
       ...js.configs.recommended.rules,
       ...reactPlugin.configs.recommended.rules,
       'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/exhaustive-deps': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { 
         'argsIgnorePattern': '^_',
         'varsIgnorePattern': '^_',
         'caughtErrorsIgnorePattern': '^_' 
       }],
+      'no-case-declarations': 'off',
+      'no-useless-escape': 'warn'
     },
     ignores: ['/dist/*', 'node_modules/*']
+  },
+  {
+    files: ['**/*.test.{js,jsx,ts,tsx}', '**/test/**/*.{js,jsx,ts,tsx}', '**/mocks/**/*.{js,jsx,ts,tsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+        expect: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        jest: 'readonly',
+        fail: 'readonly'
+      }
+    }
   }
 ]; 

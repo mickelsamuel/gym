@@ -1,17 +1,22 @@
 import {serverTimestamp} from 'firebase/firestore';
 import { BaseDatabaseService } from './BaseDatabaseService';
-import {FIREBASE_PATHS, firebaseFirestore} from '../firebase';
+import {FIREBASE_PATHS, firebaseFirestore, firebaseAuth} from '../firebase';
 import { WeightLogEntry, ApiResponse } from '../../types/mergedTypes';
 import { StorageKeys } from '../../constants';
 import { validateNumber, isValidDate, validateWeightLogEntry } from '../../utils/sanitize';
 import { logError } from '../../utils/logging';
-;
+
 /**
  * Service for weight log related database operations
  */
 export class WeightLogDatabaseService extends BaseDatabaseService {
   // Cache key for weight log
   private readonly WEIGHT_LOG_CACHE_KEY = 'weightLog';
+  // Reference to Firebase Firestore interface
+  private readonly firestore = firebaseFirestore;
+  // Reference to Firebase Auth interface
+  private readonly auth = firebaseAuth;
+  
   /**
    * Add a new weight log entry
    * @param entry Weight log entry data
@@ -69,7 +74,7 @@ export class WeightLogDatabaseService extends BaseDatabaseService {
               docData.createdAt = serverTimestamp();
             }
             // Save to Firestore
-            await firebaseFirestore.setDocument(subcollectionPath, docId, docData);
+            await this.firestore.setDocument(subcollectionPath, docId, docData);
             // If it's a new entry, update the entry with the new ID
             if (!entry.id) {
               const updatedEntry = { ...newEntry, id: docId };
@@ -114,7 +119,7 @@ export class WeightLogDatabaseService extends BaseDatabaseService {
         if (isOnline && this.isFirebaseAvailable) {
           try {
             const subcollectionPath = `${FIREBASE_PATHS.USERS}/${userId}/${FIREBASE_PATHS.USER_SUBCOLLECTIONS.WEIGHT_LOG}`;
-            const remoteLogs = await firebaseFirestore.getCollection<WeightLogEntry>(subcollectionPath);
+            const remoteLogs = await this.firestore.getCollection<WeightLogEntry>(subcollectionPath);
             // Merge with local logs and save locally
             const mergedLogs = this.mergeWeightLogs(userLocalLogs, remoteLogs);
             // Update local storage with all logs
@@ -194,7 +199,7 @@ export class WeightLogDatabaseService extends BaseDatabaseService {
               updatedAt: serverTimestamp()
             };
             // Update in Firestore
-            await firebaseFirestore.updateDocument(subcollectionPath, entryId, updateData);
+            await this.firestore.updateDocument(subcollectionPath, entryId, updateData);
           } catch (error) {
             console.error('Failed to update weight log in Firestore:', error);
             logError('update_weight_log_error', { entryId, userId, error });
@@ -242,7 +247,7 @@ export class WeightLogDatabaseService extends BaseDatabaseService {
             this.checkOnlineStatus(isOnline);
             const subcollectionPath = `${FIREBASE_PATHS.USERS}/${userId}/${FIREBASE_PATHS.USER_SUBCOLLECTIONS.WEIGHT_LOG}`;
             // Delete from Firestore
-            await firebaseFirestore.deleteDocument(subcollectionPath, entryId);
+            await this.firestore.deleteDocument(subcollectionPath, entryId);
           } catch (error) {
             console.error('Failed to delete weight log from Firestore:', error);
             logError('delete_weight_log_error', { entryId, userId, error });
@@ -278,7 +283,7 @@ export class WeightLogDatabaseService extends BaseDatabaseService {
       console.log("Syncing to path:", subcollectionPath);
       let remoteLogs: WeightLogEntry[] = [];
       try {
-        remoteLogs = await firebaseFirestore.getCollection<WeightLogEntry>(subcollectionPath);
+        remoteLogs = await this.firestore.getCollection<WeightLogEntry>(subcollectionPath);
         console.log("Remote logs:", remoteLogs);
       } catch (error) {
         console.error("Error fetching remote logs:", error);
@@ -306,7 +311,7 @@ export class WeightLogDatabaseService extends BaseDatabaseService {
           };
           console.log(`Saving weight log to Firestore: ${subcollectionPath}/${docId}`, docData);
           // Save to Firestore
-          await firebaseFirestore.setDocument(subcollectionPath, docId, docData);
+          await this.firestore.setDocument(subcollectionPath, docId, docData);
         } catch (error) {
           console.error(`Error syncing weight log ${docId}:`, error);
         }
@@ -383,5 +388,87 @@ export class WeightLogDatabaseService extends BaseDatabaseService {
     const mergedLogs = Array.from(logMap.values());
     mergedLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return mergedLogs;
+  }
+  /**
+   * Get weight history by user ID
+   * @param userId User ID
+   * @returns Weight log entries for the user
+   */
+  async getWeightHistoryByUserId(userId: string): Promise<WeightLogEntry[]> {
+    try {
+      // Use the getCollection method to get weight logs
+      const subcollectionPath = `${FIREBASE_PATHS.USERS}/${userId}/${FIREBASE_PATHS.USER_SUBCOLLECTIONS.WEIGHT_LOG}`;
+      const weightLogs = await this.firestore.getCollection<WeightLogEntry>(subcollectionPath);
+      
+      // Sort by date in descending order
+      return weightLogs.sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+    } catch (error) {
+      console.error('Error fetching weight history:', error);
+      return [];
+    }
+  }
+  /**
+   * Get weight trend data for a date range
+   * @param startDate Start date for trend data
+   * @param endDate End date for trend data
+   * @returns Weight log entries within the date range
+   */
+  async getWeightTrendData(startDate: Date, endDate: Date): Promise<WeightLogEntry[]> {
+    try {
+      // Get current user ID
+      const currentUser = this.auth.getCurrentUser();
+      if (!currentUser || !currentUser.uid) {
+        console.error('No authenticated user found');
+        return [];
+      }
+      
+      // Get all weight logs from storage
+      const allLogs = await this.getFromStorage<WeightLogEntry[]>(StorageKeys.DAILY_WEIGHT_LOG) || [];
+      
+      // Filter logs by user ID and date range
+      return allLogs.filter(log => 
+        log.userId === currentUser.uid &&
+        new Date(log.date) >= startDate &&
+        new Date(log.date) <= endDate
+      ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } catch (error) {
+      console.error('Error fetching weight trend data:', error);
+      return [];
+    }
+  }
+  /**
+   * Export all weight data for the current user
+   * @returns All weight log entries for the current user
+   */
+  async exportAllWeightData(): Promise<WeightLogEntry[]> {
+    try {
+      const currentUser = this.auth.getCurrentUser();
+      if (!currentUser || !currentUser.uid) {
+        console.error('No authenticated user found');
+        return [];
+      }
+      
+      // Get weight logs from both local storage and Firestore
+      const localLogs = await this.getFromStorage<WeightLogEntry[]>(StorageKeys.DAILY_WEIGHT_LOG) || [];
+      const userLocalLogs = localLogs.filter(log => log.userId === currentUser.uid);
+      
+      // Try to get remote logs if Firebase is available
+      try {
+        const subcollectionPath = `${FIREBASE_PATHS.USERS}/${currentUser.uid}/${FIREBASE_PATHS.USER_SUBCOLLECTIONS.WEIGHT_LOG}`;
+        const remoteLogs = await this.firestore.getCollection<WeightLogEntry>(subcollectionPath);
+        
+        // Merge local and remote logs
+        return this.mergeWeightLogs(userLocalLogs, remoteLogs);
+      } catch (error) {
+        console.error('Error fetching remote weight logs:', error);
+        // Return local logs if remote fetch fails
+        return userLocalLogs;
+      }
+    } catch (error) {
+      console.error('Error exporting weight data:', error);
+      return [];
+    }
   }
 } 

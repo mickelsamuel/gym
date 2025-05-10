@@ -30,7 +30,7 @@ interface WorkoutList {
   createdAt: string;
   updatedAt: string;
 }
-type CustomWorkoutDetailScreenRouteProp = RouteProp<RootStackParamList, 'CustomWorkoutDetailScreen'>;
+type CustomWorkoutDetailScreenRouteProp = RouteProp<RootStackParamList, 'CustomWorkoutDetail'>;
 const CustomWorkoutDetailScreen: React.FC = () => {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -118,6 +118,11 @@ const CustomWorkoutDetailScreen: React.FC = () => {
     navigation.navigate('AddExerciseScreen', { workoutId });
   };
   const handleDeleteExercise = async (exerciseId: string): Promise<void> => {
+    if (!workoutId) {
+      Alert.alert('Error', 'No workout selected');
+      return;
+    }
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       'Remove Exercise',
@@ -157,6 +162,11 @@ const CustomWorkoutDetailScreen: React.FC = () => {
     );
   };
   const handleStartWorkout = (): void => {
+    if (!workoutId) {
+      Alert.alert('Error', 'No workout selected');
+      return;
+    }
+    
     if (!isOnline) {
       Alert.alert('Error', 'You are offline. Cannot start workout.');
       return;
@@ -166,7 +176,7 @@ const CustomWorkoutDetailScreen: React.FC = () => {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    navigation.navigate('WorkoutDetail', { workoutId: workoutId });
+    navigation.navigate('WorkoutDetail', { workoutId });
   };
   const handleShareWorkout = async (): Promise<void> => {
     if (!workoutList) return;
@@ -194,6 +204,10 @@ const CustomWorkoutDetailScreen: React.FC = () => {
   const renderExerciseItem = ({ item, index }: { item: string; index: number }): JSX.Element => {
     const exercise = getExerciseById(item);
     if (!exercise) return <View />;
+    
+    // Ensure exercise.id is a string, not undefined
+    const exerciseId = exercise.id || '';
+    
     return (
       <Animated.View
         style={[
@@ -210,7 +224,7 @@ const CustomWorkoutDetailScreen: React.FC = () => {
       >
         <TouchableOpacity 
           style={styles.exerciseContent}
-          onPress={() => navigateToExercise(exercise.id)}
+          onPress={() => navigateToExercise(exerciseId)}
           activeOpacity={0.7}
         >
           {exercise.image ? (
@@ -239,7 +253,7 @@ const CustomWorkoutDetailScreen: React.FC = () => {
           </View>
           <TouchableOpacity
             style={styles.deleteButton}
-            onPress={() => handleDeleteExercise(exercise.id)}
+            onPress={() => handleDeleteExercise(exerciseId)}
           >
             <Ionicons name="trash-outline" size={20} color={theme.danger} />
           </TouchableOpacity>

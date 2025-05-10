@@ -3,11 +3,26 @@ import { View, StyleSheet, ActivityIndicator, Text, Platform } from 'react-nativ
 import * as Font from 'expo-font';
 import { Theme } from '../constants/Theme';
 
+// Define a valid Inter font type
+type InterFontVariant = 
+  | 'Inter'
+  | 'Inter-Medium'
+  | 'Inter-Bold'
+  | 'Inter-Light' 
+  | 'Inter-SemiBold' 
+  | 'Inter-ExtraBold'
+  | 'Inter-Black'
+  | 'Inter-Thin'
+  | 'Inter-ExtraLight'
+  | 'Inter-Italic'
+  | 'Inter-MediumItalic'
+  | 'Inter-BoldItalic';
+
 // Attempt to load Inter font family - handle potential missing files gracefully
 const loadFonts = async () => {
   try {
     // Base font mapping with error handling
-    const fonts = {
+    const fonts: Partial<Record<InterFontVariant, any>> = {
       'Inter': require('../../assets/fonts/Inter/inter-latin-400-normal.woff'),
       'Inter-Medium': require('../../assets/fonts/Inter/inter-latin-500-normal.woff'),
       'Inter-Bold': require('../../assets/fonts/Inter/inter-latin-700-normal.woff'),
@@ -16,56 +31,56 @@ const loadFonts = async () => {
     // Use any available font files for additional weights
     try {
       fonts['Inter-Light'] = require('../../assets/fonts/Inter/inter-latin-300-normal.woff');
-    } catch (e) {
+    } catch (_e) {
       console.warn('Light font variant not available, will use system fallback');
     }
 
     try {
       fonts['Inter-SemiBold'] = require('../../assets/fonts/Inter/inter-latin-600-normal.woff');
-    } catch (e) {
+    } catch (_e) {
       console.warn('SemiBold font variant not available, will use system fallback');
     }
 
     try {
       fonts['Inter-ExtraBold'] = require('../../assets/fonts/Inter/inter-latin-800-normal.woff');
-    } catch (e) {
+    } catch (_e) {
       console.warn('ExtraBold font variant not available, will use system fallback');
     }
 
     try {
       fonts['Inter-Black'] = require('../../assets/fonts/Inter/inter-latin-900-normal.woff');
-    } catch (e) {
+    } catch (_e) {
       console.warn('Black font variant not available, will use system fallback');
     }
 
     try {
       fonts['Inter-Thin'] = require('../../assets/fonts/Inter/inter-latin-100-normal.woff');
-    } catch (e) {
+    } catch (_e) {
       console.warn('Thin font variant not available, will use system fallback');
     }
 
     try {
       fonts['Inter-ExtraLight'] = require('../../assets/fonts/Inter/inter-latin-200-normal.woff');
-    } catch (e) {
+    } catch (_e) {
       console.warn('ExtraLight font variant not available, will use system fallback');
     }
 
     // Also try to load italic versions
     try {
       fonts['Inter-Italic'] = require('../../assets/fonts/Inter/inter-latin-400-italic.woff');
-    } catch (e) {
+    } catch (_e) {
       console.warn('Italic font variant not available, will use system fallback');
     }
 
     try {
       fonts['Inter-MediumItalic'] = require('../../assets/fonts/Inter/inter-latin-500-italic.woff');
-    } catch (e) {
+    } catch (_e) {
       console.warn('MediumItalic font variant not available, will use system fallback');
     }
 
     try {
       fonts['Inter-BoldItalic'] = require('../../assets/fonts/Inter/inter-latin-700-italic.woff');
-    } catch (e) {
+    } catch (_e) {
       console.warn('BoldItalic font variant not available, will use system fallback');
     }
 

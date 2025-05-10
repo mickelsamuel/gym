@@ -369,7 +369,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     variant="bodySmall"
                     style={{ color: colors.textSecondary }}
                   >
-                    Don't have an account?
+                    Don&apos;t have an account?
                   </Text>
                   <Button
                     title="Sign Up"

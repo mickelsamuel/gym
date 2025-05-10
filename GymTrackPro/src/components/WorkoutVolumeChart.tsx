@@ -292,7 +292,9 @@ const WorkoutVolumeChart: React.FC<WorkoutVolumeChartProps> = ({
             decimalPlaces: 0,
             color: (opacity = 1, index) => {
               // Use the colors array if available, otherwise use primary color
-              if (chartData.datasets[0].colors && chartData.datasets[0].colors[index]) {
+              if (chartData.datasets[0].colors && 
+                  typeof index === 'number' && 
+                  chartData.datasets[0].colors[index]) {
                 return chartData.datasets[0].colors[index];
               }
               return colors.primary;

@@ -1,4 +1,4 @@
-/* eslint-disable no-undef */
+ 
 // Test setup file for Jest
 
 // Mock Expo

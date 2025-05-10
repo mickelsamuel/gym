@@ -34,9 +34,12 @@ interface WorkoutList {
   id: string;
   name: string;
   exercises: string[];
+  userId: string;
   createdBy?: string;
   isPublic?: boolean;
   lastUpdated?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 // Extended Exercise interface with muscle properties
 interface ExtendedExercise {
@@ -46,8 +49,8 @@ interface ExtendedExercise {
   primaryMuscles?: string[];
 }
 // Define navigation and route prop types
-type AddExerciseScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AddExerciseScreen'>;
-type AddExerciseScreenRouteProp = RouteProp<RootStackParamList, 'AddExerciseScreen'>;
+type AddExerciseScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AddExercise'>;
+type AddExerciseScreenRouteProp = RouteProp<RootStackParamList, 'AddExercise'>;
 const AddExerciseScreen: React.FC = () => {
   const navigation = useNavigation<AddExerciseScreenNavigationProp>();
   const route = useRoute<AddExerciseScreenRouteProp>();
@@ -158,6 +161,12 @@ const AddExerciseScreen: React.FC = () => {
       Alert.alert('No Selection', 'Please select at least one exercise.');
       return;
     }
+    
+    if (!workoutId) {
+      Alert.alert('Error', 'No workout selected');
+      return;
+    }
+    
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {

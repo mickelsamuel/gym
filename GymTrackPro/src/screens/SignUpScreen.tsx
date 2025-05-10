@@ -1,5 +1,5 @@
-import React, { useState, useContext, useEffect, useRef } from 'react';
-import {View, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Keyboard, ScrollView, Animated} from 'react-native';
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import {View, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Keyboard, ScrollView, Animated, KeyboardAvoidingView, Platform, Dimensions, Alert} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -518,6 +518,56 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       </FadeIn>
     );
   };
+  // Step rendering logic
+  const renderStep = (): React.ReactNode => {
+    switch (currentStep) {
+      case 1:
+        return renderStep1();
+      case 2:
+        return renderStep2();
+      default:
+        return null;
+    }
+  };
+  // Custom back button rendering
+  const renderBackButton = (): React.ReactNode => {
+    if (currentStep === 1) {
+      return (
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBack}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFF" />
+        </TouchableOpacity>
+      );
+    }
+    return null;
+  };
+  // Custom progress indicator
+  const renderProgressBar = (): React.ReactNode => {
+    return (
+      <View style={styles.progressContainer}>
+        {renderProgressSteps()}
+      </View>
+    );
+  };
+  // Render form footer with buttons
+  const renderFormFooter = (): React.ReactNode => {
+    return (
+      <View style={styles.loginContainer}>
+        <Text variant="bodySmall" style={{ color: theme.textSecondary }}>
+          Already have an account?
+        </Text>
+        <Button
+          title="Log In"
+          onPress={handleLoginPress}
+          type="tertiary"
+          size="small"
+        />
+      </View>
+    );
+  };
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={styles.container}>
@@ -541,13 +591,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         >
           {/* Header with back button */}
           <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBack}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="arrow-back" size={24} color="#FFF" />
-            </TouchableOpacity>
+            {renderBackButton()}
             <Text style={styles.title} variant="heading3">
               Create Account
             </Text>
@@ -557,7 +601,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
             <BlurView intensity={80} tint="light" style={styles.blurContainer}>
               <View style={styles.formContainer}>
                 {/* Progress Steps */}
-                {renderProgressSteps()}
+                {renderProgressBar()}
                 {/* Server Error Message */}
                 {formErrors.server && (
                   <View style={styles.errorContainer}>
@@ -573,19 +617,9 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   </View>
                 )}
                 {/* Form Steps */}
-                {currentStep === 1 ? renderStep1() : renderStep2()}
+                {renderStep()}
                 {/* Login Link */}
-                <View style={styles.loginContainer}>
-                  <Text variant="bodySmall" style={{ color: theme.textSecondary }}>
-                    Already have an account?
-                  </Text>
-                  <Button
-                    title="Log In"
-                    onPress={handleLoginPress}
-                    type="tertiary"
-                    size="small"
-                  />
-                </View>
+                {renderFormFooter()}
               </View>
             </BlurView>
           ) : renderSuccess()}

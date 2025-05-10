@@ -25,9 +25,6 @@ export {};
 
 // Add other global type declarations as needed
 
-// Patch the @react-navigation/core types to make id optional on Navigator components
-declare module '@react-navigation/core' {
-  interface DefaultRouterOptions {
-    id?: string;
-  }
-} 
+// Note: The previous DefaultRouterOptions declaration was causing TypeScript errors
+// If you need to augment React Navigation types, consider creating a separate navigation.d.ts file
+// or use module augmentation with a different approach 

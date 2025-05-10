@@ -79,6 +79,137 @@ export const ExerciseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   
   const { isOnline } = useContext(NetworkContext);
 
+  // Check system reduced motion setting
+  const checkSystemReducedMotionSetting = async () => {
+    try {
+      const isReduceMotionEnabled = await AccessibilityInfo.isReduceMotionEnabled();
+      // Only update if user hasn't explicitly set a preference
+      const userPreference = await AsyncStorage.getItem(StorageKeys.REDUCED_MOTION);
+      if (userPreference === null) {
+        setReducedMotionState(isReduceMotionEnabled);
+        await AsyncStorage.setItem(StorageKeys.REDUCED_MOTION, JSON.stringify(isReduceMotionEnabled));
+      }
+    } catch (error) {
+      console.error('Error checking system motion settings:', error);
+    }
+  };
+
+  // Handle system reduced motion setting changes
+  const handleReduceMotionChange = (isReduceMotionEnabled: boolean) => {
+    // Update state based on system setting if the user hasn't set a preference
+    AsyncStorage.getItem(StorageKeys.REDUCED_MOTION_USER_SET).then(hasUserSet => {
+      if (hasUserSet !== 'true') {
+        setReducedMotionState(isReduceMotionEnabled);
+        AsyncStorage.setItem(StorageKeys.REDUCED_MOTION, JSON.stringify(isReduceMotionEnabled));
+      }
+    }).catch(error => {
+      console.error('Error handling reduced motion change:', error);
+    });
+  };
+
+  // Load reduced motion preference
+  const loadReducedMotionPreference = async () => {
+    try {
+      const savedReducedMotion = await AsyncStorage.getItem(StorageKeys.REDUCED_MOTION);
+      if (savedReducedMotion !== null) {
+        setReducedMotionState(JSON.parse(savedReducedMotion));
+      } else {
+        // Default to system setting if not explicitly set
+        const isReduceMotionEnabled = await AccessibilityInfo.isReduceMotionEnabled();
+        setReducedMotionState(isReduceMotionEnabled);
+      }
+    } catch (error) {
+      console.error('Error loading reduced motion preference:', error);
+    }
+  };
+
+  // Load favorites from storage
+  const loadFavorites = async () => {
+    try {
+      const savedFavorites = await AsyncStorage.getItem(StorageKeys.FAVORITES);
+      if (savedFavorites !== null) {
+        setFavorites(JSON.parse(savedFavorites));
+      }
+    } catch (error) {
+      console.error('Error loading favorites:', error);
+    }
+  };
+
+  // Load recent exercises from storage
+  const loadRecentExercises = async () => {
+    try {
+      const savedRecent = await AsyncStorage.getItem(StorageKeys.RECENT_EXERCISES);
+      if (savedRecent !== null) {
+        setRecentExercises(JSON.parse(savedRecent));
+      }
+    } catch (error) {
+      console.error('Error loading recent exercises:', error);
+    }
+  };
+  
+  // Load theme mode preference
+  const loadThemeModePreference = async () => {
+    try {
+      const savedThemeMode = await AsyncStorage.getItem(StorageKeys.THEME_MODE);
+      if (savedThemeMode !== null) {
+        setThemeModeState(savedThemeMode as 'system' | 'light' | 'dark');
+        
+        // Apply the theme mode
+        if (savedThemeMode === 'system') {
+          setDarkMode(colorScheme === 'dark');
+        } else {
+          setDarkMode(savedThemeMode === 'dark');
+        }
+      } else {
+        // Default to system if not set
+        setThemeModeState('system');
+        setDarkMode(colorScheme === 'dark');
+      }
+    } catch (error) {
+      console.error('Error loading theme mode preference:', error);
+    }
+  };
+  
+  // Refresh exercises from API
+  const refreshExercises = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await DatabaseService.getAllExercises(isOnline);
+      if (response.success && response.data) {
+        setExercises(response.data);
+        // Cache exercises locally
+        try {
+          await AsyncStorage.setItem(StorageKeys.EXERCISES, JSON.stringify(response.data));
+        } catch (storageError) {
+          console.error('Error caching exercises:', storageError);
+        }
+      } else {
+        // Try to load from local storage if API fails
+        const cachedData = await AsyncStorage.getItem(StorageKeys.EXERCISES);
+        if (cachedData) {
+          setExercises(JSON.parse(cachedData));
+        } else {
+          throw new Error(response.error?.message || 'Failed to load exercises');
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing exercises:', error);
+      setError('Failed to load exercises. Please check your connection and try again.');
+      // Try to load from local storage as a fallback
+      try {
+        const cachedData = await AsyncStorage.getItem(StorageKeys.EXERCISES);
+        if (cachedData) {
+          setExercises(JSON.parse(cachedData));
+        }
+      } catch (storageError) {
+        console.error('Error loading cached exercises:', storageError);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Initialize app data
     const initializeData = async () => {
@@ -109,13 +240,13 @@ export const ExerciseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       reduceMotionChangeSubscription.remove();
       themeSubscription.remove();
     };
-  }, []);
+  }, []); // Empty dependency array since functions are now declared before useEffect
   
   // Load dependencies on initial mount
   useEffect(() => {
     loadThemeModePreference();
     refreshExercises();
-  }, []);
+  }, []); // Empty dependency array since functions are now declared before useEffect
   
   // Update dark mode based on system theme changes and theme mode
   useEffect(() => {
@@ -124,29 +255,6 @@ export const ExerciseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [colorScheme, themeMode]);
 
-  // Load theme mode preference
-  const loadThemeModePreference = async () => {
-    try {
-      const savedThemeMode = await AsyncStorage.getItem(StorageKeys.THEME_MODE);
-      if (savedThemeMode !== null) {
-        setThemeModeState(savedThemeMode as 'system' | 'light' | 'dark');
-        
-        // Apply the theme mode
-        if (savedThemeMode === 'system') {
-          setDarkMode(colorScheme === 'dark');
-        } else {
-          setDarkMode(savedThemeMode === 'dark');
-        }
-      } else {
-        // Default to system if not set
-        setThemeModeState('system');
-        setDarkMode(colorScheme === 'dark');
-      }
-    } catch (error) {
-      console.error('Error loading theme mode preference:', error);
-    }
-  };
-  
   // Set theme mode (system, light, or dark)
   const setThemeMode = async (mode: 'system' | 'light' | 'dark') => {
     setThemeModeState(mode);
@@ -165,100 +273,6 @@ export const ExerciseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  // Check system reduced motion setting
-  const checkSystemReducedMotionSetting = async () => {
-    try {
-      const isReduceMotionEnabled = await AccessibilityInfo.isReduceMotionEnabled();
-      // Only update if user hasn't explicitly set a preference
-      const userPreference = await AsyncStorage.getItem(StorageKeys.REDUCED_MOTION);
-      if (userPreference === null) {
-        setReducedMotionState(isReduceMotionEnabled);
-        await AsyncStorage.setItem(StorageKeys.REDUCED_MOTION, JSON.stringify(isReduceMotionEnabled));
-      }
-    } catch (error) {
-      console.error('Error checking system motion settings:', error);
-    }
-  };
-
-  // Handle system reduced motion setting changes
-  const handleReduceMotionChange = (isReduceMotionEnabled: boolean) => {
-    // Update state based on system setting if the user hasn't set a preference
-    AsyncStorage.getItem(StorageKeys.REDUCED_MOTION_USER_SET).then(hasUserSet => {
-      if (hasUserSet !== 'true') {
-        setReducedMotionState(isReduceMotionEnabled);
-        AsyncStorage.setItem(StorageKeys.REDUCED_MOTION, JSON.stringify(isReduceMotionEnabled));
-      }
-    }).catch(error => {
-      console.error('Error handling reduced motion change:', error);
-    });
-  };
-
-  // Set reduced motion preference (user explicit setting)
-  const setReducedMotion = async (value: boolean) => {
-    setReducedMotionState(value);
-    try {
-      await AsyncStorage.setItem(StorageKeys.REDUCED_MOTION, JSON.stringify(value));
-      await AsyncStorage.setItem(StorageKeys.REDUCED_MOTION_USER_SET, 'true');
-    } catch (error) {
-      console.error('Error saving reduced motion preference:', error);
-    }
-  };
-
-  // Load reduced motion preference
-  const loadReducedMotionPreference = async () => {
-    try {
-      const savedReducedMotion = await AsyncStorage.getItem(StorageKeys.REDUCED_MOTION);
-      if (savedReducedMotion !== null) {
-        setReducedMotionState(JSON.parse(savedReducedMotion));
-      } else {
-        // Default to system setting if not explicitly set
-        const isReduceMotionEnabled = await AccessibilityInfo.isReduceMotionEnabled();
-        setReducedMotionState(isReduceMotionEnabled);
-      }
-    } catch (error) {
-      console.error('Error loading reduced motion preference:', error);
-    }
-  };
-
-  // Load dark mode preference
-  const loadDarkModePreference = async () => {
-    try {
-      const savedDarkMode = await AsyncStorage.getItem(StorageKeys.DARK_MODE);
-      if (savedDarkMode !== null) {
-        setDarkMode(JSON.parse(savedDarkMode));
-      } else {
-        // Default to false if not set
-        setDarkMode(false);
-      }
-    } catch (error) {
-      console.error('Error loading dark mode preference:', error);
-    }
-  };
-
-  // Load favorites from storage
-  const loadFavorites = async () => {
-    try {
-      const savedFavorites = await AsyncStorage.getItem(StorageKeys.FAVORITES);
-      if (savedFavorites !== null) {
-        setFavorites(JSON.parse(savedFavorites));
-      }
-    } catch (error) {
-      console.error('Error loading favorites:', error);
-    }
-  };
-
-  // Load recent exercises from storage
-  const loadRecentExercises = async () => {
-    try {
-      const savedRecent = await AsyncStorage.getItem(StorageKeys.RECENT_EXERCISES);
-      if (savedRecent !== null) {
-        setRecentExercises(JSON.parse(savedRecent));
-      }
-    } catch (error) {
-      console.error('Error loading recent exercises:', error);
-    }
-  };
-
   // Toggle dark mode
   const toggleDarkMode = async () => {
     const newValue = !darkMode;
@@ -272,37 +286,6 @@ export const ExerciseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       await AsyncStorage.setItem(StorageKeys.THEME_MODE, newValue ? 'dark' : 'light');
     } catch (error) {
       console.error('Error saving dark mode preference:', error);
-    }
-  };
-
-  // Refresh exercises from API
-  const refreshExercises = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await DatabaseService.getAllExercises(isOnline);
-      if (response.success && response.data) {
-        setExercises(response.data);
-        // Cache exercises locally
-        try {
-          await AsyncStorage.setItem(StorageKeys.EXERCISES, JSON.stringify(response.data));
-        } catch (storageError) {
-          console.error('Error caching exercises:', storageError);
-        }
-      } else {
-        // Try to load from local storage if API fails
-        const cachedData = await AsyncStorage.getItem(StorageKeys.EXERCISES);
-        if (cachedData) {
-          setExercises(JSON.parse(cachedData));
-        } else {
-          throw new Error(response.error?.message || 'Failed to load exercises');
-        }
-      }
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An unknown error occurred');
-      Alert.alert('Error', 'Failed to load exercises. Please try again.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -342,6 +325,17 @@ export const ExerciseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Get all exercises
   const getAllExercises = (): Exercise[] => {
     return exercises;
+  };
+
+  // Set reduced motion preference (user explicit setting)
+  const setReducedMotion = async (value: boolean) => {
+    setReducedMotionState(value);
+    try {
+      await AsyncStorage.setItem(StorageKeys.REDUCED_MOTION, JSON.stringify(value));
+      await AsyncStorage.setItem(StorageKeys.REDUCED_MOTION_USER_SET, 'true');
+    } catch (error) {
+      console.error('Error saving reduced motion preference:', error);
+    }
   };
 
   const contextValue: ExerciseContextValue = {

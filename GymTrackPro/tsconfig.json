@@ -5,14 +5,15 @@
     "lib": [
       "es2016",
       "dom",
-      "esnext"
+      "esnext",
+      "dom.iterable"
     ],
     "jsx": "react-native",
     "declaration": true,
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "strict": false,
+    "strict": true,
     "moduleResolution": "bundler",
     "customConditions": ["react-native"],
     "allowSyntheticDefaultImports": true,
@@ -22,7 +23,7 @@
     "resolveJsonModule": true,
     "allowJs": true,
     "checkJs": false,
-    "noImplicitAny": false
+    "noImplicitAny": true
   },
   "include": [
     "src/**/*"

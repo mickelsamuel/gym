@@ -139,7 +139,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                 lineHeight: 22,
               }}
             >
-              Enter your email and we'll send you a link to reset your password
+              Enter your email and we&apos;ll send you a link to reset your password
             </Text>
           </View>
           {!emailSent ? (
@@ -257,7 +257,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
                     marginBottom: Spacing.xs,
                   }}
                 >
-                  We've sent a password reset link to:
+                  We&apos;ve sent a password reset link to:
                 </Text>
                 <Text 
                   variant="body" 

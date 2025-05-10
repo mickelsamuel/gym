@@ -8,7 +8,9 @@ import {
   User, 
   Friend, 
   FriendRequest, 
-  WorkoutPlan 
+  WorkoutPlan,
+  ProgressEntry,
+  Achievement
 } from '../types/mergedTypes';
 import { Timestamp } from 'firebase/firestore';
 /**
@@ -539,4 +541,93 @@ export const sanitizeNumericInput = (input: any, defaultValue: number = 0): numb
 export const sanitizeDate = (dateString: string): string => {
   const date = new Date(dateString);
   return !isNaN(date.getTime()) ? date.toISOString() : new Date().toISOString();
+};
+/**
+ * Sanitize a URL to prevent XSS
+ * @param url The URL to sanitize
+ * @returns Sanitized URL or empty string if invalid
+ */
+export const sanitizeUrl = (url: string): string => {
+  if (!url) return '';
+  
+  // Remove whitespace
+  url = url.trim();
+  
+  // Check if URL is valid
+  const urlPattern = /^(https?:\/\/)?(www\.)?[a-zA-Z0-9][a-zA-Z0-9-]*(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}(\/[^\s]*)?$/i;
+  
+  if (!urlPattern.test(url)) {
+    return '';
+  }
+  
+  // Ensure URL starts with http:// or https://
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+  }
+  
+  return url;
+};
+/**
+ * Sanitize a phone number
+ * @param phone The phone number to sanitize
+ * @returns Sanitized phone number
+ */
+export const sanitizePhone = (phone: string): string => {
+  if (!phone) return '';
+  
+  // Remove all non-numeric characters
+  const digitsOnly = phone.replace(/[^\d+]/g, '');
+  
+  // Format based on length and starting characters
+  if (digitsOnly.startsWith('+')) {
+    // International format
+    return digitsOnly;
+  } else if (digitsOnly.length === 10) {
+    // US format without country code
+    return `+1${digitsOnly}`;
+  } else if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+    // US format with country code
+    return `+${digitsOnly}`;
+  }
+  
+  return digitsOnly;
+};
+export const tryParseJSON = (jsonString: string): any => {
+  try {
+    return JSON.parse(jsonString);
+  } catch (_e) {
+    return null;
+  }
+};
+/**
+ * Strips any HTML tags from a string
+ * @param html HTML string to sanitize
+ * @returns Clean string without HTML tags
+ */
+export const sanitizeHtml = (html: string): string => {
+  if (!html) return '';
+  return html.replace(/<[^>]*>/g, '');
+};
+/**
+ * Validates a slug
+ * @param slug The slug to validate
+ * @returns True if the slug is valid, false otherwise
+ */
+export const validateSlug = (slug: string): boolean => {
+  // Only allow alphanumeric, dash and underscore (no spaces)
+  const slugRegex = /^[a-z0-9][a-z0-9-_]*$/i;
+  return slugRegex.test(slug);
+};
+/**
+ * Slugifies a string
+ * @param text The text to slugify
+ * @returns The slugified string
+ */
+export const slugify = (text: string): string => {
+  // Remove special chars, replace spaces with dashes, convert to lowercase
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 };

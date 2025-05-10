@@ -39,6 +39,8 @@ interface LocalWorkoutExercise {
   exerciseId: string;
   exercise?: Exercise;
   sets: WorkoutSet[];
+  id?: string;
+  name?: string;
 }
 interface LocalWorkout {
   id: string;
@@ -194,7 +196,7 @@ const WorkoutScreen: React.FC = () => {
           const lists = response.data.map(workout => ({
             id: workout.id || '',
             name: workout.name,
-            exercises: workout.exercises.map(ex => ex.id),
+            exercises: workout.exercises.map(ex => ex.id || ''),
             userId: workout.userId,
             createdAt: workout.createdAt?.toString() || new Date().toISOString(),
             updatedAt: workout.updatedAt?.toString() || new Date().toISOString()
@@ -220,7 +222,7 @@ const WorkoutScreen: React.FC = () => {
             name: workout.name,
             date: workout.date,
             exercises: workout.exercises.map(ex => ({
-              exerciseId: ex.id,
+              exerciseId: ex.id || '',
               sets: ex.sets.map(set => ({
                 weight: set.weight,
                 reps: set.reps,
@@ -307,43 +309,49 @@ const WorkoutScreen: React.FC = () => {
   // Save and start workout
   const saveWorkout = async () => {
     if (workoutTitle.trim() === '') {
-      Alert.alert('Error', 'Please enter a workout title.');
+      Alert.alert('Error', 'Please enter a workout title');
       return;
     }
+    
     if (selectedExercises.length === 0) {
-      Alert.alert('Error', 'Please add at least one exercise to the workout.');
+      Alert.alert('Error', 'Please select at least one exercise');
       return;
     }
+    
+    setIsSaving(true);
     try {
-      setIsSaving(true);
-      // Set up the workout object with the correct type
+      // Create workout object
       const newWorkout = {
-        id: Date.now().toString(),
+        id: `workout_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         name: workoutTitle,
-        userId: currentUser?.uid || '',
+        userId: user?.uid || '',
         description: '',
         date: new Date().toISOString(),
-        exercises: selectedExercises.map(ex => ({
-          exerciseId: ex.id,
-          id: ex.id,
-          name: ex.name,
+        exercises: selectedExercises.map(exercise => ({
+          id: exercise.id,
+          name: exercise.name,
+          exerciseId: exercise.id,
           sets: []
         })),
         duration: 0,
         isCompleted: false
       };
-      // Save the workout to the database
+      
+      // Save to Firebase
       const savedWorkout = await DatabaseService.saveWorkout(newWorkout, isOnline);
-      if (savedWorkout && savedWorkout.success) {
-        // Navigate to the workout detail screen
+      
+      if (savedWorkout.success && savedWorkout.data) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        navigation.navigate('WorkoutDetailScreen', { workoutId: savedWorkout.data.id });
-      } else {
-        throw new Error('Failed to save workout');
+        Alert.alert('Success', 'Workout created successfully');
+        // Reset state
+        setWorkoutTitle('');
+        setSelectedExercises([]);
+        // Refresh workout lists
+        loadAllWorkouts();
       }
     } catch (error) {
       console.error('Error saving workout:', error);
-      Alert.alert('Error', 'Failed to save workout. Please try again.');
+      Alert.alert('Error', 'Failed to save workout');
     } finally {
       setIsSaving(false);
     }

@@ -31,6 +31,10 @@ export interface User extends FirestoreDocument {
   username: string;
   profilePic?: string;
   userGoal?: string; 
+  displayName?: string;
+  bio?: string;
+  fitnessLevel?: string;
+  friends?: string[];
   streak?: number;
   joinDate?: string;
   lastActive?: string;
@@ -76,7 +80,7 @@ export interface Workout extends FirestoreDocument {
 }
 // Merge WorkoutExercise
 export interface WorkoutExercise {
-  id: string;
+  id?: string;
   name: string;
   sets: WorkoutSet[];
   notes?: string;
@@ -168,6 +172,34 @@ export interface Exercise extends FirestoreDocument {
 export type Friend = GlobalTypesTS.Friend;
 export type FriendRequest = GlobalTypesTS.FriendRequest;
 export type WeightLogEntry = GlobalTypesTS.WeightLogEntry;
+
+// Add the missing type for ProgressEntry
+export interface ProgressEntry extends FirestoreDocument {
+  userId: string;
+  date: string;
+  type: 'weight' | 'measurement' | 'photo' | 'custom';
+  value: number | string;
+  unit?: string;
+  notes?: string;
+}
+
+// Add the missing type for Achievement
+export interface Achievement extends FirestoreDocument {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  type: 'workout' | 'weight' | 'social' | 'streak';
+  criteria: string;
+  progress: number;
+  maxProgress: number;
+  isCompleted: boolean;
+  completedDate?: string;
+  icon: string;
+  color: string;
+  createdAt: string;
+  updatedAt?: string;
+}
 /**
  * Merged TypeScript type definitions for GymTrackPro
  * 
